@@ -136,13 +136,13 @@ def apply_event(state: MatchState, event: Event) -> MatchState:
             ),
         )
     if kind == "control_point_held":
+        # turns == 0 (or an empty team) is the streak-reset form: contested
+        # or abandoned points lose their consecutive-occupancy progress.
+        team_id, turns = data["team_id"], data["turns"]
+        hold = ((team_id, turns),) if team_id and turns > 0 else ()
         return dataclasses.replace(
             state,
-            control_points=_replace_one(
-                state.control_points,
-                data["cp_id"],
-                hold=((data["team_id"], data["turns"]),),
-            ),
+            control_points=_replace_one(state.control_points, data["cp_id"], hold=hold),
         )
     if kind == "unit_defeated":
         return dataclasses.replace(
