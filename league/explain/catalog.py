@@ -118,6 +118,11 @@ itself (distinct from the global `overview`, which describes the agent).
 
 ENTRIES: dict[tuple[str, ...], str] = {
     (): _ROOT,
+    # Both the console command (`league`) and the distribution/display name
+    # (`league-of-agents`) resolve to the root entry, so `explain <self>` works
+    # whichever name a caller reaches for. The rubric gate derives <self> from
+    # `[project.scripts]` (= `league`) and checks `explain league` specifically.
+    ("league",): _ROOT,
     ("league-of-agents",): _ROOT,
     ("whoami",): _WHOAMI,
     ("learn",): _LEARN,
