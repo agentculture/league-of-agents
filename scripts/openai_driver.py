@@ -51,7 +51,10 @@ def main() -> int:
     )
     with urllib.request.urlopen(request, timeout=280) as response:  # nosec B310
         payload = json.load(response)
-    content = payload["choices"][0]["message"]["content"]
+    message = payload["choices"][0]["message"]
+    # Thinking models may put the answer in content and reasoning in
+    # reasoning_content — or leave content null when the budget ran dry.
+    content = message.get("content") or message.get("reasoning_content") or ""
     content = re.sub(r"<think>.*?</think>", "", content, flags=re.S)
     print(content.strip())
     return 0
