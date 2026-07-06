@@ -19,8 +19,8 @@ A cooperative/competitive strategy arena where agent teams complete missions, co
 ```bash
 uv sync
 uv run pytest -n auto                 # run the test suite
-uv run league-of-agents whoami  # identity from culture.yaml
-uv run league-of-agents learn   # self-teaching prompt (add --json)
+uv run league whoami                  # identity from culture.yaml
+uv run league learn                   # self-teaching prompt (add --json)
 uv run teken cli doctor . --strict    # the agent-first rubric gate CI runs
 ```
 

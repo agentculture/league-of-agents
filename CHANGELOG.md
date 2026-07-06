@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-07-07
+
+### Changed
+
+- **Re-initialized `CLAUDE.md` from the seed placeholder into a full runtime
+  prompt** (`/init`). It records the two-truths framing — an agent-first CLI
+  scaffold today vs. the strategic team arena it is meant to become per
+  [issue #1](https://github.com/agentculture/league-of-agents/issues/1) — the
+  CLI dispatch / structured-error / `explain`-catalog architecture, the
+  "add a noun group" build recipe, and the mesh-identity + cite-don't-import
+  conventions. Also documents the distribution-name (`league-of-agents`) vs
+  console-command (`league`) split.
+
+### Fixed
+
+- README quickstart invoked `uv run league-of-agents <verb>`, which does not
+  resolve: `league-of-agents` is the distribution name (install/publish), not
+  the console script. Corrected to `uv run league <verb>`.
+
 ## [0.4.0] - 2026-06-23
 
 ### Added
