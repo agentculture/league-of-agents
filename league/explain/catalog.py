@@ -190,6 +190,44 @@ Orders can also be one JSON object: `--orders-json '{"plan": ..., "messages":
 """
 
 
+_STANDINGS = """\
+# league standings / league history
+
+Read-only trend verbs, computed straight from the match logs (the queryable
+store), so they can never disagree with the record.
+
+- `league standings [--json]` — per-team W/L/D, outcome totals, cooperation
+  averages and trend; per-agent records (matches, wins, cooperation average,
+  orders declared/rejected). This is where per-agent improvement shows up.
+- `league history [--json]` — finished matches in id order with both scores
+  per team.
+"""
+
+_HARNESS = """\
+# league harness
+
+Runs a whole match with live team drivers, acting **only** through the public
+CLI surface (`match show --json` → orders → `match act --orders-json --apply`).
+
+Driver types (per team, in the config JSON):
+
+- `{"type": "bot"}` — the deterministic greedy baseline (no model).
+- `{"type": "command", "argv": ["claude", "-p", "--model", "claude-sonnet-5"],
+   "timeout": 300}` — any external agent as a subprocess: prompt (rules +
+  state JSON) on stdin, orders JSON on stdout. A colleague model, a Sonnet
+  subagent, or an orchestrator is a config change, not a code change.
+
+## Usage
+
+    league harness run --config playtest.json          # dry-run
+    league harness run --config playtest.json --apply  # play it
+
+Config shape: {"match": {"scenario", "mode", "seed", "id"},
+"teams": [{"id", "name", "driver", "agents": [{"id", "model", "role"}]}],
+"max_rounds": N}.
+"""
+
+
 ENTRIES: dict[tuple[str, ...], str] = {
     (): _ROOT,
     # Both the console command (`league`) and the distribution/display name
@@ -223,4 +261,10 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("match", "tick"): _MATCH,
     ("match", "score"): _MATCH,
     ("match", "replay"): _MATCH,
+    ("match", "rematch"): _MATCH,
+    ("standings",): _STANDINGS,
+    ("history",): _STANDINGS,
+    ("harness",): _HARNESS,
+    ("harness", "overview"): _HARNESS,
+    ("harness", "run"): _HARNESS,
 }

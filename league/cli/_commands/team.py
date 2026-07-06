@@ -15,14 +15,16 @@ from league.store import Store
 
 
 def _parse_agent(spec: str) -> AgentSlot:
+    # id is everything before the first colon, role everything after the last;
+    # the model keeps any colons of its own (e.g. "bot:greedy").
     parts = spec.split(":")
-    if len(parts) != 3 or not all(parts):
+    if len(parts) < 3 or not (parts[0] and parts[-1] and ":".join(parts[1:-1])):
         raise CliError(
             code=EXIT_USER_ERROR,
             message=f"bad --agent {spec!r}",
             remediation="use --agent <id>:<model>:<role>, e.g. blue-1:claude-sonnet-5:scout",
         )
-    return AgentSlot(id=parts[0], model=parts[1], role=parts[2])
+    return AgentSlot(id=parts[0], model=":".join(parts[1:-1]), role=parts[-1])
 
 
 def cmd_team_overview(args: argparse.Namespace) -> int:

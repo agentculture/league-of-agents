@@ -397,6 +397,82 @@ def cmd_match_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_match_rematch(args: argparse.Namespace) -> int:
+    """Fair comparison by construction: identical scenario + seed, new roster."""
+    json_mode = bool(getattr(args, "json", False))
+    store = Store()
+    log = _load(store, args.match_id)
+    original = log.initial_state
+    scenario = get_scenario(original.scenario_id)
+
+    if args.team:
+        teams = []
+        for team_id in args.team:
+            try:
+                teams.append(store.team_slots(team_id))
+            except FileNotFoundError as err:
+                raise CliError(
+                    code=EXIT_USER_ERROR,
+                    message=str(err),
+                    remediation="register it first: league team register ... --apply",
+                ) from err
+    elif args.swap:
+        teams = [(t.id, t.name, t.agents) for t in reversed(original.teams)]
+    else:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message="rematch needs --swap or an explicit --team roster",
+            remediation="--swap flips sides; --team <id> (repeatable) fields new rosters",
+        )
+
+    match_id = args.id or f"{args.match_id}-r{len(store.list_matches()) + 1:02d}"
+    try:
+        initial = instantiate(
+            scenario,
+            match_id=match_id,
+            seed=original.seed,
+            mode=original.mode,
+            teams=teams,
+        )
+    except ValueError as err:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=str(err),
+            remediation="rosters must match the scenario's roles",
+        ) from err
+    _, events = start_match(initial)
+
+    payload = {
+        "match_id": match_id,
+        "rematch_of": args.match_id,
+        "scenario": original.scenario_id,
+        "mode": original.mode,
+        "seed": original.seed,
+        "teams": [t[0] for t in teams],
+        "applied": bool(args.apply),
+    }
+    if args.apply:
+        log_new = MatchLog(initial_state=initial, events=events)
+        try:
+            path = store.create_match(log_new)
+        except FileExistsError as err:
+            raise CliError(
+                code=EXIT_USER_ERROR, message=str(err), remediation="pass a fresh --id"
+            ) from err
+        payload["log"] = str(path)
+    if json_mode:
+        emit_result(payload, json_mode=True)
+    else:
+        verb = "created rematch" if args.apply else "would create rematch (dry-run; add --apply)"
+        emit_result(
+            f"{verb}: {match_id} of {args.match_id} — same scenario+seed "
+            f"({original.scenario_id}, seed {original.seed}), teams: "
+            f"{', '.join(payload['teams'])}",
+            json_mode=False,
+        )
+    return 0
+
+
 def register(sub: argparse._SubParsersAction) -> None:
     p = sub.add_parser("match", help="Create and play matches (see 'league match overview').")
     p.add_argument("--json", action="store_true", help="Emit structured JSON.")
@@ -468,3 +544,14 @@ def register(sub: argparse._SubParsersAction) -> None:
     replay.add_argument("match_id", help="Match id.")
     replay.add_argument("--json", action="store_true", help="(accepted; output is HTML)")
     replay.set_defaults(func=cmd_match_replay)
+
+    rematch = noun_sub.add_parser(
+        "rematch", help="Same scenario + seed with a new roster (dry-run by default)."
+    )
+    rematch.add_argument("match_id", help="Match id to rematch.")
+    rematch.add_argument("--swap", action="store_true", help="Flip the original sides.")
+    rematch.add_argument("--team", action="append", help="Registered team id; repeatable.")
+    rematch.add_argument("--id", help="New match id (default: <original>-rNN).")
+    rematch.add_argument("--apply", action="store_true", help="Actually create.")
+    rematch.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    rematch.set_defaults(func=cmd_match_rematch)
