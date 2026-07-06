@@ -11,6 +11,8 @@ observable-arena-s.md):
   the event log (wave 1) is the only artifact scoring and replay consume.
 """
 
+from league.engine.events import Event, MatchLog, apply_event, fold_events
+from league.engine.scenario import Scenario, get_scenario, instantiate, scenario_ids
 from league.engine.state import (
     AgentSlot,
     ControlPoint,
@@ -27,11 +29,19 @@ from league.engine.state import (
 __all__ = [
     "AgentSlot",
     "ControlPoint",
+    "Event",
+    "MatchLog",
     "MatchState",
     "Mission",
     "ResourceNode",
+    "Scenario",
     "TeamState",
     "Unit",
+    "apply_event",
+    "fold_events",
+    "get_scenario",
+    "instantiate",
+    "scenario_ids",
     "state_from_json",
     "state_hash",
     "state_to_json",
