@@ -1,0 +1,52 @@
+{
+  "_comment": "Playtest 3 (t14/h8): the orchestrator is Claude Fable 5 — it designed this roster, wrote each seat's doctrine below, and fields the seats as spawned Sonnet subagents. The opponent is the deterministic greedy bot baseline.",
+  "match": {
+    "scenario": "skirmish-1",
+    "mode": "competitive",
+    "seed": 20260709,
+    "id": "m-season0-orchestrator"
+  },
+  "teams": [
+    {
+      "id": "fable",
+      "name": "Fable Spawn",
+      "driver": {
+        "type": "command",
+        "per_seat": true,
+        "argv": ["claude", "-p", "--model", "claude-sonnet-5"],
+        "timeout": 240,
+        "prompt": "Orchestrator doctrine (from Fable, your commander): we win on tempo. Missions outscore control points, so the relay and the east outpost come first; contest enemy points only if your primary job is already secure. Declare the team plan on turn 1. Every message must carry a fact a teammate can act on (position, ETA, streak count, threat) — no chatter."
+      },
+      "agents": [
+        {
+          "id": "fable-scout",
+          "model": "claude-sonnet-5",
+          "role": "scout",
+          "prompt": "Your doctrine: rush cp-east by the shortest legal path (move budget 3/turn), capture it, and never leave — the hold mission needs an unbroken streak of 5 sole-occupancy turns. Announce your streak count every turn."
+        },
+        {
+          "id": "fable-harvester",
+          "model": "claude-sonnet-5",
+          "role": "harvester",
+          "prompt": "Your doctrine: run the west-node relay — gather to full (3), walk to the delivery square (6,5), deliver, repeat until the supply mission (6 total) completes. Announce carrying and ETA every turn."
+        },
+        {
+          "id": "fable-defender",
+          "model": "claude-sonnet-5",
+          "role": "defender",
+          "prompt": "Your doctrine: take cp-center (6,5) and hold it — you are also the delivery guard. If an enemy shares your square the point is contested but the delivery still works; stay put unless the harvester calls for escort. Call out enemy positions each turn."
+        }
+      ]
+    },
+    {
+      "id": "baseline",
+      "name": "Greedy Baseline",
+      "driver": {"type": "bot"},
+      "agents": [
+        {"id": "baseline-1", "model": "bot:greedy", "role": "scout"},
+        {"id": "baseline-2", "model": "bot:greedy", "role": "harvester"},
+        {"id": "baseline-3", "model": "bot:greedy", "role": "defender"}
+      ]
+    }
+  ]
+}

@@ -328,32 +328,41 @@ def build_driver(
 
 
 def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | None = None) -> dict:
-    """Register teams, create the match, and drive it to completion via the CLI."""
+    """Register teams, create the match, and drive it to completion via the CLI.
+
+    Resumable: if the configured match id already exists on disk, the loop
+    picks up from its current turn instead of failing — live matches can
+    outlast a shell window, and a crashed run must not orphan the game.
+    """
     match_cfg = config["match"]
     scenario = _cli_json(["arena", "show", match_cfg["scenario"]])
 
-    for team in config["teams"]:
-        argv = ["team", "register", team["id"], "--name", team.get("name", team["id"])]
-        for agent in team["agents"]:
-            argv += ["--agent", f"{agent['id']}:{agent['model']}:{agent['role']}"]
-        _cli_json(argv + ["--apply"])
+    existing = {row["match_id"] for row in _cli_json(["match", "list"])["matches"]}
+    if match_cfg.get("id") in existing:
+        match_id = match_cfg["id"]
+    else:
+        for team in config["teams"]:
+            argv = ["team", "register", team["id"], "--name", team.get("name", team["id"])]
+            for agent in team["agents"]:
+                argv += ["--agent", f"{agent['id']}:{agent['model']}:{agent['role']}"]
+            _cli_json(argv + ["--apply"])
 
-    new_argv = [
-        "match",
-        "new",
-        "--scenario",
-        match_cfg["scenario"],
-        "--mode",
-        match_cfg.get("mode", "competitive"),
-        "--seed",
-        str(match_cfg.get("seed", 1)),
-    ]
-    for team in config["teams"]:
-        new_argv += ["--team", team["id"]]
-    if match_cfg.get("id"):
-        new_argv += ["--id", match_cfg["id"]]
-    created = _cli_json(new_argv + ["--apply"])
-    match_id = created["match_id"]
+        new_argv = [
+            "match",
+            "new",
+            "--scenario",
+            match_cfg["scenario"],
+            "--mode",
+            match_cfg.get("mode", "competitive"),
+            "--seed",
+            str(match_cfg.get("seed", 1)),
+        ]
+        for team in config["teams"]:
+            new_argv += ["--team", team["id"]]
+        if match_cfg.get("id"):
+            new_argv += ["--id", match_cfg["id"]]
+        created = _cli_json(new_argv + ["--apply"])
+        match_id = created["match_id"]
 
     drivers = {
         t["id"]: build_driver(t["driver"], scenario, t.get("agents")) for t in config["teams"]

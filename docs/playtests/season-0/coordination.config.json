@@ -1,0 +1,43 @@
+{
+  "match": {
+    "scenario": "skirmish-1",
+    "mode": "competitive",
+    "seed": 20260708,
+    "id": "m-season0-coordination"
+  },
+  "teams": [
+    {
+      "id": "solo",
+      "name": "Solo Sonnet",
+      "driver": {
+        "type": "command",
+        "solo": true,
+        "argv": ["claude", "-p", "--model", "claude-sonnet-5"],
+        "timeout": 240
+      },
+      "agents": [
+        {"id": "solo-1", "model": "claude-sonnet-5", "role": "scout"},
+        {"id": "solo-2", "model": "claude-sonnet-5", "role": "harvester"},
+        {"id": "solo-3", "model": "claude-sonnet-5", "role": "defender"}
+      ]
+    },
+    {
+      "id": "swarm",
+      "name": "Gemma Swarm",
+      "driver": {
+        "type": "command",
+        "per_seat": true,
+        "argv": [
+          "python3", "scripts/openai_driver.py",
+          "--model", "coolthor/gemma-4-12B-it-NVFP4A16"
+        ],
+        "timeout": 300
+      },
+      "agents": [
+        {"id": "swarm-1", "model": "colleague/gemma-4-12b", "role": "scout"},
+        {"id": "swarm-2", "model": "colleague/gemma-4-12b", "role": "harvester"},
+        {"id": "swarm-3", "model": "colleague/gemma-4-12b", "role": "defender"}
+      ]
+    }
+  ]
+}
