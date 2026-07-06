@@ -22,8 +22,19 @@ from league.engine.events import MatchLog
 from league.engine.scenario import get_scenario, instantiate
 from league.engine.scoring import score_match
 from league.engine.tick import resolve_turn, start_match
-from league.replay import render_html
-from league.store import Store
+from league.replay import build_replay_data, render_html
+from league.store import Store, validate_id
+
+
+def _safe_id(value: str, what: str) -> str:
+    try:
+        return validate_id(value, what=what)
+    except ValueError as err:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=str(err),
+            remediation="ids become filenames; keep them to letters, digits, '.', '_', '-'",
+        ) from err
 
 
 def _load(store: Store, match_id: str) -> MatchLog:
@@ -92,6 +103,7 @@ def cmd_match_new(args: argparse.Namespace) -> int:
     match_id = args.id or (
         f"m-{args.scenario}-{args.mode}-s{args.seed}-{len(store.list_matches()) + 1:03d}"
     )
+    _safe_id(match_id, "match id")
     try:
         state = instantiate(
             scenario, match_id=match_id, seed=args.seed, mode=args.mode, teams=teams
@@ -393,7 +405,10 @@ def cmd_match_score(args: argparse.Namespace) -> int:
 
 def cmd_match_replay(args: argparse.Namespace) -> int:
     log = _load(Store(), args.match_id)
-    emit_result(render_html(log), json_mode=False)
+    if getattr(args, "json", False):
+        emit_result(build_replay_data(log), json_mode=True)
+    else:
+        emit_result(render_html(log), json_mode=False)
     return 0
 
 
@@ -425,7 +440,9 @@ def cmd_match_rematch(args: argparse.Namespace) -> int:
             remediation="--swap flips sides; --team <id> (repeatable) fields new rosters",
         )
 
-    match_id = args.id or f"{args.match_id}-r{len(store.list_matches()) + 1:02d}"
+    match_id = _safe_id(
+        args.id or f"{args.match_id}-r{len(store.list_matches()) + 1:02d}", "match id"
+    )
     try:
         initial = instantiate(
             scenario,
@@ -542,7 +559,7 @@ def register(sub: argparse._SubParsersAction) -> None:
 
     replay = noun_sub.add_parser("replay", help="Self-contained HTML replay on stdout.")
     replay.add_argument("match_id", help="Match id.")
-    replay.add_argument("--json", action="store_true", help="(accepted; output is HTML)")
+    replay.add_argument("--json", action="store_true", help="Replay data as JSON instead of HTML.")
     replay.set_defaults(func=cmd_match_replay)
 
     rematch = noun_sub.add_parser(

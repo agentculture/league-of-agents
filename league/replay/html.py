@@ -67,12 +67,14 @@ def _snapshot(state: MatchState) -> dict[str, Any]:
 def build_replay_data(log: MatchLog) -> dict[str, Any]:
     """Everything the replay shows, derived from the log and nothing else."""
     initial = log.initial_state
-    turns = sorted({e.turn for e in log.events})
+    grouped: dict[int, list] = {}
+    for event in log.events:  # one pass; (turn, seq) order is the log order
+        grouped.setdefault(event.turn, []).append(event)
     frames = [_snapshot(initial)]
     events_by_turn: dict[int, list[dict[str, Any]]] = {}
     state = initial
-    for turn in turns:
-        batch = tuple(e for e in log.events if e.turn == turn)
+    for turn in sorted(grouped):
+        batch = tuple(grouped[turn])
         state = fold_events(state, batch)
         frames.append(_snapshot(state))
         events_by_turn[turn] = [{"kind": e.kind, "data": e.data} for e in batch]
@@ -325,33 +327,37 @@ function drawTeams() {
     const done = f.missions.filter(m => m.completed_by === t.id).length;
     return `<div class="team">
       <div class="team-head"><span class="swatch" style="background:${teamColor(t.id)}"></span>
-        <span class="team-name">${t.name}</span></div>
-      <div class="team-stats"><span>resources <b>${res}</b></span>
-        <span>missions <b>${done}</b></span></div>
+        <span class="team-name">${esc(t.name)}</span></div>
+      <div class="team-stats"><span>resources <b>${esc(res)}</b></span>
+        <span>missions <b>${esc(done)}</b></span></div>
       <div class="agents">${t.agents.map(a =>
-        `<span class="chip">${GLYPH[a.role] || '?'} ${a.id} · ${a.model}</span>`).join('')}</div>
+        `<span class="chip">${GLYPH[a.role] || '?'} ${esc(a.id)} · ${esc(a.model)}</span>`)
+        .join('')}</div>
     </div>`;
   }).join('');
 }
 
 const FEED = {
   match_started: () => ['&#9873;', 'big', 'match started'],
-  plan_declared: d => ['&#128220;', 'msg', `<span class="who">${d.team_id}</span>
+  plan_declared: d => ['&#128220;', 'msg', `<span class="who">${esc(d.team_id)}</span>
     <span class="body">plan: ${esc(d.text)}</span>`],
   message_sent: d => ['&#128172;', 'msg', `<span class="who">${esc(d.from)}</span>
     <span class="body">${esc(d.text)}</span>`],
-  action_declared: d => ['&#9998;', '', `${d.unit_id} declares ${d.action}${d.to ?
-    ' to ' + d.to.join(',') : ''}`],
-  action_rejected: d => ['&#10060;', 'reject', `${d.unit_id ?? '?'} rejected — ${esc(d.reason)}`],
-  unit_moved: d => ['&#8599;', '', `${d.unit_id} moves to ${d.to.join(',')}`],
-  resource_gathered: d => ['&#9935;', '', `${d.unit_id} gathers ${d.amount} from ${d.node_id}`],
-  resource_delivered: d => ['&#128230;', '', `${d.unit_id} delivers ${d.amount}`],
-  control_point_captured: d => ['&#127988;', 'big', `${d.team_id} captures ${d.cp_id}`],
-  control_point_held: d => d.turns ? ['&#9200;', '', `${d.team_id} holds ${d.cp_id}
-    (${d.turns})`] : null,
-  unit_defeated: d => ['&#128128;', 'big', `${d.unit_id} is down`],
-  mission_completed: d => ['&#127942;', 'big', `${d.team_id} completes ${d.mission_id}`],
-  match_finished: d => ['&#127937;', 'big', d.winner ? `match over — ${d.winner} wins`
+  action_declared: d => ['&#9998;', '', `${esc(d.unit_id)} declares ${esc(d.action)}${d.to ?
+    ' to ' + esc(d.to.join(',')) : ''}`],
+  action_rejected: d => ['&#10060;', 'reject',
+    `${esc(d.unit_id ?? '?')} rejected — ${esc(d.reason)}`],
+  unit_moved: d => ['&#8599;', '', `${esc(d.unit_id)} moves to ${esc(d.to.join(','))}`],
+  resource_gathered: d => ['&#9935;', '',
+    `${esc(d.unit_id)} gathers ${esc(d.amount)} from ${esc(d.node_id)}`],
+  resource_delivered: d => ['&#128230;', '', `${esc(d.unit_id)} delivers ${esc(d.amount)}`],
+  control_point_captured: d => ['&#127988;', 'big', `${esc(d.team_id)} captures ${esc(d.cp_id)}`],
+  control_point_held: d => d.turns ? ['&#9200;', '', `${esc(d.team_id)} holds ${esc(d.cp_id)}
+    (${esc(d.turns)})`] : null,
+  unit_defeated: d => ['&#128128;', 'big', `${esc(d.unit_id)} is down`],
+  mission_completed: d => ['&#127942;', 'big',
+    `${esc(d.team_id)} completes ${esc(d.mission_id)}`],
+  match_finished: d => ['&#127937;', 'big', d.winner ? `match over — ${esc(d.winner)} wins`
     : 'match over'],
   turn_advanced: () => null, turn_resolved: () => null,
 };
@@ -371,7 +377,7 @@ function drawFeed() {
 function drawScores() {
   const S = M.scores, box = $('scores');
   const head = `<div class="score-grid"><span class="h"></span>` + M.teams.map(t =>
-    `<span class="h num" style="color:${teamColor(t.id)};font-weight:700">${t.name}</span>`)
+    `<span class="h num" style="color:${teamColor(t.id)};font-weight:700">${esc(t.name)}</span>`)
     .join('') + rows() + `</div>` + sigs();
   function rows() {
     const parts = ['missions', 'control', 'resources'];
@@ -387,7 +393,7 @@ function drawScores() {
     return `<div class="sig">` + M.teams.map(t => {
       const sig = S.cooperation[t.id].signals;
       return Object.entries(sig).map(([k, v]) => `<div class="sig-row">
-        <span class="lbl">${t.id} · ${k.replace(/_/g, ' ')}</span>
+        <span class="lbl">${esc(t.id)} · ${esc(k.replace(/_/g, ' '))}</span>
         <span class="bar"><i style="width:${Math.round(v * 100)}%;
           background:${teamColor(t.id)}"></i></span>
         <span class="val">${v.toFixed(2)}</span></div>`).join('');

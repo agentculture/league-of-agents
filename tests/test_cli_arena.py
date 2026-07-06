@@ -209,6 +209,64 @@ def test_act_validates_team_membership(arena, capsys) -> None:
     assert "not in this match" in err
 
 
+def test_replay_json_honors_the_read_contract(arena, capsys) -> None:
+    assert main(_register("blue", "m") + ["--apply"]) == 0
+    assert main(_register("red", "m") + ["--apply"]) == 0
+    assert (
+        main(
+            [
+                "match",
+                "new",
+                "--scenario",
+                "skirmish-1",
+                "--team",
+                "blue",
+                "--team",
+                "red",
+                "--id",
+                "m-rj",
+                "--apply",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert main(["match", "replay", "m-rj", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["match_id"] == "m-rj"
+    assert "frames" in data and "scores" in data
+
+
+def test_path_traversal_ids_are_rejected(arena, capsys) -> None:
+    rc = main(["team", "register", "../evil", "--agent", "a:m:scout", "--apply"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "invalid team id" in err
+    assert "hint:" in err
+    assert not (arena / ".league").exists()
+    assert main(_register("blue", "m") + ["--apply"]) == 0
+    assert main(_register("red", "m") + ["--apply"]) == 0
+    capsys.readouterr()
+    rc = main(
+        [
+            "match",
+            "new",
+            "--scenario",
+            "skirmish-1",
+            "--team",
+            "blue",
+            "--team",
+            "red",
+            "--id",
+            "../../oops",
+            "--apply",
+        ]
+    )
+    assert rc == 1
+    assert "invalid match id" in capsys.readouterr().err
+    assert not (arena / ".league" / "matches").exists()
+
+
 def test_noun_overviews_resolve(arena, capsys) -> None:
     for noun in ("arena", "team", "match"):
         assert main([noun, "overview"]) == 0

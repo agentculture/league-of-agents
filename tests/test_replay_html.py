@@ -66,6 +66,25 @@ def test_frames_are_cumulative_folds() -> None:
     assert state_hash(log.final_state()) == state_hash(log.final_state())
 
 
+def test_user_controlled_fields_are_escaped_in_the_template() -> None:
+    """Regression guard for stored XSS: no raw interpolation of user fields."""
+    from league.replay.html import _TEMPLATE
+
+    for raw in (
+        "${t.name}",
+        "${a.id}",
+        "${a.model}",
+        "${t.id} ·",
+        "${d.team_id}",
+        "${d.unit_id}",
+        "${d.from}",
+        "${d.cp_id}",
+        "${d.mission_id}",
+        "${d.reason}",
+    ):
+        assert raw not in _TEMPLATE, f"unescaped interpolation {raw!r} in replay template"
+
+
 def test_both_themes_ship() -> None:
     html = render_html(_play_match())
     assert "prefers-color-scheme: dark" in html

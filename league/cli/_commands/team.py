@@ -11,7 +11,18 @@ import argparse
 from league.cli._errors import EXIT_USER_ERROR, CliError
 from league.cli._output import emit_result
 from league.engine.state import AgentSlot
-from league.store import Store
+from league.store import Store, validate_id
+
+
+def _safe_id(value: str, what: str) -> str:
+    try:
+        return validate_id(value, what=what)
+    except ValueError as err:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=str(err),
+            remediation="ids become filenames; keep them to letters, digits, '.', '_', '-'",
+        ) from err
 
 
 def _parse_agent(spec: str) -> AgentSlot:
@@ -49,6 +60,7 @@ def cmd_team_overview(args: argparse.Namespace) -> int:
 
 def cmd_team_register(args: argparse.Namespace) -> int:
     json_mode = bool(getattr(args, "json", False))
+    _safe_id(args.team_id, "team id")
     agents = tuple(_parse_agent(spec) for spec in args.agent or ())
     if not agents:
         raise CliError(
