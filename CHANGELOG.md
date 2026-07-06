@@ -23,6 +23,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - README quickstart invoked `uv run league-of-agents <verb>`, which does not
   resolve: `league-of-agents` is the distribution name (install/publish), not
   the console script. Corrected to `uv run league <verb>`.
+- `explain` catalog: added a `league` key (aliased to the root entry) so
+  `league explain league` resolves. The agent-first rubric gate
+  (`teken cli doctor . --strict`) derives the CLI's self-name from
+  `[project.scripts]` (= `league`) and its `explain_self` check was failing
+  because the catalog was keyed only on the display name `league-of-agents`.
 
 ## [0.4.0] - 2026-06-23
 
