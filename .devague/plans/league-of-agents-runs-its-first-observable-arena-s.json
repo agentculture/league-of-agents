@@ -1,0 +1,511 @@
+{
+  "slug": "league-of-agents-runs-its-first-observable-arena-s",
+  "title": "League of Agents runs its first observable arena season: deterministic matches where AI agent teams coordinate on missions, scored on both outcome and cooperation quality, replayable and beautiful for humans, benchmarked per agent and over time \u2014 grown through a self-propagating spec-plan-implement cycle.",
+  "frame_slug": "league-of-agents-runs-its-first-observable-arena-s",
+  "schema_version": 1,
+  "status": "exported",
+  "created": "2026-07-06T22:57:35Z",
+  "updated": "2026-07-06T23:02:11Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "League of Agents runs its first observable arena season: deterministic matches where AI agent teams coordinate on missions, scored on both outcome and cooperation quality, replayable and beautiful for humans, benchmarked per agent and over time \u2014 grown through a self-propagating spec-plan-implement cycle."
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "At least one complete deterministic match between AI agent teams has run, been scored on outcome + cooperation, been replayed by a human, and been recorded into tracking \u2014 and the next spec cycle was seeded from what that match taught us."
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "Players: AI agent teams. colleague + Sonnet subagents are the standing, freely-testable audience; orchestrator agents (Fable, Opus) can join by creating subagent teams as a game mode; Claude itself is an eligible player. Humans: observers and analysts."
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "colleague and Sonnet subagent teams have actually played matches (not merely 'supported'), and nothing in the design hardcodes a specific model or excludes orchestrator agents (Fable/Opus) or Claude from playing."
+    },
+    {
+      "id": "c3",
+      "kind": "after_state",
+      "text": "Matches run end-to-end with agent teams coordinating on missions; every match is observable by humans, trackable, and feeds analysis, benchmarks, and per-agent + overall improvement; each implementation round propagates the next specs and plans."
+    },
+    {
+      "id": "h14",
+      "kind": "honesty",
+      "text": "Each artifact exists and is inspectable in/from this repo: a finished match log, its human-viewable replay, its entry in the tracking store, and the propagated next spec (a new devague frame)."
+    },
+    {
+      "id": "c4",
+      "kind": "before_state",
+      "text": "An agent-first CLI scaffold (whoami/learn/explain/doctor) with zero arena/game domain implemented; requirements live in issue #1, target repo shape in issue #2."
+    },
+    {
+      "id": "h15",
+      "kind": "honesty",
+      "text": "Scoring plus replay make coordination legible enough that 'did this team cohere, and why/why not?' is answerable per match from the artifacts."
+    },
+    {
+      "id": "c5",
+      "kind": "why_it_matters",
+      "text": "The arena answers issue #1's core question: can a group of agents become a coherent, strategic, cooperative team under constraint? \u2014 favoring legible, replayable coordination over single-agent scores."
+    },
+    {
+      "id": "h16",
+      "kind": "honesty",
+      "text": "The exported spec mandates no engine/map/protocol/API/UI details beyond the explicitly confirmed v0 slice decisions; every omitted detail is parked as vagueness, not silently assumed."
+    },
+    {
+      "id": "c6",
+      "kind": "boundary",
+      "text": "Not a static benchmark \u2014 a strategic arena. Issue #1's deliberately-omitted details (engine design, map format, protocol, agent API, UI) are decided in their own later spec cycles, not assumed into this one."
+    },
+    {
+      "id": "h17",
+      "kind": "honesty",
+      "text": "The success signal is verified by an actual recorded playtest (match log + replay + both scores checked in or reproducible), not by unit tests alone."
+    },
+    {
+      "id": "c7",
+      "kind": "success_signal",
+      "text": "A full match with colleague and Sonnet subagent teams replays deterministically (same actions + seed = same outcome), is scored on both mission outcome and cooperation quality, and a human can see why the team won or lost from the replay view alone."
+    },
+    {
+      "id": "h18",
+      "kind": "honesty",
+      "text": "Determinism, dual scoring, and replay inspectability are all exercised in that same verifying playtest \u2014 one match demonstrates all three."
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "Recursive development cycle: each increment gets its own spec, then plan, then implementation, then playtest \u2014 and implementing an increment propagates the next specs and plans (specs beget specs)."
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "The exported spec names the cycle mechanism concretely: each increment starts as a devague frame in this repo, becomes a plan via devague plan / spec-to-plan, lands as a PR, and its playtest results seed the next frame \u2014 the cycle is operable, not aspirational."
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "The match/tick engine is deterministic and seedable: pure resolution, no wall-clock, no unseeded randomness. Same declared actions + same seed = same outcome, so matches are replayable, testable, and graded on strategy rather than luck."
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "Replaying the same action log + seed through the tick engine yields identical end-state, and a CI test enforces this determinism property on every PR."
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "The system scores both mission outcome and cooperation quality."
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "Every finished match emits both an outcome score and a cooperation score, and both are derived solely from the persisted match log (no side-channel judgment)."
+    },
+    {
+      "id": "c11",
+      "kind": "requirement",
+      "text": "Logs/replays make every match inspectable \u2014 why a team succeeded or failed is answerable from the record."
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "For any finished match, a human can reconstruct the causal chain of the result from the replay artifact alone, without reading engine source or rerunning the match."
+    },
+    {
+      "id": "c12",
+      "kind": "requirement",
+      "text": "Matches are visually beautiful for human observers and practical (structured/JSON) for agents \u2014 the same match, two faithful views."
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "The human view (HTML replay) and the agent view (--json) render from the same match log \u2014 one source of truth, two projections, never divergent."
+    },
+    {
+      "id": "c13",
+      "kind": "requirement",
+      "text": "Repeated play is trackable: analysis, benchmarks, per-agent improvement and overall improvement across matches."
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "Match results persist in a queryable per-repo store across matches, so per-agent and per-team trends over repeated play are computable with a read-only CLI verb."
+    },
+    {
+      "id": "c14",
+      "kind": "requirement",
+      "text": "Different teams, models, and role compositions can be compared fairly."
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "Two rosters differing only in model or composition can play the identical scenario + seed, making comparisons apples-to-apples by construction."
+    },
+    {
+      "id": "c15",
+      "kind": "requirement",
+      "text": "Creating subagents is a game option/mode: orchestrator players (e.g. Fable, Opus) field teams by spawning their own subagents \u2014 so orchestrator-class agents are audience too."
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "The mode is demonstrated end-to-end at least once: an orchestrator agent (Fable or Opus) fields a spawned-subagent team in a real scored match."
+    },
+    {
+      "id": "c16",
+      "kind": "requirement",
+      "text": "Coordination is mandatory: individual intelligence alone is insufficient. Roles/specialization, communication quality, delegation, and timing change the outcome; the environment forces tradeoffs (exploration/execution/defense/support/objective control) with consequences visible over multiple turns."
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "There exists a shipped scenario where a solo strong agent measurably loses to a coordinated weaker team \u2014 coordination-necessity is demonstrated by a playtest, not asserted."
+    },
+    {
+      "id": "c17",
+      "kind": "requirement",
+      "text": "The CLI keeps the agent-first contract as domain verbs land: whoami/learn/explain first, every write verb dry-run by default with --apply, --json on every read verb, stable exit codes."
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "The teken agent-first rubric gate ('uv run teken cli doctor . --strict') stays green as every domain verb lands, and every write verb ships with a dry-run-default test."
+    },
+    {
+      "id": "c18",
+      "kind": "requirement",
+      "text": "The game can evolve into both cooperative and competitive modes without changing the core purpose."
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "Cooperative (team vs environment) and competitive (team vs team) matches both run on the same engine and scoring pipeline without forking core code."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Engine state core: immutable match state model (grid, teams, units, control points, missions, resources) with injected-seed randomness only",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Match state serializes to JSON and loads back byte-identical (round-trip test)",
+        "The engine package imports no wall-clock time and no global random; a test enforces the import ban"
+      ],
+      "deps": [],
+      "covers": [
+        "c9"
+      ]
+    },
+    {
+      "id": "t2",
+      "summary": "Match event log: append-only record of every turn; folding events over initial state reproduces final state",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Every state transition is expressible as an event; replaying the event log from the initial state reproduces the final state exactly (test)",
+        "The log is the single source of truth: scoring and replay consume only this artifact"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c11"
+      ]
+    },
+    {
+      "id": "t3",
+      "summary": "v0 grid scenario skirmish-1: control points, missions, resource economy, with cooperative and competitive variants from one definition",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Scenario loads by id with at least 3 control points, 2 missions, and resource nodes, for two-team or team-vs-environment play",
+        "Scenario parameters force tradeoffs: turn limit and distances make it impossible for one unit to hold all control points and complete missions alone (asserted in tests)",
+        "Cooperative and competitive variants share the same definition and engine path (no forked scenario code)"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c16",
+        "c18",
+        "h11"
+      ]
+    },
+    {
+      "id": "t4",
+      "summary": "Deterministic tick engine: pure resolution function (state, declared actions, seed) to (new state, events)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Same inputs yield identical outputs across repeated runs (property test)",
+        "Simultaneous declared actions resolve by documented deterministic rules with no dependence on submission order"
+      ],
+      "deps": [
+        "t1",
+        "t2",
+        "t3"
+      ],
+      "covers": [
+        "c9",
+        "c18",
+        "h11"
+      ]
+    },
+    {
+      "id": "t5",
+      "summary": "CLI noun groups: league arena / team / match verbs honoring the agent-first contract",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Every write verb defaults to dry-run and mutates only with --apply (tests per verb)",
+        "Every read verb supports --json; every new path has an explain catalog entry; noun groups with action verbs expose overview",
+        "uv run teken cli doctor . --strict stays green with all new verbs registered"
+      ],
+      "deps": [
+        "t4"
+      ],
+      "covers": [
+        "c17",
+        "h10",
+        "c12"
+      ]
+    },
+    {
+      "id": "t6",
+      "summary": "Determinism CI gate: recorded action log + seed replays to an identical end-state hash on every PR",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A CI-run test replays a committed action log + seed and fails on any end-state hash mismatch"
+      ],
+      "deps": [
+        "t4"
+      ],
+      "covers": [
+        "h2"
+      ]
+    },
+    {
+      "id": "t7",
+      "summary": "Dual scoring from the match log: mission outcome score + cooperation-quality heuristic",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Scoring computes both an outcome score and a cooperation score from a finished match log alone (test feeds a canned log; no live state, no external calls)",
+        "Each cooperation signal (communication/delegation events, plan-vs-action coherence, redundant-effort waste) is documented with its weight"
+      ],
+      "deps": [
+        "t2"
+      ],
+      "covers": [
+        "c10",
+        "h3",
+        "c5"
+      ]
+    },
+    {
+      "id": "t8",
+      "summary": "Self-contained HTML replay viewer rendered from the match log (league match replay --html)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Emits a single self-contained HTML file (no external requests) that plays the match turn by turn with map, units, control points, scores, and per-team communication",
+        "HTML replay and --json projections render from the same log; a test asserts they agree on every turn's facts"
+      ],
+      "deps": [
+        "t2"
+      ],
+      "covers": [
+        "c12",
+        "h5",
+        "c11",
+        "h4"
+      ]
+    },
+    {
+      "id": "t9",
+      "summary": "Tracking store + standings/history read verbs for per-agent and per-team trends",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Finished matches persist to a queryable per-repo store; league standings --json and league history --json compute per-agent and per-team trends (test with at least two stored matches)"
+      ],
+      "deps": [
+        "t5",
+        "t7"
+      ],
+      "covers": [
+        "c13",
+        "h6",
+        "c3"
+      ]
+    },
+    {
+      "id": "t10",
+      "summary": "Fair rematch: identical scenario + seed with a different roster for apples-to-apples comparison",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A rematch verb replays the identical scenario + seed with a swapped roster; a test proves two rosters differing only in model/composition face identical initial conditions and resolution rules"
+      ],
+      "deps": [
+        "t4",
+        "t5"
+      ],
+      "covers": [
+        "c14",
+        "h7"
+      ]
+    },
+    {
+      "id": "t11",
+      "summary": "Agent-player harness: colleague + Sonnet subagent teams drive full matches through the CLI",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A harness runs a full match where every team member is a live agent (colleague backend or Sonnet subagent) acting only through league match show --json and league match act --json --apply",
+        "The harness is model-agnostic: fielding an orchestrator (Fable/Opus) or Claude as a player is a roster-config change, not a code change"
+      ],
+      "deps": [
+        "t5"
+      ],
+      "covers": [
+        "c2",
+        "h13"
+      ]
+    },
+    {
+      "id": "t12",
+      "summary": "Playtest 1 (season opener): full scored colleague + Sonnet match with recorded artifacts and a human replay review",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Match log, HTML replay, and both scores are recorded in-repo or reproducibly generated; determinism verified by re-running the recorded log + seed",
+        "A human reviews the replay and states why the winner won, from the replay alone; the playtest report checks off legibility, recorded-playtest, and one-match-demonstrates-all-three"
+      ],
+      "deps": [
+        "t6",
+        "t8",
+        "t9",
+        "t11"
+      ],
+      "covers": [
+        "c1",
+        "h12",
+        "c3",
+        "h14",
+        "c7",
+        "h17",
+        "h18",
+        "h15",
+        "c5"
+      ]
+    },
+    {
+      "id": "t13",
+      "summary": "Playtest 2 (coordination necessity): a solo strong agent measurably loses to a coordinated weaker team",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A shipped scenario where a solo stronger-model agent plays against a coordinated team of weaker-model agents and measurably loses; result, replay, and analysis recorded in a playtest report"
+      ],
+      "deps": [
+        "t11"
+      ],
+      "covers": [
+        "c16",
+        "h9"
+      ]
+    },
+    {
+      "id": "t14",
+      "summary": "Playtest 3 (orchestrator mode): Fable or Opus fields a spawned-subagent team in a real scored match",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "An orchestrator agent registers a team, spawns its own subagents as roster members, and plays a scored match end to end; artifacts recorded like every playtest"
+      ],
+      "deps": [
+        "t11"
+      ],
+      "covers": [
+        "c15",
+        "h8"
+      ]
+    },
+    {
+      "id": "t15",
+      "summary": "Document the operable development cycle in docs/process/cycle.md (frame to plan to PR to playtest to next frame)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The document names the concrete mechanism with real repo paths and verbs: devague frame in .devague/, plan via spec-to-plan, PR via cicd, playtest report location, and how findings seed the next frame",
+        "It restates the boundary: details parked in the season-0 frame stay parked until their own cycle picks them up",
+        "The documented cycle mandates a live test between specs: a recorded live match (playtest) from the current increment must exist before the next devague frame opens"
+      ],
+      "deps": [],
+      "covers": [
+        "c8",
+        "h1",
+        "c4",
+        "c6",
+        "h16"
+      ]
+    },
+    {
+      "id": "t16",
+      "summary": "Propagate: seed the next spec cycle (new devague frame) from the season-0 playtest findings",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A new devague frame exists, derived from recorded playtest findings, and the playtest report links to it (specs beget specs, demonstrated not asserted)"
+      ],
+      "deps": [
+        "t12",
+        "t13",
+        "t14"
+      ],
+      "covers": [
+        "c8",
+        "h1",
+        "c1",
+        "h12",
+        "c3",
+        "h14"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "The v0 cooperation heuristic may be a weak or noisy signal; refinement is already parked as its own follow-up cycle",
+      "kind": "follow_up",
+      "task_id": "t7"
+    },
+    {
+      "id": "r2",
+      "text": "Playtest cost and latency of live agent teams (colleague availability, Sonnet spend) could throttle iteration speed",
+      "kind": "unknown_nonblocking",
+      "task_id": "t11"
+    },
+    {
+      "id": "r3",
+      "text": "The coordination-necessity scenario will likely need tuning iterations before a solo strong agent reliably loses",
+      "kind": "unknown_nonblocking",
+      "task_id": "t13"
+    },
+    {
+      "id": "r4",
+      "text": "Orchestrator-mode fairness/budget rules are undefined (parked v3 in the frame); the demo playtest may surface constraints early",
+      "kind": "follow_up",
+      "task_id": "t14"
+    }
+  ]
+}
