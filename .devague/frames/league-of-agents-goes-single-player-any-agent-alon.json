@@ -1,0 +1,264 @@
+{
+  "slug": "league-of-agents-goes-single-player-any-agent-alon",
+  "title": "League of Agents goes single-player: any agent \u2014 alone, with spawned subagents, or as a team \u2014 faces the house strategy bots from one CLI command per mode, and every match clocks tempo: speed is measured, benchmarked, and scored through a published substrate-fair conversion",
+  "schema_version": 1,
+  "status": "exported",
+  "created": "2026-07-07T05:45:31Z",
+  "updated": "2026-07-07T05:52:07Z",
+  "claims": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "League of Agents goes single-player: any agent \u2014 alone, with spawned subagents, or as a team \u2014 faces the house strategy bots from one CLI command per mode, and every match clocks tempo: speed is measured, benchmarked, and scored through a published substrate-fair conversion",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h1",
+          "text": "Every announcement phrase is backed by a committed artifact: the preset registry + one-command launches (tests), a recorded preset-launched solo match, latency present in its log, and the published tempo benchmark",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c2",
+      "kind": "requirement",
+      "text": "Single-player mode (user directive): an agent with subagents, or an agent team, plays against a bot with coded strategies \u2014 the packaged practice/ladder opponent",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h2",
+          "text": "A recorded match exists where one agent (optionally with spawned subagents) plays a named house strategy bot, launched entirely from a preset \u2014 no hand-authored config file",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c3",
+      "kind": "requirement",
+      "text": "Running simplicity (user directive): every mode is launchable via the CLI in one command \u2014 solo-vs-bot, team-vs-bot, team-vs-team, orchestrator, resident/stateless \u2014 sparing the operator hand-authored configs and redundant setup work per playtest",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h3",
+          "text": "Every mode documented in the README launches in exactly one command; a test enumerates the preset registry and dry-runs each preset; the quickstart shows each mode as a single line",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c4",
+      "kind": "requirement",
+      "text": "Speed performance/points (user directive): speed is benchmarked and scored \u2014 with the explicit caveat that substrates differ (cloud minds are inherently faster than local ones), so raw speed is converted/normalized for fair comparison rather than compared naively",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h4",
+          "text": "Raw latency numbers are ALWAYS published beside any converted/normalized tempo score; the conversion methodology is a committed document; the same mind measured on two substrates appears in the benchmark with both raw and converted values",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c5",
+      "kind": "audience",
+      "text": "A single operator (human or agent) launching any mode in one command; solo agents practicing against the house; benchmark readers comparing minds across substrates",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h5",
+          "text": "Each audience touches the increment in a recorded artifact: an operator (or the repo agent) launches modes by preset, a solo agent plays the house, and the benchmark report is committed",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c6",
+      "kind": "before_state",
+      "text": "Every playtest needs a hand-authored JSON config and a bespoke harness invocation (the season-0 cycle spent real operator time on exactly this); there is no packaged way for ONE agent to just play somebody; speed is invisible \u2014 a 10-minute turn and a 30-second turn score identically, and the 4.5-hour opener showed tempo is a real dimension the arena does not see",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h6",
+          "text": "The before-state cites the committed record: the season-0 playtest configs and the ~9-minute-per-turn opener pacing noted in its report",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c7",
+      "kind": "after_state",
+      "text": "league play <preset> starts any documented mode in one command \u2014 solo-vs-bot, team-vs-bot, team-vs-team, orchestrator, resident or stateless \u2014 from a bundled preset registry with a house-bot roster; every match log records per-seat per-turn latency as metadata; tempo is reported per team beside outcome and cooperation, with a published substrate-fair conversion and raw numbers always shown",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h7",
+          "text": "The after-state is demonstrated end to end from a clean checkout in one session: preset launch, latency-bearing log, tempo report \u2014 not assembled from disjoint demos",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c8",
+      "kind": "why_it_matters",
+      "text": "Single-player is the on-ramp (any agent can practice without assembling an opposing team); one-command modes multiply playtests per cycle by removing operator toil; tempo matters because coordination has a clock \u2014 but raw wall-clock conflates substrate with skill, so speed must be benchmarked and converted, not naively compared",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h8",
+          "text": "The rationale survives its own test: if one-command modes do not measurably reduce setup steps, or tempo conversion proves misleading, the report says so and the next frame revisits it",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c9",
+      "kind": "decision",
+      "text": "Measurement is separated from scoring: latency is ALWAYS recorded in the match log (cheap, factual, per seat per turn); the tempo SCORE is computed at read time from the log against a per-substrate calibration baseline \u2014 so the scoring formula can evolve without invalidating recorded matches",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "Latency recording lives in log metadata/observation events and NEVER affects MatchState, state_hash, or the determinism gate \u2014 replaying a log reproduces identical state regardless of how slow the minds were",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h9",
+          "text": "A determinism test proves a log with latency metadata re-folds to the identical state_hash as the same log without it; the determinism CI gate is untouched by this cycle",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c11",
+      "kind": "requirement",
+      "text": "Mode presets are data, not code: a preset registry (name, scenario, sides, driver kinds, bot tier) that league play resolves; presets are enumerable, dry-run by default like every write verb, and adding one is a data change following the noun-group pattern",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h10",
+          "text": "Presets are enumerable via the CLI (--json), each resolves to a valid launchable config, and a new preset requires only data plus a catalog entry \u2014 proven by the preset-enumeration test",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c12",
+      "kind": "requirement",
+      "text": "The house-bot roster: named strategy bots at declared difficulty tiers (building on cycle-3's coded-bot lane), so single-player has real opposition levels and benchmarks have fixed reference opponents",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h11",
+          "text": "Each house bot's strategy source is committed and readable, its difficulty tier is declared, and at least two tiers demonstrably differ in strength on the record (tier A beats tier B over recorded matches)",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c13",
+      "kind": "boundary",
+      "text": "Not building: a matchmaking service or ladder server; any engine-determinism change (latency is metadata); a claim that cross-substrate speed equivalence is solved \u2014 the conversion is a published, contestable methodology; single-player adds packaging, not new game rules",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h12",
+          "text": "The boundary is checkable in review: no server/daemon code lands, the determinism gate is byte-identical in behavior, and the conversion document explicitly lists its own limits",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c14",
+      "kind": "success_signal",
+      "text": "From a clean checkout: each documented mode starts with one CLI command (proven by a preset-enumeration test and the README quickstart); a recorded solo-vs-bot match launched purely via preset; a tempo benchmark report comparing a cloud mind and a local mind with raw and converted numbers side by side",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h13",
+          "text": "The success artifacts are committed together: preset test, recorded solo-vs-bot log+replay, and the tempo benchmark report with raw-plus-converted tables",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c15",
+      "kind": "decision",
+      "text": "Tempo representation (user decision): a THIRD SCORED AXIS \u2014 tempo is published beside outcome and cooperation, never merged into either; substrate conversion applies before any tempo comparison; leaderboards may rank by any axis or a declared blend",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": []
+    }
+  ],
+  "open_vagueness": [
+    {
+      "id": "v1",
+      "text": "The exact tempo-conversion formula and calibration protocol (how a substrate baseline is measured: same-mind solo runs, per-model reference tasks, or fleet medians) \u2014 the spec only requires the methodology to be published and raw numbers to always ship",
+      "kind": "unknown_nonblocking",
+      "claim_id": null
+    },
+    {
+      "id": "v2",
+      "text": "House-bot difficulty design: how many tiers, which strategies (rusher, turtle, economist...), and whether tiers are parameter variants or distinct strategies",
+      "kind": "unknown_nonblocking",
+      "claim_id": null
+    },
+    {
+      "id": "v3",
+      "text": "Whether a single agent spawning subagents in single-player counts as one player or a team for benchmark purposes \u2014 interacts with the orchestrator-fairness thread (season-0 v3)",
+      "kind": "unknown_nonblocking",
+      "claim_id": null
+    },
+    {
+      "id": "v4",
+      "text": "Preset surface shape: a new 'league play' noun vs presets on 'harness run' \u2014 a plan-time CLI-design decision to be made against the noun-group pattern",
+      "kind": "unknown_nonblocking",
+      "claim_id": null
+    }
+  ]
+}
