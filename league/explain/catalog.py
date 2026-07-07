@@ -189,6 +189,8 @@ commits** — a stray call never silently advances the game.
     league match probe <id> --json         # span-of-control: subagents, realization, guidance
     league match brief <id> [--team blue]  # markdown briefing (the agents' face)
     league match replay <id> > match.html  # self-contained human replay
+    league match record <id> --out match.gif             # shareable video, offline
+    league match record <id> --out m.gif --scale 32 --fps 3 --json
     league match tui <id> --frame N [--team blue] [--no-color]  # terminal view
 
 `score`'s tempo axis — the per-substrate calibration table, the t0 conversion
@@ -253,6 +255,23 @@ own-voice message AND a real declared action on that seat's own unit. The
 payload mirrors `score`'s style: `{score, signals, components, version}` per
 team, plus a per-turn `degradation_curve` bucketed by how many seats acted
 concurrently, so "commands 3 well, 1 badly" is visible from one match alone.
+
+`record` (`league.replay.video`, plan task t6, spec c7/h7) renders the log
+into a shareable video file, entirely offline — no screen capture, no live
+session, no network. The default `--format gif` is a pure-stdlib animated
+GIF89a writer (palette-indexed raster frames + a hand-rolled LZW encoder);
+it always works, nothing to install, and the runtime stays dependency-free.
+`--format mp4` pipes the same raw frames through `ffmpeg` if it's on PATH;
+absent it, the flag fails with a remediated error naming the GIF fallback
+rather than silently downgrading. Frame count is `turns + 2`: an opening
+title card (match id, scenario, teams with color swatches + rosters), one
+frame per turn actually played, and a closing card (final score by axis).
+Reproducible by construction: the same log at the same `--scale`/`--fps`
+renders byte-identical output, and the exact command is embedded as a GIF
+Comment Extension (or MP4 `comment` metadata) — provenance travels with the
+artifact, not in a separate sidecar. `--scale` is pixels per grid cell
+(bounds enforced); `--fps` is turn-frame rate (the title/closing cards hold
+several times longer automatically, for readability).
 
 `--team <id>` scopes `legal_actions`/`last_turn_rejections` to that team.
 Add `--fog` (requires `--team`) for that team's fog-of-war projection (plan
@@ -385,6 +404,7 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("match", "probe"): _MATCH,
     ("match", "brief"): _MATCH,
     ("match", "replay"): _MATCH,
+    ("match", "record"): _MATCH,
     ("match", "tui"): _MATCH,
     ("match", "rematch"): _MATCH,
     ("standings",): _STANDINGS,
