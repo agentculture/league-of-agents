@@ -1,0 +1,323 @@
+{
+  "slug": "league-of-agents-grades-every-seat-role-purpose-sc",
+  "title": "League of Agents grades every seat: role-purpose scorecards name each match's MVP and LVP, the scout becomes true eyes that lift the fog, deliveries can be contested and denied, and every mind \u2014 grid or continuous \u2014 receives the same spoken contract",
+  "schema_version": 1,
+  "status": "exported",
+  "created": "2026-07-07T23:08:37Z",
+  "updated": "2026-07-07T23:23:40Z",
+  "claims": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "League of Agents grades every seat: role-purpose scorecards name each match's MVP and LVP, the scout becomes true eyes that lift the fog, deliveries can be contested and denied, and every mind \u2014 grid or continuous \u2014 receives the same spoken contract",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h9",
+          "text": "Every announcement phrase is backed by a committed artifact in the cycle PR: the scorecard axis with MVP/LVP in payload+replay+guide, the fogged continuous mode and the recorded grid decision, the delivery-contention rules with their scripted tests, the baked charness contract with the thinned driver, and the refreshed cycle-6 artifacts \u2014 closed out in a ledger the report maps phrase-by-phrase",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "The human reviewer judging replays (who asked for MVP/LVP because the guide made them judge one level deeper than it explained); researchers comparing role compositions and individual contribution across teams; the maintainers keeping per-unit scoring honest beside the untouched team axes",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h15",
+          "text": "Each named audience touches the increment on the record: the reviewer gets the scorecard in payload/replay/guide and a recorded verdict slot in the next review, researchers get a report with per-unit breakdowns they can dissect, maintainers get the diff-provable untouched-axes tests",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c3",
+      "kind": "before_state",
+      "text": "Scoring stops at the team: outcome, cooperation v0/v1, tempo t0 and probe p0 are all team-level, so the first human review had to eyeball that red's defender flopped \u2014 nothing in the score payload, replay, or guide names WHO carried or sank a match, or whether a unit did its ROLE's job",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h16",
+          "text": "The deficiency cites its sources: scoring.py/tempo.py/probe.py expose team-keyed payloads only (no per-unit surface), and the MVP/LVP ask is quoted verbatim from the recorded human review (docs/playtests/cycle-6/human-review.md), not paraphrased",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c4",
+      "kind": "before_state",
+      "text": "Roles are still blunt at the edges: the grid scout can capture posts (the eyes-only decision from the human review was applied to the continuous lane only and explicitly parked for grid); the continuous lane has per-role vision radii but its briefings are fogless full-information; and a delivery can never be contested \u2014 two units co-delivered into the same post in the reviewed match with no interaction, which the reviewer flagged as a possible lockdown-strategy hole",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h17",
+          "text": "Each blunt edge cites code or log: grid scout capture via RoleStats defaults in league/engine/scenario.py, the fogless briefing via charness._board_projection's own full-information docstring, and the uncontested co-delivery moment in the committed cycle-6 match log the reviewer flagged",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c5",
+      "kind": "before_state",
+      "text": "A grid mind receives a spoken seat prompt baked into the harness (_SEAT_PROMPT), but a continuous mind gets raw briefing JSON \u2014 the contract text lives in an operator script (scripts/cseat_driver.py), a lane-parity gap recorded as a finding in the cycle-7 live report",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h18",
+          "text": "The parity gap cites both sides: league/harness.py's baked _SEAT_PROMPT versus league/charness.py handing drivers raw briefing JSON with the contract living in scripts/cseat_driver.py \u2014 exactly as recorded in the cycle-7 live report's findings",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c6",
+      "kind": "after_state",
+      "text": "Every committed match can answer WHO: a per-unit, role-purpose-weighted scorecard computed from the log alone names the match MVP and LVP with per-role breakdowns, and it surfaces in the score payload, the replay's side deck, and the assessor guide \u2014 the reviewer no longer judges one level deeper than the guide explains",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h6",
+          "text": "The reviewer test: the next human review can name the best and worst unit from the payload/replay/guide alone without watching the match twice \u2014 the guide explains what the grade weighs and shows the per-role breakdown beside the board",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c7",
+      "kind": "after_state",
+      "text": "The scout is the eyes: the continuous lane gains a fog mode where a briefing shows only what your team's vision radii reveal (the scout's widest-among-executors vision finally does strategic work), the grid lane's eyes-only-scout default is decided and recorded rather than parked, and deliveries have explicit contention rules \u2014 a defended post can deny or delay a handover, making lockdown a legal strategy instead of an accident of no-rules",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h7",
+          "text": "Eyes do work on the record: a live fogged match shows a scout's vision materially changing a teammate's decision (the enemy/objective it revealed is cited in a message or plan), so 'the eyes' is demonstrated, not asserted",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c8",
+      "kind": "after_state",
+      "text": "Lane parity in the mind-facing contract: the continuous harness speaks the same kind of baked-in seat contract the grid harness always had, for all five driver kinds, so an external driver script no longer owns the rules of the game; and the committed cycle-6 artifacts are regenerated through the current replay/GIF pipeline as a deliberate, documented event",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h8",
+          "text": "One contract, one source of truth: after the parity change there is exactly one place the continuous seat contract lives (charness), the operator script contains zero rules prose, and docs/continuous-contract.md matches what minds actually receive",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c9",
+      "kind": "why_it_matters",
+      "text": "Issue #1 asks that the system \"scores both mission outcome and cooperation quality\" and that \"logs/replays make it inspectable \u2014 why a team succeeded or failed\": team axes answer WHETHER a team cohered, per-unit role-purpose grades answer WHO made it so \u2014 and issue #1's \"roles/specialization matter\" only bites if a role's constraints (eyes that cannot capture, deliveries that can be denied) are real rules with visible consequences",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h12",
+          "text": "The why quotes issue #1's own words \u2014 \"scores both mission outcome and cooperation quality\", \"logs/replays make it inspectable\", \"roles/specialization matter\" \u2014 quoted, not strengthened, and the report ties each new mechanic back to the phrase it serves",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "MVP/LVP per-unit grades (user directive, human review): each unit earns a grade from the log alone, weighted by its role's designated purpose \u2014 on-purpose contributions score full, off-role contributions still score but at a discount (\"a scout not scouting should still get points, but less\") \u2014 and the payload names the match MVP and LVP; the existing team axes (outcome, cooperation v0/v1, tempo t0, probe p0) are bit-identical untouched: this is a NEW axis beside them, never a drift inside them",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h1",
+          "text": "Team axes provably untouched: the committed season-0/cycle-4/5/6 score.json files re-score bit-identically after the MVP/LVP axis lands, and the grade is a pure function of the log (same log -> same grades, proven the determinism way); off-role work scores strictly more than zero and strictly less than the same work done on-role, proven by a worked test case",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c11",
+      "kind": "requirement",
+      "text": "Scout as eyes (user directive, human review): the continuous lane gets a fog mode \u2014 briefings show only what the acting team's per-role vision radii reveal, with the scout the widest executor \u2014 while ground truth stays full in the log for replay/scoring; and the grid lane's eyes-only-scout question is closed with a recorded decision this cycle, whichever way it goes",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h2",
+          "text": "Fog is projection, never mutation: the continuous log still records ground truth (replay and scoring unchanged by fog); a fogged briefing contains exactly the entities within the team's union of vision radii, proven by a test with a hand-placed board; the grid decision is recorded in docs with its rationale even if the decision is 'grid keeps capturing scouts'",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c12",
+      "kind": "requirement",
+      "text": "Delivery contention (user directive, human review): explicit, deterministic engine rules in the continuous lane for contested handovers \u2014 at minimum, whether and how a defending presence at a delivery site denies or delays an enemy delivery, and what two same-team simultaneous deliveries do \u2014 as first-class tested rules with log events, not emergent accidents",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h3",
+          "text": "Contention rules are deterministic and first-class: every contested-delivery outcome is an explicit log event with a reason, the canonical-order tie-break applies to simultaneous handovers, and the rules are exercised by scripted tests that construct each contested case (deny, delay, same-team co-delivery) rather than hoping a live match wanders into them",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c13",
+      "kind": "requirement",
+      "text": "Harness contract parity (cycle-7 finding, all-backends rule): league/charness.py bakes the mind-facing seat contract into first contact for command and resident drivers (the continuous twin of the grid's _SEAT_PROMPT), scripts/cseat_driver.py thins to transport-only, and the contract text never leaks engine internals beyond what the briefing already exposes",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h4",
+          "text": "Parity without leakage: the baked contract text tells a continuous mind exactly what scripts/cseat_driver.py told it in cycle 7 (reply shape, time model, race semantics, menu discipline) and nothing the briefing does not already expose; all five driver kinds get it per the all-backends rule; the cycle-7 live config re-run against the thinned driver still produces a legal, finishable match",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c14",
+      "kind": "requirement",
+      "text": "Committed-artifact refresh: the cycle-6 playtest replay/GIF artifacts are regenerated through the current pipeline as a deliberate, documented event in the PR (the committed memory-longhorizon.gif still shows the pre-restyle face), with logs and scores untouched \u2014 the compat sweep proves the facts did not move",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h5",
+          "text": "Refresh is regeneration, not revision: only presentation artifacts (replay.html, gif) change bytes; every log.jsonl, score.json, probe.json and outcome.json is byte-identical before and after, enforced by the compat sweep staying green with no fixture edits in the refresh commit",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c15",
+      "kind": "boundary",
+      "text": "Not a ranking system: no ELO, no cross-match leaderboards, no model-vs-model verdicts \u2014 MVP/LVP is per-match and role-relative; determinism stays non-negotiable (fog projections and grades are pure functions of the log); the team-axis formulas (cooperation v1, tempo t0, probe p0) are unchanged for both lanes; measured tempo calibration and combat/elimination mechanics stay out",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h13",
+          "text": "Boundary checkable in review: no ranking/ELO surface exists anywhere in the payload or CLI; grades never feed team scores; the determinism gates and team-axis formulas are diff-provably untouched; no combat mechanics appear",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c16",
+      "kind": "success_signal",
+      "text": "A recorded live continuous match under fog, with a contested-delivery moment on the record, whose score payload names MVP and LVP with role-purpose breakdowns \u2014 visible in the replay side deck and explained by the assessor guide \u2014 plus the refreshed cycle-6 artifacts and a green two-lane suite in the same PR",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h14",
+          "text": "The success signal is verifiable by pointing at committed artifacts: the fogged live log with its contested-delivery events, the payload naming MVP/LVP, the replay/guide surfacing them, the refreshed cycle-6 artifacts, and the green sweep \u2014 all in one PR",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c17",
+      "kind": "requirement",
+      "text": "Audio (user directive, verbatim mood): the experience gains music that is \"pleasant\u2026 complement the experience and make me feel content and relaxed, but also curious and intrigued\" \u2014 in the HTML replay as a runtime-synthesized generative ambient score (WebAudio, seeded deterministically from the match, no audio files, the document stays self-contained and byte-identical), and in exported video as an offline-synthesized soundtrack (pure-stdlib WAV generation muxed by the existing optional ffmpeg path into MP4)",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h10",
+          "text": "Audio respects every standing invariant: the HTML document's bytes are unchanged by the feature's runtime behavior (music is synthesized at play time, seeded from data already in the page), no external asset or network request appears, audio is OFF by default with a visible toggle (browser autoplay policy and reviewer choice), the same match always plays the same score, and the format truth is documented honestly \u2014 MP4 gains the soundtrack, GIF stays silent because the format has no audio",
+          "status": "confirmed"
+        },
+        {
+          "id": "h11",
+          "text": "The mood brief is testable at review: the next human review explicitly rates whether the music lands \"content and relaxed, but also curious and intrigued\" \u2014 a recorded reviewer verdict, not a developer assertion; if it misses, the miss is a finding for the next cycle, not a silent pass",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c18",
+      "kind": "decision",
+      "text": "User decision (2026-07-08, verbatim, added while confirming the frame): \"add audio that will make experience superb. Both for the reply (html) and the videos we export. I want a pleasent music that will complement the experience and make me feel content and relaxed, but also curious and intrigued.\" \u2014 captured as requirement c17 with h10/h11; user confirmed all three.",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": []
+    }
+  ],
+  "open_vagueness": [
+    {
+      "id": "v1",
+      "text": "Measured tempo calibration (replacing illustrative per-substrate baselines with measured ones) \u2014 needs accumulated seat-latency data across many live matches; the illustrative-baseline caveat stays documented",
+      "kind": "follow_up",
+      "claim_id": null
+    },
+    {
+      "id": "v2",
+      "text": "Same-mind-two-substrates and resident-vs-stateless benchmark rows, per-seat colleague workdirs, cycle-2/3 leftover live tests \u2014 live-run backlog, not engine work; pick up when a benchmarking cycle opens",
+      "kind": "follow_up",
+      "claim_id": null
+    },
+    {
+      "id": "v3",
+      "text": "Continuous-lane video export and span-probe generalization (GIF face and probe p0 read grid logs only) \u2014 the minimal continuous replay face is the honest floor this cycle; generalize when the continuous lane earns its own visual cycle",
+      "kind": "follow_up",
+      "claim_id": null
+    },
+    {
+      "id": "v4",
+      "text": "Exact MVP/LVP formula shape (which event kinds map to which role purposes at what weights) \u2014 a plan-level decision to be pinned by the scoring task's tests, not guessed in the frame",
+      "kind": "unknown_nonblocking",
+      "claim_id": null
+    }
+  ]
+}
