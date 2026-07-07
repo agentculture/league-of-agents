@@ -132,3 +132,57 @@ hits**.
 - Interaction & accessibility: every value is reachable without hover (the score
   table, direct feed text, and unit `title`s), the transport buttons meet the
   hit-target minimum, and all motion is reduced-motion-safe.
+
+## Continuous face (minimal, cycle 7)
+
+Cycle 7 (`league/engine/continuous/`) added a second engine lane with its own
+event vocabulary and fixed-point (milliunit) positions. `league/replay/chtml.py`
+is its replay face — plan task C7-t9, spec c12/c2 — read beside `html.py`
+above, never over it: the grid face and this file are both untouched by the
+other (spec c11/h11, two lanes, both honest).
+
+**Frame v4 is pinned here as minimal-but-real.** The mesmerizing/video
+generalization this repo's replay conventions otherwise favor — tweened unit
+motion, a play/pause transport, the dual light/dark token system with a manual
+toggle, GIF/video export — is deliberately parked for a later cycle. `chtml.py`
+imports only the grid face's already-validated color constants
+(`TEAM_COLORS`, `STATUS_GOOD`, `STATUS_CRITICAL`, `RESOURCE_COLOR`); it does not
+port or reimplement any of `html.py`'s tween/GIF/theme machinery, so the two
+faces stay genuinely independent.
+
+What ships instead is the honest minimum the acceptance criteria name:
+
+- A **header** with match id, scenario, seed, mode, time limit, and the final
+  status/winner/outcome points.
+- An **event timeline** listing every event in canonical `(game_time, seq)`
+  order, each row timestamped with its integer game time. This is where a race
+  — a faster agent snatching a contested control point mid-capture — must read
+  clearly: a `post_taken` row always carries the `race-win` CSS class (and the
+  fixed status-good color), an `action_failed` row always carries the
+  `race-fail` class (and the fixed status-critical color) — two unmistakably
+  distinct, differently-styled moments, never merged into one ambiguous line.
+- A **static sequence of board snapshots**, one per distinct game-time step,
+  server-rendered as plain inline SVG (positions scaled down from the engine's
+  exact milliunits — never interpolated or tweened). A contested control point
+  draws one dashed ring per concurrent taker in that taker's own team color, so
+  the instant both racers are mid-take is visible on the board too, not only in
+  the feed — the engine already represents a race that way in state
+  (`CControlPoint.takers`; see `league/engine/continuous/state.py`), and the
+  face only has to draw what is already there. The spec explicitly allows a
+  static sequence in place of a scrubber, so no client-side stepping JS ships.
+
+**Determinism and self-containedness** hold the same way as the grid face:
+every fact is derived once via `fold_events`/`apply_event` (the log is the
+single source of truth; the renderer never recomputes game logic), there is no
+`Date.now`/`Math.random` and no external request of any kind, and the whole
+page is one self-contained file — the same log renders byte-identical HTML
+every time (`tests/test_replay_chtml.py`).
+
+**CLI wiring.** `league match replay` detects a continuous log two ways —
+a match id starting with `CONTINUOUS_ID_PREFIX` (`"c-"`, the same discipline
+continuous scenario ids use), or, regardless of naming, the log's own header
+shape (`clock`/`width` for `CMatchState` vs `turn`/`grid_width` for the grid's
+`MatchState`) — and routes to this face. No new verb was added; a grid log
+that matches neither signal falls through to the untouched grid path,
+byte-identical to before this task (`tests/test_cli_match_replay_continuous.py`
+pins this both ways).
