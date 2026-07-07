@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-07-07
+
+### Added
+
+- Cycle-2 spec + plan (devague): seats become resident minds — one persistent session per seat with delta briefings; legal-by-construction orders (legal-actions surface + rejection feedback); dual-award dead-heat rule (user decision); residency as a declared fairness axis; resident-vs-stateless comparison as the success signal
+
 ## [0.7.0] - 2026-07-07
 
 ### Added
