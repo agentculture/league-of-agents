@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-07-07
+
+### Added
+
+- Cycle-7 spec (devague /think): the continuous arena — decimal fixed-point positions, role-given in-game speed decoupled from substrate wall-clock, tick/timeline-based initiative (user decision c13: still turn-based, hardware nullified; turn ORDER is speed-based with action time costs), race semantics with first-class failed attempts, two engine lanes with the grid untouched — 12 user-confirmed claims, 12 honesty conditions, 4 parked unknowns pinned to plan tasks
+- Cycle-7 build plan (devague /spec-to-plan): 10 user-confirmed tasks over 7 waves — spatial core, initiative timeline, continuous state/events, role durations, the race resolver, its own determinism gate, the mind-facing decision-point contract, two-lane honesty, the minimal race-visible replay face, the recorded race match
+
 ## [0.9.2] - 2026-07-07
 
 ### Added
