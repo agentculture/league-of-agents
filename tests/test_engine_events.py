@@ -140,6 +140,10 @@ def test_observational_events_leave_state_unchanged() -> None:
         ("message_sent", {"team_id": "blue", "from": "blue-scout", "text": "hi"}),
         ("plan_declared", {"team_id": "blue", "agent_id": "blue-scout", "text": "plan"}),
         ("turn_resolved", {"turn": 1}),
+        (
+            "seat_latency",
+            {"team_id": "blue", "agent_id": "blue-scout", "unit_id": "blue-u1", "elapsed_ms": 250},
+        ),
     ):
         assert apply_event(state, Event(turn=1, seq=0, kind=kind, data=data)) == state
 
