@@ -98,6 +98,24 @@ def test_stacked_units_fan_out_instead_of_occluding() -> None:
     assert "stack.length > 1 ? 9 : 12" in _TEMPLATE
 
 
+def test_stack_offsets_beyond_four_units_do_not_reuse_positions() -> None:
+    """Human-review regression (Qodo 3534115613): STACK_OFFSETS only has
+    patterns for 1-4 units, but a cell can hold more (3 units/team, 6 total,
+    e.g. the deliver square doubling as a control point). The old
+    ``offs[i % offs.length]`` clamped the pattern index to 4 and then wrapped
+    with modulo, so a 5th/6th unit landed on an already-occupied offset and
+    was occluded again — violating "nothing is ever occluded"."""
+    from league.replay.html import _TEMPLATE
+
+    # No index-wrapping reuse of offsets — every unit in a stack gets its own.
+    assert "% offs.length" not in _TEMPLATE
+    # The general case computes n distinct offsets on a circle, deterministically.
+    assert "Math.cos(angle)" in _TEMPLATE and "Math.sin(angle)" in _TEMPLATE
+    assert "(2 * Math.PI * i) / n - Math.PI / 2" in _TEMPLATE
+    # The predefined aesthetic table is still used for the common n<=4 cases.
+    assert "n <= STACK_OFFSETS.length ? STACK_OFFSETS[n - 1]" in _TEMPLATE
+
+
 def test_mission_targets_are_labeled_with_owner_on_completion() -> None:
     """Human-review regression (season-0 h15): the delivery square sits on a
     capturable control point, so an unlabeled drop ring read as 'delivering to
