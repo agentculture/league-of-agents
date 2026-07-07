@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-07-07
+
+### Added
+
+- league play noun group + bundled preset registry: five one-command modes (solo-vs-bot, team-vs-bot, team-vs-team, orchestrator-vs-bot, resident-vs-bot), dry-run by default
+- seat_latency observation events: every driver call measured harness-side; fold no-op, determinism hash untouched
+- Tempo, the third scored axis (t0): read-time scoring against declared per-substrate baselines, raw always beside converted; methodology + limits in docs/tempo-methodology.md
+- House-bot tier roster: shambler (bronze), rusher (silver), vanguard (gold) + recorded tier-ordering matches under docs/playtests/house-tiers/
+- Fog-aware bot lane: lampbearer (silver) reads only the fogged JSON surface, spy-test enforced; bot-file driver gains an opt-in fogged flag
+- Cooperation metric v1: rejection-taxed delegation_spread, message content utility over cadence, plan fidelity, pseudo-coordination priced; v0 kept bit-identical, season-0 re-scored side by side in docs/playtests/season-0/cooperation-v1.report.md
+- Stacked-train release workflow doc (docs/process/release-train.md) recording the 0.5.0-0.8.0 train's real failure modes and the per-merge publish decision
+- Cycle-4 playtests: preset-launched solo sonnet vs the named silver house bot (26-2, all three axes recorded) and the clean-checkout end-to-end demo with the boundary review checklist
+- Cross-repo: devague resolve-verb gap filed upstream (agentculture/devague#60) with hand-edit evidence
+
+### Changed
+
+- solo-vs-bot preset faces the named silver strategy (bots/rusher.py) instead of the in-harness greedy baseline
+
 ## [0.8.1] - 2026-07-07
 
 ### Added
