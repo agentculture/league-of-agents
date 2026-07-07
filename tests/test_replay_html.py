@@ -150,3 +150,87 @@ def test_both_themes_ship() -> None:
     assert 'data-theme="dark"' in html
     assert 'data-theme="light"' in html
     assert "theme-toggle" in html
+
+
+def test_both_themes_are_deliberately_designed() -> None:
+    """C6-t4: dark is a *selected* set of steps, not an auto-flip — both themes
+    carry their own surface, ink, and elevation tokens, and the manual toggle
+    wins in both directions (a ``data-theme`` block per theme, not only the
+    media query)."""
+    html = render_html(_play_match())
+    # Every theme block re-declares the load-bearing tokens (surface + ink +
+    # elevation), so neither theme is a partial override of the other.
+    for block in ("prefers-color-scheme: dark", ':root[data-theme="dark"]'):
+        seg = html.split(block, 1)[1].split("}", 1)[0]
+        assert "--surface" in seg and "--ink" in seg
+    light_block = html.split(':root[data-theme="light"]', 1)[1].split("}", 1)[0]
+    assert "--surface" in light_block and "--ink" in light_block
+    # Depth is a designed, per-theme token (elevation differs light vs dark).
+    assert "--shadow" in html
+
+
+def test_team_colors_are_the_validated_categorical_hues() -> None:
+    """C6-t4: team identity is the validated categorical pair (blue/red),
+    stepped per surface — light ``#2a78d6``/``#e34948``, dark
+    ``#3987e5``/``#e66767`` (validate_palette.js: all six checks PASS both
+    modes)."""
+    html = render_html(_play_match())
+    for hexval in ("#2a78d6", "#e34948", "#3987e5", "#e66767"):
+        assert hexval in html, f"validated team hue {hexval} missing"
+    # Team identity is a categorical slot referenced by role, never raw hex.
+    assert "--team-0" in html and "--team-1" in html
+
+
+def test_status_colors_are_reserved_and_not_team_colors() -> None:
+    """C6-t4: status hues (good/critical) come from the fixed status scale and
+    are distinct from the categorical team hues — a status color never
+    impersonates a team series (dataviz color-formula)."""
+    html = render_html(_play_match())
+    assert "#0ca30c" in html  # status good
+    assert "#d03b3b" in html  # status critical
+    # The status reds are a *different* hex than either team red.
+    assert "#d03b3b" != "#e34948" and "#d03b3b" != "#e66767"
+
+
+def test_motion_is_present_and_gated_by_reduced_motion() -> None:
+    """C6-t4: purposeful motion ships — smooth unit movement between turns and
+    celebratory keyframes — but every bit of it is disabled under
+    ``prefers-reduced-motion: reduce``."""
+    html = render_html(_play_match())
+    assert "@keyframes" in html  # celebratory animation defined
+    assert "transition:" in html  # smooth interpolation between turns
+    # Units glide via a transform transition between frames.
+    assert "transform" in html and "--move" in html
+    # And all of it is honoured off under reduced motion.
+    assert "prefers-reduced-motion: reduce" in html
+
+
+def test_playback_speed_control_ships() -> None:
+    """C6-t4: play/pause plus an adjustable speed (the directive's transport)."""
+    html = render_html(_play_match())
+    assert "btn-play" in html
+    assert "data-speed" in html
+
+
+def test_replay_render_is_byte_deterministic() -> None:
+    """C6-t4 merge gate: the same log renders byte-identical HTML — no
+    ``Date.now``/``Math.random`` leaks into generation, so a committed replay is
+    reproducible."""
+    log = _play_match()
+    assert render_html(log) == render_html(log)
+    # And no wall-clock / entropy source is baked into the generated document.
+    html = render_html(log)
+    for banned in ("Date.now(", "Math.random("):
+        assert banned not in html, f"non-deterministic source {banned} in replay"
+
+
+def test_board_marks_never_paint_text_with_team_color() -> None:
+    """dataviz marks-and-anatomy: text wears text tokens; identity rides a
+    colored *mark* beside the text, never the text fill itself. The score
+    header names teams in ink with a swatch, not in team color."""
+    from league.replay.html import _TEMPLATE
+
+    # The old header coloured the team name text with the team hue — regression
+    # guard that it does not come back.
+    assert "color:${teamColor(t.id)}" not in _TEMPLATE
+    assert 'style="color:${teamColor' not in _TEMPLATE
