@@ -305,6 +305,63 @@ the board updates in view. The tab chrome is styled with the theme tokens in
 both modes (the active tab wears `--accent`). Rendered HTML stays
 byte-deterministic.
 
+## Ambient score — generative, seeded, off by default (cycle 8)
+
+> **Provenance — the user's directive, verbatim (cycle-8 spec c17):** "add
+> audio that will make experience superb. Both for the reply (html) and the
+> videos we export. I want a pleasent music that will complement the
+> experience and make me feel content and relaxed, but also curious and
+> intrigued."
+
+The HTML replay's transport gains a note toggle (`#btn-audio`, wearing the
+play button's own accent on-state) that plays a generative ambient score in
+the Eno vein, synthesized entirely at play time with WebAudio primitives —
+`OscillatorNode`, `GainNode`, `BiquadFilterNode`, and a `ConvolverNode` whose
+impulse response is itself synthesized from the seeded stream, never a
+fetched asset. Nothing about the feature touches the document: the page stays
+byte-deterministic and self-contained, the toggle is **off by default**
+(browser autoplay policy, and the reviewer's choice), and enabling it only
+creates an `AudioContext` lazily on the enabling gesture.
+
+**Musical design.** Two layers map the two halves of the mood brief:
+
+- *Content and relaxed* — a warm pad bed: open major **lydian** voicings
+  (1-5-9-3, an add-6, the lydian II, a 1-5-maj7 suspension — no minor-third
+  low intervals, so no minor-key tension), two ±2.5-cent-detuned sines per
+  chord tone plus a quiet sub-octave triangle, 6-second attacks and 7-second
+  releases crossfading 18–26-second chords into one continuous bed, low-pass
+  filtered around 950 Hz with a slow (0.045 Hz) LFO breathing the cutoff. The
+  root is one of four warm choices (F2/G2/A2/C3), picked by the seed.
+- *Curious and intrigued* — sparse bell tones every 3.5–9 seconds: three
+  near-harmonic sine partials (1 / 2.01 / 3.02) with a 12 ms attack and a
+  long exponential decay, drawn from a pentatonic-plus-maj7 set two octaves
+  above the root, with the lydian sharp-4 reserved as a rare (~11%) color and
+  an occasional (~22%) soft answering bell a third or fifth above. Bells ride
+  mostly through the synthesized reverb.
+
+Master gain stays conservative (about a −18 dBFS feel, behind a gentle safety
+compressor): the score plays *under* someone watching a replay, never over it.
+
+**Determinism.** Every musical decision consumes a seeded `mulberry32`
+stream whose seed is FNV-1a over `match_id | seed` — data already embedded in
+the page — with one independent stream per voice (pads, bells, impulse) so
+the look-ahead scheduler's wall-clock tick cadence can never reorder draws.
+Same match → identical note choices and timings, on every enable. No
+unseeded entropy: the byte-determinism test bans `Math.random`/`Date.now` in
+the rendered document, and the no-external-request sweep covers the audio
+path like everything else.
+
+**The reviewer rates the mood on the record (spec h11/h12).** The assessor
+guide's "Ambient score" section quotes the target verbatim — "content and
+relaxed, but also curious and intrigued" — and the next human review rates
+whether the score lands it; a miss is a finding for the next cycle, not a
+silent pass. The exported-video soundtrack (a WAV synthesized offline from
+the same match seed, muxed into MP4) is a separate task (cycle-8 t9). The
+**continuous face deliberately stays silent this wave**: frame v4 is pinned
+minimal — no transport, no client JS — so there is no idiomatic home for a
+toggle there yet; it inherits audio when the continuous lane earns its own
+visual cycle.
+
 ## Anti-pattern checklist
 
 Checked against every entry in `references/anti-patterns.md`; result: **zero

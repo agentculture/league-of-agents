@@ -39,10 +39,11 @@ _PLAYTESTS = Path(__file__).resolve().parent.parent / "docs" / "playtests"
 # is the continuous face (or its CLI routing) bending the grid path, which the
 # continuous work must never touch. It is NOT a freeze on the grid face itself:
 # a deliberate grid-renderer change (like the cycle-6 restyle, PR #18, which
-# moved this pin from 5a1f8919… to its current value) legitimately regenerates
-# it — recompute render_html() on the committed log and say so in the PR.
+# moved this pin from 5a1f8919…, or the cycle-8 t4 ambient score, which moved
+# it from bfe89f92… to its current value) legitimately regenerates it —
+# recompute render_html() on the committed log and say so in the PR.
 _GRID_LOG_REL = "cycle-5/colleague-coop.log.jsonl"
-_GRID_HTML_SHA256 = "bfe89f9211fcd04670e8f7fe2da73c7592338fe8a8b56a7d39a4151ab56be7b2"
+_GRID_HTML_SHA256 = "a938748576e59cc41184a1d3f6b18da931f8458523eb26d9785a55b3467ffe72"
 
 
 def _committed_grid_log() -> MatchLog:

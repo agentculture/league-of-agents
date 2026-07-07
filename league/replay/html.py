@@ -33,6 +33,13 @@ rationale, palette values, and the ``validate_palette.js`` results):
   the viewport width and keeps the board hero in view — the assessor guide is
   the default tab, scrolling inside its own panel rather than pushing the board
   off-screen.
+* **An ambient score, off by default** (cycle-8 t4, spec c17/h10). The
+  transport's note toggle plays a generative Eno-vein score — slow lydian pads
+  under sparse bells — synthesized at play time with WebAudio primitives from a
+  seed derived from data already in the page (match id + seed), so the same
+  match always plays the same music. No audio asset, no request, no bytes
+  change: the AudioContext is created lazily on the enabling gesture, and
+  enabling/disabling never touches the document (see ``docs/replay-design.md``).
 * The page embeds the replay data as one ``<script type="application/json">``
   block derived from the log — the HTML and ``--json`` projections cannot
   diverge because they are the same fold.
@@ -234,6 +241,7 @@ def build_assessor_guide(log: MatchLog) -> dict[str, Any]:
         "phases": _phases(initial, frame_turns),
         "key_moments": _key_moments(log, final, snap),
         "judging": _judging(log),
+        "listening": _listening(initial),
     }
     guide["checklist"] = _checklist(log, guide, snap)
 
@@ -753,6 +761,32 @@ def _checklist(
     return checklist
 
 
+def _listening(initial: MatchState) -> dict[str, Any]:
+    """Section (e): the ambient score (cycle-8 t4, spec c17/h10/h12) — what the
+    transport's note toggle plays, why it is deterministic for THIS match, and
+    the verbatim mood target the next human review rates on the record. The
+    mood sentence is the user's brief quoted, not paraphrased: if the score
+    misses it, that is a recorded finding, never a silent pass (spec h11)."""
+    return {
+        "title": "Ambient score",
+        "mood_target": "content and relaxed, but also curious and intrigued",
+        "how": (
+            f"The note toggle in the transport plays a generative ambient score — slow "
+            f"lydian pads under sparse bell tones — synthesized live by WebAudio from a "
+            f"seed derived from this match ({initial.match_id}, seed {initial.seed}). "
+            f"No audio file and no network request: the same match always plays the same "
+            f"music, audio stays off until you enable it, and enabling changes nothing "
+            f"about the document."
+        ),
+        "rate": (
+            "Rate the mood on the record: the target, verbatim from the user's brief, is "
+            "“content and relaxed, but also curious and intrigued”. If the score "
+            "misses that target, the miss is a finding for the next cycle, not a silent "
+            "pass."
+        ),
+    }
+
+
 def render_html(log: MatchLog) -> str:
     """The single-file human view. No external requests, ever."""
     payload = json.dumps(build_replay_data(log), sort_keys=True, ensure_ascii=False)
@@ -933,7 +967,9 @@ body.booting #unit-layer g { transition: none; }
   transition: border-color .15s, background .15s, color .15s;
 }
 .controls button:hover { border-color: var(--muted); }
-#btn-play.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+#btn-play.on, #btn-audio.on {
+  background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+}
 #turn-slider { flex: 1; min-width: 120px; accent-color: var(--accent); }
 #turn-label {
   font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 92px;
@@ -1113,6 +1149,8 @@ footer kbd {
           <button data-speed="1" class="on" title="normal speed">1&#215;</button>
           <button data-speed="2" title="double speed">2&#215;</button>
         </div>
+        <button id="btn-audio" type="button" title="ambient score (off)"
+          aria-pressed="false" aria-label="ambient score (off)">&#9834;</button>
       </div>
     </div>
     <div class="card side" id="side">
@@ -1549,6 +1587,15 @@ function renderGuide() {
     s4.appendChild(item);
   });
   body.appendChild(s4);
+
+  // (e) The ambient score — what plays, why it is deterministic for this
+  // match, and the verbatim mood target the reviewer rates on the record.
+  if (G.listening) {
+    const s5 = gSection(G.listening.title);
+    s5.appendChild(gEl('p', 'guide-p', G.listening.how));
+    s5.appendChild(gEl('p', 'guide-p', G.listening.rate));
+    body.appendChild(s5);
+  }
 }
 
 function render(forward) {
@@ -1694,6 +1741,174 @@ $('theme-toggle').onclick = () => {
   const cur = document.documentElement.dataset.theme || (dark ? 'dark' : 'light');
   $('theme-toggle').querySelector('.tt-label').textContent = cur === 'dark' ? 'Light' : 'Dark';
 })();
+
+// ---- Ambient score (cycle-8 t4, spec c17/h10): a generative Eno-vein score,
+// synthesized at PLAY TIME from WebAudio primitives — oscillators, gains, a
+// low-pass filter, and a convolver whose impulse response is itself
+// synthesized from the seeded stream, never a fetched asset. The seed derives
+// from data already embedded in this page (match id + seed), so the same
+// match always plays the same music; nothing about enabling or disabling the
+// score touches the document. OFF by default: the AudioContext is created
+// lazily inside the enable path, on the user's own gesture (autoplay policy
+// requires one anyway). Two layers map the mood brief: a warm pad bed of open
+// major lydian voicings for "content and relaxed", sparse bell tones — with
+// the lydian sharp-4 saved as a rare color — for "curious and intrigued".
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function audioSeed() {
+  const s = M.match_id + '|' + M.seed;  // data already embedded in the page
+  let h = 2166136261 >>> 0;             // FNV-1a over it
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+// Master stays conservative (about a -18 dBFS feel behind a gentle safety
+// compressor): the score plays UNDER someone watching a replay, never over it.
+const MASTER_LEVEL = 0.3;
+const ROOT_MIDI = [41, 43, 45, 48];     // F2 G2 A2 C3 — warm roots only
+const PAD_CHORDS = [                    // semitones above root; no minor-3rd low intervals
+  [0, 7, 14, 16],   // 1 5 9 3 — home, warm
+  [0, 7, 16, 21],   // 1 5 3 6 — the add-6 lift
+  [2, 9, 14, 18],   // the lydian II — bright, forward-leaning
+  [0, 7, 19, 23],   // 1 5 5 maj7 — open, suspended calm
+];
+const BELL_STEPS = [0, 2, 4, 7, 9, 11, 14, 16];  // pentatonic-plus-maj7, two octaves up
+const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
+const AUDIO = { graph: null, timer: null, on: false };
+
+function makeImpulse(ctx, rnd) {        // synthesized reverb tail — never a fetched asset
+  const len = Math.floor(3.2 * ctx.sampleRate);
+  const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) d[i] = (rnd() * 2 - 1) * Math.pow(1 - i / len, 2.9);
+  }
+  return buf;
+}
+function buildAudio(seed) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = ctx.createGain(); master.gain.value = 0;
+  const safety = ctx.createDynamicsCompressor();
+  safety.threshold.value = -22; safety.knee.value = 18; safety.ratio.value = 4;
+  safety.attack.value = 0.012; safety.release.value = 0.3;
+  master.connect(safety); safety.connect(ctx.destination);
+  const rev = ctx.createConvolver();
+  rev.buffer = makeImpulse(ctx, mulberry32(seed ^ 0x1F123BB5));
+  const wet = ctx.createGain(); wet.gain.value = 0.5; rev.connect(wet); wet.connect(master);
+  const padLp = ctx.createBiquadFilter();
+  padLp.type = 'lowpass'; padLp.frequency.value = 950; padLp.Q.value = 0.4;
+  const padBus = ctx.createGain(); padBus.gain.value = 0.9;
+  padBus.connect(padLp); padLp.connect(master);
+  const padSend = ctx.createGain(); padSend.gain.value = 0.3;
+  padLp.connect(padSend); padSend.connect(rev);
+  const lfo = ctx.createOscillator(); lfo.frequency.value = 0.045;  // slow breathing
+  const lfoAmt = ctx.createGain(); lfoAmt.gain.value = 240;
+  lfo.connect(lfoAmt); lfoAmt.connect(padLp.frequency); lfo.start();
+  const bellBus = ctx.createGain(); bellBus.gain.value = 0.75; bellBus.connect(master);
+  const bellSend = ctx.createGain(); bellSend.gain.value = 0.9;
+  bellBus.connect(bellSend); bellSend.connect(rev);   // bells ride mostly in the reverb
+  return { ctx, master, padBus, bellBus };
+}
+function padChord(A, rootHz, steps, t, dur) {
+  // long attack, long release — successive chords crossfade into one bed
+  const env = g => {
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.05, t + 6);
+    g.gain.setValueAtTime(0.05, t + dur - 7);
+    g.gain.linearRampToValueAtTime(0, t + dur);
+  };
+  for (const st of steps) {
+    const f = rootHz * Math.pow(2, st / 12);
+    for (const det of [-2.5, 2.5]) {
+      const o = A.ctx.createOscillator();
+      o.type = 'sine'; o.frequency.value = f; o.detune.value = det;
+      const g = A.ctx.createGain(); env(g);
+      o.connect(g); g.connect(A.padBus); o.start(t); o.stop(t + dur + 0.2);
+    }
+  }
+  const sub = A.ctx.createOscillator();               // a quiet sub-octave root
+  sub.type = 'triangle'; sub.frequency.value = rootHz * Math.pow(2, steps[0] / 12) / 2;
+  const sg = A.ctx.createGain(); env(sg);
+  sub.connect(sg); sg.connect(A.padBus); sub.start(t); sub.stop(t + dur + 0.2);
+}
+function bellNote(A, f, t, vel) {
+  // near-harmonic partials, fast attack, long exponential decay
+  for (const [ratio, amp] of [[1, 1], [2.01, 0.38], [3.02, 0.13]]) {
+    const o = A.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * ratio;
+    const g = A.ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.16 * vel * amp, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 5 / ratio);
+    o.connect(g); g.connect(A.bellBus); o.start(t); o.stop(t + 5 / ratio + 0.1);
+  }
+}
+function startScore() {
+  const seed = audioSeed();
+  const A = AUDIO.graph = buildAudio(seed);
+  // One seeded stream per voice, so the look-ahead scheduler's wall-clock
+  // tick cadence can never reorder draws — the whole musical timeline is a
+  // pure function of the seed, identical on every enable.
+  const padRnd = mulberry32(seed ^ 0x51AB3C02);
+  const bellRnd = mulberry32(seed ^ 0x9E3779B9);
+  const rootHz = midiHz(ROOT_MIDI[Math.floor(mulberry32(seed)() * ROOT_MIDI.length)]);
+  const t0 = A.ctx.currentTime + 0.08;
+  let padT = 0, chord = 0, bellT = 2 + bellRnd() * 3;
+  function ahead() {
+    const now = A.ctx.currentTime - t0;
+    while (padT < now + 1.5) {
+      const dur = 18 + padRnd() * 8;
+      padChord(A, rootHz, PAD_CHORDS[chord], t0 + padT, dur + 8);
+      chord = (chord + 1 + Math.floor(padRnd() * (PAD_CHORDS.length - 1))) % PAD_CHORDS.length;
+      padT += dur;
+    }
+    while (bellT < now + 1.5) {
+      const curious = bellRnd() < 0.11;               // the rare lydian sharp-4 color
+      const step = curious ? 6 : BELL_STEPS[Math.floor(bellRnd() * BELL_STEPS.length)];
+      const f = rootHz * Math.pow(2, (24 + step + (bellRnd() < 0.3 ? 12 : 0)) / 12);
+      const vel = 0.5 + bellRnd() * 0.5;
+      bellNote(A, f, t0 + bellT, vel);
+      if (bellRnd() < 0.22)                            // an occasional soft answer
+        bellNote(A, f * Math.pow(2, (bellRnd() < 0.5 ? 7 : 4) / 12),
+          t0 + bellT + 0.7 + bellRnd() * 0.8, vel * 0.55);
+      bellT += 3.5 + bellRnd() * 5.5;
+    }
+  }
+  ahead();
+  AUDIO.timer = setInterval(ahead, 240);
+  A.master.gain.setValueAtTime(0, A.ctx.currentTime);  // anchor, then fade in
+  A.master.gain.linearRampToValueAtTime(MASTER_LEVEL, A.ctx.currentTime + 2);
+}
+function setAudioButton(on) {
+  const b = $('btn-audio');
+  b.classList.toggle('on', on);
+  b.setAttribute('aria-pressed', String(on));
+  const label = on ? 'ambient score (on)' : 'ambient score (off)';
+  b.setAttribute('aria-label', label); b.title = label;
+}
+function audioToggle() {
+  if (AUDIO.on) {
+    AUDIO.on = false;
+    clearInterval(AUDIO.timer); AUDIO.timer = null;
+    const A = AUDIO.graph; AUDIO.graph = null;
+    if (A) {
+      A.master.gain.cancelScheduledValues(A.ctx.currentTime);
+      A.master.gain.setValueAtTime(A.master.gain.value, A.ctx.currentTime);
+      A.master.gain.linearRampToValueAtTime(0, A.ctx.currentTime + 0.5);
+      setTimeout(() => A.ctx.close(), 650);           // runtime teardown only
+    }
+    setAudioButton(false);
+  } else {
+    AUDIO.on = true;
+    startScore();                // the ctx is born here, on the user's gesture
+    setAudioButton(true);
+  }
+}
+$('btn-audio').onclick = audioToggle;
 
 setSpeed(1);
 // Deep link: replay.html#t7 opens on turn 7, so reviewers can point at a frame.
