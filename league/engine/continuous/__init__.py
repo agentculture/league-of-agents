@@ -29,6 +29,20 @@ from league.engine.continuous.events import (
     apply_event,
     fold_events,
 )
+from league.engine.continuous.legal import (
+    Plan,
+    legal_actions_continuous,
+    move_duration,
+    plan_action,
+)
+from league.engine.continuous.resolve import (
+    CP_POINTS,
+    DecisionFn,
+    IllegalContinuousAction,
+    ResolveResult,
+    outcome_points,
+    resolve_match,
+)
 from league.engine.continuous.roles import (
     DEFAULT_CROLE_STATS,
     CRoleStats,
@@ -131,4 +145,16 @@ __all__ = [
     "role_table_hash",
     "role_table_to_json",
     "stats_for",
+    # continuous legality/menu (legal.py)
+    "Plan",
+    "legal_actions_continuous",
+    "move_duration",
+    "plan_action",
+    # continuous resolver with race semantics (resolve.py)
+    "CP_POINTS",
+    "DecisionFn",
+    "IllegalContinuousAction",
+    "ResolveResult",
+    "outcome_points",
+    "resolve_match",
 ]
