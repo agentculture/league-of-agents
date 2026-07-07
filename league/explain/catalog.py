@@ -211,6 +211,19 @@ state. It lives in the match log header and `match show --json`'s
 `driver_kinds`, never in engine state; omit it and the team's kind is simply
 unrecorded.
 
+`--map-read <team-id>:<full|fog>` and `--unit-comms <team-id>:<on|off>`
+(both repeatable) record orchestrator mode's two declared fairness axes
+(plan t6, spec c4/c6/h3/h5): `map_read` is the team's master/commander
+map-read capability under fog — `full` means the master reads the whole
+board (a DECLARED information-asymmetry rule of the mode, never a hidden
+privilege), `fog` (the implicit default when omitted) means the same fogged
+view as everyone; `unit_comms` is whether that team's ground units may
+message each other directly (`on`) or are master-mediated only (`off`,
+orchestrator mode's own default). Both live in the match log header and
+`match show --json`'s `map_read`/`unit_comms`, never in engine state; the
+harness (`league/harness.py`) reads them off each team's config to decide
+what the master's briefing sees and which messages a seat's briefing relays.
+
 `show --json` also includes `last_turn_rejections`: every `action_rejected`
 event from the turn just resolved (`{team_id, unit_id, reason}`), so a caller
 can see *why* an order failed without scraping the whole log. The harness

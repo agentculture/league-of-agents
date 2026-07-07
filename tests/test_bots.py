@@ -356,7 +356,15 @@ def test_bot_file_driver_hands_strategy_only_the_public_json_dict(
     assert capture["state_type"] == "dict"
     # ...with exactly the public `match show --json` fields, nothing more...
     assert capture["keys"] == sorted(
-        ["state", "legal_actions", "staged_teams", "last_turn_rejections", "driver_kinds"]
+        [
+            "state",
+            "legal_actions",
+            "staged_teams",
+            "last_turn_rejections",
+            "driver_kinds",
+            "map_read",
+            "unit_comms",
+        ]
     )
     # ...and fully JSON-round-trippable — no non-serializable engine object
     # could be hiding inside it.

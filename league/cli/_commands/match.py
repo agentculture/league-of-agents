@@ -75,6 +75,64 @@ def _driver_kinds_from_args(args: argparse.Namespace, team_ids: list[str]) -> di
     return driver_kinds
 
 
+# Orchestrator mode's two declared fairness axes (plan t6, spec c4/c6/h3/h5):
+# metadata about the MODE's information-asymmetry rules, never game state —
+# same header-only treatment as ``_DRIVER_KINDS`` above.
+_MAP_READ_KINDS = ("full", "fog")
+
+
+def _map_read_from_args(args: argparse.Namespace, team_ids: list[str]) -> dict[str, str]:
+    map_read: dict[str, str] = {}
+    for spec in args.map_read or ():
+        team_id, sep, kind = spec.partition(":")
+        if not sep or not team_id or not kind:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"bad --map-read {spec!r}",
+                remediation="use --map-read <team-id>:<full|fog>",
+            )
+        if team_id not in team_ids:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"--map-read references team {team_id!r}, not one of --team",
+                remediation=f"teams here: {', '.join(team_ids) or 'none'}",
+            )
+        if kind not in _MAP_READ_KINDS:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"unknown map-read kind {kind!r} for team {team_id!r}",
+                remediation=f"expected one of: {', '.join(_MAP_READ_KINDS)}",
+            )
+        map_read[team_id] = kind
+    return map_read
+
+
+def _unit_comms_from_args(args: argparse.Namespace, team_ids: list[str]) -> dict[str, bool]:
+    unit_comms: dict[str, bool] = {}
+    for spec in args.unit_comms or ():
+        team_id, sep, kind = spec.partition(":")
+        if not sep or not team_id or not kind:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"bad --unit-comms {spec!r}",
+                remediation="use --unit-comms <team-id>:<on|off>",
+            )
+        if team_id not in team_ids:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"--unit-comms references team {team_id!r}, not one of --team",
+                remediation=f"teams here: {', '.join(team_ids) or 'none'}",
+            )
+        if kind not in ("on", "off"):
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"unknown unit-comms value {kind!r} for team {team_id!r}",
+                remediation="expected 'on' or 'off'",
+            )
+        unit_comms[team_id] = kind == "on"
+    return unit_comms
+
+
 # -- fog of war: one team's briefing-safe projection (plan t5, spec c5/h4) --
 #
 # The engine/tick stay full-information and deterministic (spec c12
@@ -201,6 +259,8 @@ def cmd_match_new(args: argparse.Namespace) -> int:
     )
     _safe_id(match_id, "match id")
     driver_kinds = _driver_kinds_from_args(args, team_ids)
+    map_read = _map_read_from_args(args, team_ids)
+    unit_comms = _unit_comms_from_args(args, team_ids)
     try:
         state = instantiate(
             scenario, match_id=match_id, seed=args.seed, mode=args.mode, teams=teams
@@ -220,6 +280,8 @@ def cmd_match_new(args: argparse.Namespace) -> int:
         "seed": args.seed,
         "teams": [t[0] for t in teams],
         "driver_kinds": driver_kinds,
+        "map_read": map_read,
+        "unit_comms": unit_comms,
         "turn_limit": state.turn_limit,
         "applied": bool(args.apply),
     }
@@ -227,7 +289,13 @@ def cmd_match_new(args: argparse.Namespace) -> int:
         initial = instantiate(
             scenario, match_id=match_id, seed=args.seed, mode=args.mode, teams=teams
         )
-        log = MatchLog(initial_state=initial, events=events, driver_kinds=driver_kinds)
+        log = MatchLog(
+            initial_state=initial,
+            events=events,
+            driver_kinds=driver_kinds,
+            map_read=map_read,
+            unit_comms=unit_comms,
+        )
         try:
             path = store.create_match(log)
         except FileExistsError as err:
@@ -336,6 +404,8 @@ def cmd_match_show(args: argparse.Namespace) -> int:
             "legal_actions": living_actions,
             "last_turn_rejections": last_turn_rejections,
             "driver_kinds": log.driver_kinds,
+            "map_read": log.map_read,
+            "unit_comms": log.unit_comms,
         }
         if fog:
             # Additive and read-only: swaps only this response's "state" for
@@ -759,6 +829,24 @@ def register(sub: argparse._SubParsersAction) -> None:
         metavar="TEAM:KIND",
         help="Declared driver residency for a team — bot/stateless/resident "
         "(fairness metadata only, recorded in the match log; repeatable).",
+    )
+    new.add_argument(
+        "--map-read",
+        action="append",
+        metavar="TEAM:full|fog",
+        help="Orchestrator mode's declared map-read capability for a team under "
+        "fog — 'full' (its master reads the whole board) or 'fog' (default: "
+        "same fogged view as everyone) — a declared information-asymmetry "
+        "rule, never a hidden privilege (spec c4/h3; repeatable).",
+    )
+    new.add_argument(
+        "--unit-comms",
+        action="append",
+        metavar="TEAM:on|off",
+        help="Orchestrator mode's declared unit-to-unit comms flag for a team — "
+        "'on' lets ground units message each other directly; 'off' (the "
+        "mode's default) means master-mediated only — a recorded fairness "
+        "axis (spec c6/h5; repeatable).",
     )
     new.add_argument("--apply", action="store_true", help="Actually create (default: dry-run).")
     new.add_argument("--json", action="store_true", help="Emit structured JSON.")
