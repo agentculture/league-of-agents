@@ -3,6 +3,15 @@ revision = 3
 requires-python = ">=3.12"
 
 [[package]]
+name = "agentfront"
+version = "0.20.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/c2/acf94fc4274161b3c6983b9308544ff7f6ea376ade72c13f7bfeb3dd0711/agentfront-0.20.0.tar.gz", hash = "sha256:990901c75b04cff4d6413eeb510f2fb1c33332a8d43267aa86e5c0e2380f2c37", size = 485014, upload-time = "2026-07-02T06:04:58.983Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5e/95/8fd2a19d2b92fe1500bb28587af722d28638f95e70a0d8ac191cd45b2a72/agentfront-0.20.0-py3-none-any.whl", hash = "sha256:1c6b20006e3aad858ed6cb4ef6c3f7181c2b27c54e82eb269f31658707bdfd98", size = 140246, upload-time = "2026-07-02T06:04:57.696Z" },
+]
+
+[[package]]
 name = "bandit"
 version = "1.9.4"
 source = { registry = "https://pypi.org/simple" }
@@ -197,8 +206,11 @@ wheels = [
 
 [[package]]
 name = "league-of-agents"
-version = "0.7.3"
+version = "0.8.0"
 source = { editable = "." }
+dependencies = [
+    { name = "agentfront" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -213,6 +225,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "agentfront", specifier = ">=0.20" }]
 
 [package.metadata.requires-dev]
 dev = [
