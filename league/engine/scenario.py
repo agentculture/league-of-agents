@@ -370,6 +370,14 @@ def instantiate(
     play needs exactly two sides, cooperative exactly one. Every agent roster
     must match the scenario's unit roles one-to-one — the roster *is* the
     role composition being compared across matches (spec c14/h7).
+
+    A scenario's ``unit_roles`` may repeat a role name (cycle-6 task C6-t2's
+    roster-scale knob, e.g. two harvester slots) — the ``sorted(...) ==
+    sorted(...)`` check above is already a MULTISET comparison, so counts per
+    role must match, not just the set of names. The assignment below walks a
+    per-role QUEUE of roster agents (in roster order) rather than a single
+    dict keyed by role, so N agents sharing a role each get their own unit,
+    deterministically, instead of a dict silently collapsing to the last one.
     """
     if mode not in scenario.modes:
         raise ValueError(f"scenario {scenario.id!r} does not support mode {mode!r}")
@@ -387,10 +395,17 @@ def instantiate(
             )
         team_states.append(TeamState(id=team_id, name=team_name, resources=0, agents=agents))
         spawn = scenario.spawns[side]
-        # Deterministic assignment: scenario role order, spawn slot order.
-        by_role = {a.role: a for a in agents}
+        # Deterministic assignment: scenario role order, spawn slot order,
+        # roster order per role (a per-role queue, not a role->agent dict —
+        # see the docstring note on duplicate-role scenarios).
+        by_role: dict[str, list[AgentSlot]] = {}
+        for agent in agents:
+            by_role.setdefault(agent.role, []).append(agent)
+        next_index = {role: 0 for role in by_role}
         for i, role in enumerate(scenario.unit_roles):
-            agent = by_role[role]
+            index = next_index[role]
+            agent = by_role[role][index]
+            next_index[role] = index + 1
             units.append(
                 Unit(
                     id=f"{team_id}-u{i + 1}",
