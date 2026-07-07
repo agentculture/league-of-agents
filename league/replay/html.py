@@ -46,6 +46,28 @@ from league.engine.scoring import (
 from league.engine.state import MatchState
 from league.engine.tick import CP_POINTS
 
+# Palette constants — the SAME validated hex values behind the CSS custom
+# properties in ``_TEMPLATE`` below (light theme). Exported so other
+# renderers built on the same replay fold (e.g. ``league.replay.video``'s
+# raster frames, plan task t6) draw with the identical, already-validated
+# hues instead of re-deriving their own (dataviz palette.md).
+TEAM_COLORS: tuple[str, ...] = (
+    "#2a78d6",
+    "#e34948",
+    "#eb6834",
+    "#4a3aa7",
+    "#e87ba4",
+    "#eda100",
+)
+RESOURCE_COLOR = "#1baf7a"
+STATUS_GOOD = "#0ca30c"
+STATUS_CRITICAL = "#d03b3b"
+BOARD_PLANE = "#f2f1ec"
+BOARD_LINE = "#c3c2b7"
+BOARD_INK = "#0b0b0b"
+BOARD_MUTED = "#898781"
+GLYPH_INK = "#ffffff"
+
 
 def _snapshot(state: MatchState) -> dict[str, Any]:
     return {

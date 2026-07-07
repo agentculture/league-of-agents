@@ -15,10 +15,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+import subprocess  # nosec B404
 import sys
+from pathlib import Path
 from typing import Any
 
-from league.cli._errors import EXIT_USER_ERROR, CliError
+from league.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
 from league.cli._output import emit_result
 from league.engine.events import MatchLog
 from league.engine.knowledge import KnowledgeFrame, knowledge_by_turn, latest_knowledge
@@ -30,7 +33,23 @@ from league.engine.state import MatchState
 from league.engine.tempo import score_tempo
 from league.engine.tick import resolve_turn, start_match
 from league.faces import faces_app, render_brief_markdown
-from league.replay import build_replay_data, render_frame, render_html, run_interactive_shell
+from league.replay import (
+    DEFAULT_FPS,
+    DEFAULT_SCALE,
+    MAX_FPS,
+    MAX_SCALE,
+    MIN_FPS,
+    MIN_SCALE,
+)
+from league.replay import build_frames as build_video_frames
+from league.replay import (
+    build_replay_data,
+    indices_to_rgb,
+    render_frame,
+    render_gif,
+    render_html,
+    run_interactive_shell,
+)
 from league.store import Store, validate_id
 
 
@@ -222,6 +241,8 @@ def cmd_match_overview(args: argparse.Namespace) -> int:
             "guidance linkage, from the log alone",
             "brief": "markdown briefing from the faces registry (--team for the fogged view)",
             "replay": "self-contained HTML replay on stdout",
+            "record": "render the match log to a shareable GIF (or --format mp4 with "
+            "ffmpeg on PATH), offline, to --out <file>",
             "tui": "replay-stepping terminal view: ground truth or --team fog "
             "(--frame N for non-interactive; --no-color)",
         },
@@ -758,6 +779,137 @@ def cmd_match_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+# -- video export: one command, offline, from the log alone (plan task t6, --
+# -- spec c7/h7). The primary path is a pure-stdlib animated GIF (never --
+# -- installs anything, always works); ffmpeg for --format mp4 is optional --
+# -- and lives ENTIRELY in this CLI function — league/replay/video.py never --
+# -- shells out, so the toolchain risk (parked r1) stays isolated here. --
+
+
+def _record_provenance(args: argparse.Namespace) -> str:
+    """The exact command, reconstructed canonically from parsed args (not raw
+    ``sys.argv``) so two equivalent invocations embed identical provenance —
+    load-bearing for the reproducibility merge gate."""
+    return (
+        f"league match record {args.match_id} --out {args.out} "
+        f"--format {args.format} --scale {args.scale} --fps {args.fps}"
+    )
+
+
+def _frame_delay_cs(fps: int) -> int:
+    return max(2, round(100 / fps))
+
+
+def _repeat_count(delay_cs: int, fps: int) -> int:
+    """How many constant-fps output frames reproduce one GIF-style hold time."""
+    frame_cs = _frame_delay_cs(fps)
+    return max(1, round(delay_cs / frame_cs))
+
+
+def _render_mp4(video, *, fps: int, out_path: Path, provenance: str) -> None:
+    """Pipe the same raw frames ffmpeg's way. The only subprocess call in the
+    whole video-export feature — deliberately kept out of league/replay/video.py
+    (library code stays subprocess-free and trivially testable)."""
+    raw = bytearray()
+    for frame in video.frames:
+        rgb = indices_to_rgb(frame.indices)
+        raw += rgb * _repeat_count(frame.delay_cs, fps)
+    try:
+        subprocess.run(  # nosec B603 B607
+            [
+                "ffmpeg",
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "rawvideo",
+                "-pixel_format",
+                "rgb24",
+                "-video_size",
+                f"{video.width}x{video.height}",
+                "-framerate",
+                str(fps),
+                "-i",
+                "-",
+                "-pix_fmt",
+                "yuv420p",
+                "-metadata",
+                f"comment={provenance}",
+                str(out_path),
+            ],
+            input=bytes(raw),
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as err:
+        raise CliError(
+            code=EXIT_ENV_ERROR,
+            message=f"ffmpeg failed: {err.stderr.decode(errors='replace')[:300]}",
+            remediation="drop --format (defaults to gif, the always-works path)",
+        ) from err
+
+
+def cmd_match_record(args: argparse.Namespace) -> int:
+    """Render a committed match log into a shareable video artifact, offline —
+    no screen capture, no live session, no network (spec c7/h7)."""
+    json_mode = bool(getattr(args, "json", False))
+    if not MIN_SCALE <= args.scale <= MAX_SCALE:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"--scale {args.scale} out of range",
+            remediation=f"pick a cell size in {MIN_SCALE}..{MAX_SCALE} (pixels per grid cell)",
+        )
+    if not MIN_FPS <= args.fps <= MAX_FPS:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"--fps {args.fps} out of range",
+            remediation=f"pick a frame rate in {MIN_FPS}..{MAX_FPS}",
+        )
+    log = _load(Store(), args.match_id)
+    provenance = _record_provenance(args)
+    data = build_replay_data(log)
+    video = build_video_frames(data, cell_px=args.scale, turn_delay_cs=_frame_delay_cs(args.fps))
+    out_path = Path(args.out)
+
+    if args.format == "mp4":
+        if shutil.which("ffmpeg") is None:
+            raise CliError(
+                code=EXIT_ENV_ERROR,
+                message="--format mp4 requires ffmpeg on PATH, and none was found",
+                remediation=(
+                    "install ffmpeg, or drop --format to use the always-works GIF fallback "
+                    "(the default)"
+                ),
+            )
+        _render_mp4(video, fps=args.fps, out_path=out_path, provenance=provenance)
+        size = out_path.stat().st_size
+    else:
+        gif_bytes = render_gif(log, scale=args.scale, fps=args.fps, provenance=provenance)
+        out_path.write_bytes(gif_bytes)
+        size = len(gif_bytes)
+
+    payload = {
+        "match_id": args.match_id,
+        "out": str(out_path),
+        "format": args.format,
+        "scale": args.scale,
+        "fps": args.fps,
+        "frames": len(video.frames),
+        "bytes": size,
+        "provenance": provenance,
+    }
+    if json_mode:
+        emit_result(payload, json_mode=True)
+    else:
+        emit_result(
+            f"wrote {out_path} ({args.format}, {len(video.frames)} frames, {size} bytes) "
+            f"from {args.match_id} — provenance embedded",
+            json_mode=False,
+        )
+    return 0
+
+
 def _color_enabled(args: argparse.Namespace) -> bool:
     """``--no-color`` and the ``NO_COLOR`` convention both disable ANSI color."""
     if getattr(args, "no_color", False):
@@ -1028,6 +1180,36 @@ def register(sub: argparse._SubParsersAction) -> None:
     replay.add_argument("match_id", help="Match id.")
     replay.add_argument("--json", action="store_true", help="Replay data as JSON instead of HTML.")
     replay.set_defaults(func=cmd_match_replay)
+
+    record = noun_sub.add_parser(
+        "record",
+        help="Render the match log to a shareable GIF/MP4 video file, offline.",
+    )
+    record.add_argument("match_id", help="Match id.")
+    record.add_argument("--out", required=True, help="Output file path (e.g. match.gif).")
+    record.add_argument(
+        "--format",
+        choices=("gif", "mp4"),
+        default="gif",
+        help="gif (default): pure-stdlib, always works, no install. mp4: pipes the same "
+        "frames through ffmpeg — requires ffmpeg on PATH, else errors naming the gif "
+        "fallback.",
+    )
+    record.add_argument(
+        "--scale",
+        type=int,
+        default=DEFAULT_SCALE,
+        help=f"Pixels per grid cell ({MIN_SCALE}..{MAX_SCALE}, default {DEFAULT_SCALE}).",
+    )
+    record.add_argument(
+        "--fps",
+        type=int,
+        default=DEFAULT_FPS,
+        help=f"Turn frames per second ({MIN_FPS}..{MAX_FPS}, default {DEFAULT_FPS}); the "
+        "opening/closing cards hold several times longer, automatically.",
+    )
+    record.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    record.set_defaults(func=cmd_match_record)
 
     tui = noun_sub.add_parser(
         "tui", help="Replay-stepping terminal view (ground truth or --team fog)."
