@@ -37,8 +37,12 @@ def legal_actions(state: MatchState, scenario: Scenario, unit_id: str) -> dict[s
       ascending by ``(x, y)`` so the result is byte-for-byte deterministic.
     * ``gather`` — ``True`` iff the unit stands on a resource node with
       ``remaining > 0`` and it is carrying below its role's ``carry`` stat.
-    * ``deliver`` — ``True`` iff the unit stands on an **open** deliver
-      mission's square while carrying more than zero.
+    * ``deliver`` — ``True`` iff the unit stands on the first deliver
+      mission's square while carrying more than zero. Mirrors
+      ``resolve_turn``'s own target lookup exactly: the *first* mission with
+      ``kind == "deliver"`` in declaration order, regardless of its
+      ``status`` — a completed mission's square still banks resource points,
+      so delivery there is genuinely legal, not just tolerated.
     * ``hold`` — always ``True``.
 
     Raises ``ValueError`` if ``unit_id`` names no unit in ``state``.
@@ -64,7 +68,10 @@ def legal_actions(state: MatchState, scenario: Scenario, unit_id: str) -> dict[s
     node = next((n for n in state.resource_nodes if n.pos == unit.pos), None)
     gather = node is not None and node.remaining > 0 and unit.carrying < stats.carry
 
-    mission = next((m for m in state.missions if m.kind == "deliver" and m.pos == unit.pos), None)
-    deliver = mission is not None and mission.status == "open" and unit.carrying > 0
+    # Mirrors resolve_turn's deliver validation exactly: the first deliver
+    # mission (regardless of status) is the delivery target, and only its
+    # square + a positive carry make the order legal.
+    target = next((m for m in state.missions if m.kind == "deliver"), None)
+    deliver = target is not None and unit.pos == target.pos and unit.carrying > 0
 
     return {"move": moves, "gather": bool(gather), "deliver": bool(deliver), "hold": True}

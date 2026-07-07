@@ -20,7 +20,7 @@ import pytest
 from league.engine.legal import legal_actions
 from league.engine.scenario import get_scenario, instantiate
 from league.engine.state import AgentSlot, MatchState
-from league.engine.tick import start_match
+from league.engine.tick import resolve_turn, start_match
 
 SCENARIO = get_scenario("skirmish-1")
 
@@ -141,20 +141,62 @@ def test_deliver_false_off_the_delivery_square() -> None:
     assert actions["deliver"] is False
 
 
-def test_deliver_false_once_the_mission_is_completed() -> None:
-    state = active_match()
-    state = _replace_unit(state, "blue-u2", pos=(6, 5), carrying=2)
+def _with_completed_supply_mission(state: MatchState) -> MatchState:
     missions = tuple(
         (
-            dataclasses.replace(m, status="completed", completed_by="blue", completed_turn=1)
+            dataclasses.replace(m, status="completed", completed_by=("blue",), completed_turn=1)
             if m.id == "ms-supply"
             else m
         )
         for m in state.missions
     )
-    state = dataclasses.replace(state, missions=missions)
+    return dataclasses.replace(state, missions=missions)
+
+
+def test_deliver_true_once_the_mission_is_completed_if_still_carrying() -> None:
+    """resolve_turn accepts a deliver on a completed mission's square (the
+    delivery still banks resource points) — legal_actions must agree,
+    regression for Qodo comment 3534476060."""
+    state = active_match()
+    state = _replace_unit(state, "blue-u2", pos=(6, 5), carrying=2)
+    state = _with_completed_supply_mission(state)
+    actions = legal_actions(state, SCENARIO, "blue-u2")
+    assert actions["deliver"] is True
+
+
+def test_deliver_legality_agrees_with_resolve_turn_after_mission_completion() -> None:
+    """Cross-check legal_actions() against resolve_turn()'s own validation:
+    a carrying unit on a *completed* deliver mission's square must be
+    reported legal, and resolve_turn must accept it with no rejection."""
+    state = active_match()
+    state = _replace_unit(state, "blue-u2", pos=(6, 5), carrying=2)
+    state = _with_completed_supply_mission(state)
+
+    actions = legal_actions(state, SCENARIO, "blue-u2")
+    assert actions["deliver"] is True
+
+    _, events = resolve_turn(
+        state, SCENARIO, {"blue": {"actions": [{"unit_id": "blue-u2", "action": "deliver"}]}}
+    )
+    assert not [e for e in events if e.kind == "action_rejected"]
+    assert any(e.kind == "resource_delivered" for e in events)
+
+
+def test_deliver_legality_agrees_with_resolve_turn_when_not_carrying() -> None:
+    """Inverse of the above: a non-carrying unit on the same completed
+    mission's square is illegal in both legal_actions() and resolve_turn()."""
+    state = active_match()
+    state = _replace_unit(state, "blue-u2", pos=(6, 5), carrying=0)
+    state = _with_completed_supply_mission(state)
+
     actions = legal_actions(state, SCENARIO, "blue-u2")
     assert actions["deliver"] is False
+
+    _, events = resolve_turn(
+        state, SCENARIO, {"blue": {"actions": [{"unit_id": "blue-u2", "action": "deliver"}]}}
+    )
+    rejected = [e for e in events if e.kind == "action_rejected"]
+    assert [e.data["reason"] for e in rejected] == ["nothing to deliver"]
 
 
 def test_hold_is_always_legal() -> None:
