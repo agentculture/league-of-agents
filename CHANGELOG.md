@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-07-07
+
+### Added
+
+- Cycle-5 spec (devague /think): arena hardening — the five adopted improvement threads (pending cycle-2/3 live tests, cooperation scoring v1, fog-aware bot lane, stacked-train workflow doc, cross-repo devague resolve-verb gap) as user-confirmed requirements, publish-cadence decision (keep per-merge), honesty h1-h13
+- Build plan for cycle 4 (devague /spec-to-plan): 9 user-confirmed tasks over 4 waves — latency metadata, preset registry, league play noun group, house-bot tiers, tempo axis with substrate conversion, methodology doc, recorded playtests and benchmark
+- Build plan for cycle 5 (devague /spec-to-plan): 7 user-confirmed tasks over 3 waves — cooperation v1, season-0 re-score, fog-aware bots, release-train doc, upstream devague issue, live closure matches (lobes-gated), closure ledger
+
 ## [0.8.0] - 2026-07-07
 
 ### Added
