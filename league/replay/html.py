@@ -3,25 +3,36 @@
 Design notes (dataviz method — see ``docs/replay-design.md`` for the full
 rationale, palette values, and the ``validate_palette.js`` results):
 
-* **Color by job.** Team identity is the validated *categorical* pair — blue
-  (slot 1) vs red (slot 6) — stepped per surface (light ``#2a78d6``/``#e34948``,
-  dark ``#3987e5``/``#e66767``); both modes pass all six checks, worst adjacent
-  CVD ΔE 74.6 light / 66.4 dark. Control-point ownership is the owner's hue as a
+* **Color by job.** Team identity is the validated *categorical* pair — clay
+  (slot 0) vs violet (slot 1) — stepped per surface (light ``#b65b38``/``#4b3ba6``,
+  dark ``#cb6e44``/``#877ae0``); both modes pass all six checks, worst adjacent
+  CVD ΔE 86.7 light / 85.7 dark. Control-point ownership is the owner's hue as a
   low-opacity tint. Resources are a fixed element hue (aqua) carried on a
   distinct diamond mark with a numeric label (the secondary encoding that keeps
-  it legal beside the reds). **Status colors** (good ``#0ca30c``, critical
+  it legal beside the team hues). **Status colors** (good ``#0ca30c``, critical
   ``#d03b3b``) are reserved for event moments — delivery/mission/defeat — always
-  paired with an icon+label, and never worn by a team. Text always wears text
+  paired with an icon+label, and never worn by a team. A restrained green
+  ``--accent`` (light ``#1e7a4d`` / dark ``#46c79e``) dresses *chrome* only
+  (play button, slider, links) — never team identity. Text always wears text
   tokens; identity rides a colored chip/swatch beside the name, never the text.
-* **Both themes are deliberately designed** — each carries its own surface, ink,
-  and elevation tokens (not an auto-flip). ``prefers-color-scheme`` picks the
-  default; a manual toggle stamps ``data-theme`` on the root and wins in both
-  directions.
-* **Purposeful motion, all gated by ``prefers-reduced-motion``.** Units glide
-  between turns via a transform transition; a soft ring pulses on a fresh
+* **Both themes are deliberately designed** — light is Anthropic cream (warm
+  paper surface, warm near-black ink), dark is Culture black-green (deep
+  green-tinged black, green-tinged elevation). Each carries its own surface,
+  ink, and elevation tokens (not an auto-flip). ``prefers-color-scheme`` picks
+  the default; a manual toggle stamps ``data-theme`` on the root and wins in
+  both directions.
+* **100%-smooth, purposeful motion, all gated by ``prefers-reduced-motion``.**
+  During playback units glide between turns with *linear* timing whose duration
+  exactly matches the turn-advance interval, so a multi-turn journey reads as one
+  continuous, gapless glide (no per-turn accelerate–decelerate lurch); a paused
+  step snaps with a short eased transition. A soft ring pulses on a fresh
   capture, a flash celebrates deliveries and mission completions, a red ring
   marks a defeat. Play/pause with an adjustable speed. Timing is CSS-only, so
   generation stays byte-deterministic — the same log renders identical HTML.
+* **The side panel is a tabbed deck** (Guide / Events / Teams / Score) that uses
+  the viewport width and keeps the board hero in view — the assessor guide is
+  the default tab, scrolling inside its own panel rather than pushing the board
+  off-screen.
 * The page embeds the replay data as one ``<script type="application/json">``
   block derived from the log — the HTML and ``--json`` projections cannot
   diverge because they are the same fold.
@@ -46,27 +57,51 @@ from league.engine.scoring import (
 from league.engine.state import MatchState
 from league.engine.tick import CP_POINTS
 
-# Palette constants — the SAME validated hex values behind the CSS custom
-# properties in ``_TEMPLATE`` below (light theme). Exported so other
-# renderers built on the same replay fold (e.g. ``league.replay.video``'s
-# raster frames, plan task t6) draw with the identical, already-validated
-# hues instead of re-deriving their own (dataviz palette.md).
-TEAM_COLORS: tuple[str, ...] = (
-    "#2a78d6",
-    "#e34948",
-    "#eb6834",
-    "#4a3aa7",
-    "#e87ba4",
-    "#eda100",
-)
-RESOURCE_COLOR = "#1baf7a"
-STATUS_GOOD = "#0ca30c"
-STATUS_CRITICAL = "#d03b3b"
-BOARD_PLANE = "#f2f1ec"
-BOARD_LINE = "#c3c2b7"
-BOARD_INK = "#0b0b0b"
-BOARD_MUTED = "#898781"
-GLYPH_INK = "#ffffff"
+# Per-theme palette tokens — the SAME validated hex values behind the CSS
+# custom properties in ``_TEMPLATE`` below, one deliberately-stepped set per
+# surface (light = Anthropic cream, dark = Culture black-green). Exported as
+# structured themes so other renderers built on the same replay fold (e.g.
+# ``league.replay.video``'s raster frames, plan task t6) draw with the
+# identical, already-validated hues — for either theme — instead of
+# re-deriving their own (dataviz palette.md). Team identity is the validated
+# categorical pair clay (slot 0) vs violet (slot 1); the full 6-slot order
+# passes all six checks in both modes (validate_palette.js — see
+# docs/replay-design.md for the recorded verdicts).
+THEME_LIGHT: dict[str, Any] = {
+    "plane": "#ebe7dc",
+    "line": "#c3bba4",
+    "ink": "#242019",
+    "muted": "#8c8674",
+    "glyph_ink": "#ffffff",
+    "resource": "#1baf7a",
+    "good": "#0ca30c",
+    "critical": "#d03b3b",
+    "teams": ("#b65b38", "#4b3ba6", "#0e8f76", "#2a78d6", "#eda100", "#e87ba4"),
+}
+THEME_DARK: dict[str, Any] = {
+    "plane": "#0e1613",
+    "line": "#2c3b33",
+    "ink": "#eaf1ec",
+    "muted": "#788a7f",
+    "glyph_ink": "#ffffff",
+    "resource": "#199e70",
+    "good": "#0ca30c",
+    "critical": "#d03b3b",
+    "teams": ("#cb6e44", "#877ae0", "#1fa083", "#3987e5", "#c98500", "#d55181"),
+}
+THEMES: dict[str, dict[str, Any]] = {"light": THEME_LIGHT, "dark": THEME_DARK}
+
+# Flat aliases (the light theme) preserved for importers that predate the theme
+# split; the raster renderer now selects a theme explicitly via ``THEMES``.
+TEAM_COLORS: tuple[str, ...] = THEME_LIGHT["teams"]
+RESOURCE_COLOR = THEME_LIGHT["resource"]
+STATUS_GOOD = THEME_LIGHT["good"]
+STATUS_CRITICAL = THEME_LIGHT["critical"]
+BOARD_PLANE = THEME_LIGHT["plane"]
+BOARD_LINE = THEME_LIGHT["line"]
+BOARD_INK = THEME_LIGHT["ink"]
+BOARD_MUTED = THEME_LIGHT["muted"]
+GLYPH_INK = THEME_LIGHT["glyph_ink"]
 
 
 def _snapshot(state: MatchState) -> dict[str, Any]:
@@ -737,53 +772,60 @@ _TEMPLATE = """<!DOCTYPE html>
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 28px;
   --r-sm: 8px; --r-md: 12px; --r-lg: 18px;
-  --move: 0.55s;
+  /* movement timing — playback overrides these to (linear, interval) so a
+     multi-turn glide is gapless; the paused default is a short eased snap */
+  --move-dur: 320ms; --move-ease: cubic-bezier(.34, .03, .24, 1);
   /* status scale — fixed, never themed (dataviz palette.md) */
   --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
-  /* light surfaces + ink */
-  --plane: #f2f1ec; --surface: #fcfcfb; --surface-2: #ffffff;
-  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
-  --grid: #e6e5de; --line: #c3c2b7; --ring: rgba(11, 11, 11, .10);
-  --chip: #f0efec; --track: #e9e8e2; --board-top: #ffffff; --board-bot: #f5f4f0;
-  /* team identity = validated categorical hues, fixed order */
-  --team-0: #2a78d6; --team-1: #e34948; --team-2: #eb6834;
-  --team-3: #4a3aa7; --team-4: #e87ba4; --team-5: #eda100;
+  /* light = Anthropic cream: warm paper surface + warm near-black ink */
+  --plane: #f0eee5; --surface: #faf8f1; --surface-2: #fffef9;
+  --ink: #242019; --ink-2: #5a5546; --muted: #8c8674;
+  --grid: #ded9c9; --line: #c3bba4; --ring: rgba(36, 32, 25, .10);
+  --chip: #ece8dd; --track: #e4dfd2; --board-top: #f3f0e7; --board-bot: #e9e5d9;
+  /* chrome accent (restrained green) — buttons/slider/links, never a team */
+  --accent: #1e7a4d; --accent-ink: #ffffff;
+  /* team identity = validated categorical hues (clay, violet, …), fixed order */
+  --team-0: #b65b38; --team-1: #4b3ba6; --team-2: #0e8f76;
+  --team-3: #2a78d6; --team-4: #eda100; --team-5: #e87ba4;
   --resource: #1baf7a; --glyph-ink: #ffffff;
-  --shadow: 0 1px 2px rgba(11, 11, 11, .05), 0 10px 30px -16px rgba(11, 11, 11, .22);
-  --shadow-hero: 0 2px 6px rgba(11, 11, 11, .06), 0 26px 52px -28px rgba(11, 11, 11, .30);
+  --shadow: 0 1px 2px rgba(36, 32, 25, .05), 0 10px 30px -16px rgba(36, 32, 25, .22);
+  --shadow-hero: 0 2px 6px rgba(36, 32, 25, .06), 0 26px 52px -28px rgba(36, 32, 25, .30);
 }
 @media (prefers-color-scheme: dark) { :root {
   color-scheme: dark;
-  --plane: #0d0d0d; --surface: #1a1a19; --surface-2: #232221;
-  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #8f8d87;
-  --grid: #2a2a28; --line: #3a3a37; --ring: rgba(255, 255, 255, .10);
-  --chip: #262624; --track: #2b2b28; --board-top: #201f1e; --board-bot: #161615;
-  --team-0: #3987e5; --team-1: #e66767; --team-2: #d95926;
-  --team-3: #9085e9; --team-4: #d55181; --team-5: #c98500;
+  --plane: #0c1210; --surface: #111a16; --surface-2: #17231d;
+  --ink: #eaf1ec; --ink-2: #aebcb2; --muted: #788a7f;
+  --grid: #1e2a24; --line: #2c3b33; --ring: rgba(234, 241, 236, .10);
+  --chip: #152019; --track: #182420; --board-top: #121b16; --board-bot: #0b120f;
+  --accent: #46c79e; --accent-ink: #06100c;
+  --team-0: #cb6e44; --team-1: #877ae0; --team-2: #1fa083;
+  --team-3: #3987e5; --team-4: #c98500; --team-5: #d55181;
   --resource: #199e70; --glyph-ink: #ffffff;
   --shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 14px 34px -18px rgba(0, 0, 0, .75);
   --shadow-hero: 0 1px 0 rgba(255, 255, 255, .05) inset, 0 30px 60px -30px rgba(0, 0, 0, .85);
 }}
 :root[data-theme="light"] {
   color-scheme: light;
-  --plane: #f2f1ec; --surface: #fcfcfb; --surface-2: #ffffff;
-  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
-  --grid: #e6e5de; --line: #c3c2b7; --ring: rgba(11, 11, 11, .10);
-  --chip: #f0efec; --track: #e9e8e2; --board-top: #ffffff; --board-bot: #f5f4f0;
-  --team-0: #2a78d6; --team-1: #e34948; --team-2: #eb6834;
-  --team-3: #4a3aa7; --team-4: #e87ba4; --team-5: #eda100;
+  --plane: #f0eee5; --surface: #faf8f1; --surface-2: #fffef9;
+  --ink: #242019; --ink-2: #5a5546; --muted: #8c8674;
+  --grid: #ded9c9; --line: #c3bba4; --ring: rgba(36, 32, 25, .10);
+  --chip: #ece8dd; --track: #e4dfd2; --board-top: #f3f0e7; --board-bot: #e9e5d9;
+  --accent: #1e7a4d; --accent-ink: #ffffff;
+  --team-0: #b65b38; --team-1: #4b3ba6; --team-2: #0e8f76;
+  --team-3: #2a78d6; --team-4: #eda100; --team-5: #e87ba4;
   --resource: #1baf7a; --glyph-ink: #ffffff;
-  --shadow: 0 1px 2px rgba(11, 11, 11, .05), 0 10px 30px -16px rgba(11, 11, 11, .22);
-  --shadow-hero: 0 2px 6px rgba(11, 11, 11, .06), 0 26px 52px -28px rgba(11, 11, 11, .30);
+  --shadow: 0 1px 2px rgba(36, 32, 25, .05), 0 10px 30px -16px rgba(36, 32, 25, .22);
+  --shadow-hero: 0 2px 6px rgba(36, 32, 25, .06), 0 26px 52px -28px rgba(36, 32, 25, .30);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --plane: #0d0d0d; --surface: #1a1a19; --surface-2: #232221;
-  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #8f8d87;
-  --grid: #2a2a28; --line: #3a3a37; --ring: rgba(255, 255, 255, .10);
-  --chip: #262624; --track: #2b2b28; --board-top: #201f1e; --board-bot: #161615;
-  --team-0: #3987e5; --team-1: #e66767; --team-2: #d95926;
-  --team-3: #9085e9; --team-4: #d55181; --team-5: #c98500;
+  --plane: #0c1210; --surface: #111a16; --surface-2: #17231d;
+  --ink: #eaf1ec; --ink-2: #aebcb2; --muted: #788a7f;
+  --grid: #1e2a24; --line: #2c3b33; --ring: rgba(234, 241, 236, .10);
+  --chip: #152019; --track: #182420; --board-top: #121b16; --board-bot: #0b120f;
+  --accent: #46c79e; --accent-ink: #06100c;
+  --team-0: #cb6e44; --team-1: #877ae0; --team-2: #1fa083;
+  --team-3: #3987e5; --team-4: #c98500; --team-5: #d55181;
   --resource: #199e70; --glyph-ink: #ffffff;
   --shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 14px 34px -18px rgba(0, 0, 0, .75);
   --shadow-hero: 0 1px 0 rgba(255, 255, 255, .05) inset, 0 30px 60px -30px rgba(0, 0, 0, .85);
@@ -821,9 +863,17 @@ header h1 { font-size: 20px; font-weight: 640; letter-spacing: -.02em; }
   background: linear-gradient(135deg, var(--ink-2), var(--muted));
 }
 .layout {
-  display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start;
+  display: grid; grid-template-columns: minmax(0, 1fr) clamp(380px, 34vw, 560px);
+  gap: 18px; align-items: start;
 }
-@media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
+/* Wide: the board stays the hero on the left; the tabbed side deck sticks in
+   view and scrolls INSIDE its own panel, so the guide never pushes the board
+   off-screen. Narrow: stack, same tab bar. */
+@media (min-width: 1101px) {
+  .side { position: sticky; top: 16px; }
+  #board-box { position: sticky; top: 16px; }
+}
+@media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
 .card {
   background: var(--surface); border: 1px solid var(--ring); border-radius: var(--r-lg);
   padding: 16px; box-shadow: var(--shadow);
@@ -841,7 +891,7 @@ header h1 { font-size: 20px; font-weight: 640; letter-spacing: -.02em; }
 #board { width: 100%; height: auto; display: block; }
 .gl { stroke: var(--grid); stroke-width: 1; }
 #unit-layer g {
-  transition: transform var(--move) cubic-bezier(.34, .03, .24, 1), opacity .35s ease;
+  transition: transform var(--move-dur) var(--move-ease), opacity .35s ease;
 }
 body.booting #unit-layer g { transition: none; }
 .u-body { stroke: var(--surface); stroke-width: 2.4; }
@@ -883,16 +933,34 @@ body.booting #unit-layer g { transition: none; }
   transition: border-color .15s, background .15s, color .15s;
 }
 .controls button:hover { border-color: var(--muted); }
-#btn-play.on { background: var(--team-0); color: #fff; border-color: var(--team-0); }
-#turn-slider { flex: 1; min-width: 120px; accent-color: var(--team-0); }
+#btn-play.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+#turn-slider { flex: 1; min-width: 120px; accent-color: var(--accent); }
 #turn-label {
   font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 92px;
   text-align: right; font-size: 13px;
 }
 .speed { display: inline-flex; gap: 4px; }
 .speed button { min-width: 40px; font-size: 11px; font-variant-numeric: tabular-nums; }
-.speed button.on { border-color: var(--team-0); color: var(--team-0); }
-.right { display: flex; flex-direction: column; gap: 18px; }
+.speed button.on { border-color: var(--accent); color: var(--accent); }
+/* Tabbed side deck — Guide / Events / Teams / Score. Real buttons, roving
+   tabindex + aria-selected; styled with the theme tokens in both modes. */
+.side { padding: 0; overflow: hidden; }
+.tabbar {
+  display: flex; gap: 2px; padding: 6px 6px 0; border-bottom: 1px solid var(--grid);
+  background: var(--surface-2); position: sticky; top: 0; z-index: 1;
+}
+.tab {
+  appearance: none; background: transparent; color: var(--muted); border: 0;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 9px 13px;
+  font: inherit; font-size: 12px; font-weight: 600; letter-spacing: .02em;
+  cursor: pointer; border-radius: 8px 8px 0 0; transition: color .15s, border-color .15s;
+}
+.tab:hover { color: var(--ink-2); }
+.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tabpanels { padding: 16px; }
+@media (min-width: 1101px) { .tabpanels { max-height: calc(100vh - 210px); overflow-y: auto; } }
+.tabpanel[hidden] { display: none; }
 .team { display: flex; flex-direction: column; gap: 7px; padding: 11px 0; }
 .team + .team { border-top: 1px solid var(--grid); }
 .team-head { display: flex; align-items: center; gap: 9px; }
@@ -961,20 +1029,10 @@ footer kbd {
   font-family: var(--font); background: var(--chip); border: 1px solid var(--ring);
   border-radius: 5px; padding: 1px 6px; font-size: 11px; color: var(--ink-2);
 }
-/* Assessor guide — a collapsible panel in the wave-0 card system. Text wears
-   ink tokens; deep links wear the team-0 hue (an interactive affordance, not a
-   team identity). No new palette entries. */
-.guide { margin-top: 18px; }
-.guide > summary {
-  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
-}
-.guide > summary::-webkit-details-marker { display: none; }
-.guide > summary h2 { margin-bottom: 0; }
-.guide > summary::after {
-  content: "\\25B8"; color: var(--muted); margin-left: auto; transition: transform .2s ease;
-}
-.guide[open] > summary::after { transform: rotate(90deg); }
-#guide-body { margin-top: 16px; display: grid; gap: 22px; }
+/* Assessor guide — the default tab in the side deck. Text wears ink tokens;
+   deep links wear the chrome --accent (an interactive affordance, not a team
+   identity). No new palette entries. */
+#guide-body { display: grid; gap: 22px; }
 .guide-h {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
   color: var(--muted); margin-bottom: 9px;
@@ -984,8 +1042,8 @@ footer kbd {
 .guide-list { margin: 4px 0 8px 18px; color: var(--ink-2); }
 .guide-list li { margin-bottom: 3px; }
 .guide-link {
-  color: var(--team-0); text-decoration: none; font-variant-numeric: tabular-nums;
-  border-bottom: 1px dotted var(--team-0); white-space: nowrap;
+  color: var(--accent); text-decoration: none; font-variant-numeric: tabular-nums;
+  border-bottom: 1px dotted var(--accent); white-space: nowrap;
 }
 .guide-link:hover { color: var(--ink); border-bottom-color: var(--ink); }
 .guide-moment {
@@ -1057,18 +1115,31 @@ footer kbd {
         </div>
       </div>
     </div>
-    <div class="right">
-      <div class="card"><h2>Teams</h2><div id="teams"></div></div>
-      <div class="card"><h2>Turn feed</h2><div id="feed"></div></div>
-      <div class="card"><h2>Final score</h2><div id="scores"></div></div>
+    <div class="card side" id="side">
+      <div class="tabbar" role="tablist" aria-label="side panels">
+        <button class="tab" id="tab-guide" role="tab" data-tab="guide"
+          aria-selected="true" aria-controls="panel-guide">Guide</button>
+        <button class="tab" id="tab-events" role="tab" data-tab="events"
+          aria-selected="false" aria-controls="panel-events" tabindex="-1">Events</button>
+        <button class="tab" id="tab-teams" role="tab" data-tab="teams"
+          aria-selected="false" aria-controls="panel-teams" tabindex="-1">Teams</button>
+        <button class="tab" id="tab-score" role="tab" data-tab="score"
+          aria-selected="false" aria-controls="panel-score" tabindex="-1">Score</button>
+      </div>
+      <div class="tabpanels">
+        <div class="tabpanel" id="panel-guide" role="tabpanel" data-tab="guide"
+          aria-labelledby="tab-guide"><div id="guide-body"></div></div>
+        <div class="tabpanel" id="panel-events" role="tabpanel" data-tab="events"
+          aria-labelledby="tab-events" hidden><div id="feed"></div></div>
+        <div class="tabpanel" id="panel-teams" role="tabpanel" data-tab="teams"
+          aria-labelledby="tab-teams" hidden><div id="teams"></div></div>
+        <div class="tabpanel" id="panel-score" role="tabpanel" data-tab="score"
+          aria-labelledby="tab-score" hidden><div id="scores"></div></div>
+      </div>
     </div>
   </div>
-  <details class="card guide" id="guide" open>
-    <summary><h2>Assessor guide &mdash; how to judge this match</h2></summary>
-    <div id="guide-body"></div>
-  </details>
   <footer>Replay rendered from the match log &mdash; the same record agents read as JSON.
-    <kbd>&larr;</kbd> <kbd>&rarr;</kbd> step turns, <kbd>space</kbd> plays; the guide's
+    <kbd>&larr;</kbd> <kbd>&rarr;</kbd> step turns, <kbd>space</kbd> plays; the Guide tab's
     <span class="guide-link">t&#8202;N</span> links scrub to the turn.</footer>
 </div>
 <script id="match-data" type="application/json">__MATCH_DATA__</script>
@@ -1499,11 +1570,29 @@ function go(i) {
   frame = i;
   render(forward);
 }
+const SNAP_MS = 320;
+// The fix for the "step accelerate–decelerate" lurch: during PLAYBACK the unit
+// glide is LINEAR and its duration is exactly the turn-advance interval, so
+// consecutive same-direction turns flow at constant velocity with no pause
+// between waypoints — one continuous glide. Paused steps (scrub / prev-next /
+// deep link) snap with a short eased transition. Reduced motion collapses both
+// to instant via the global media block.
+function applyTiming() {
+  const st = document.documentElement.style;
+  if (playing) {
+    st.setProperty('--move-dur', SPEEDS[String(speed)] + 'ms');
+    st.setProperty('--move-ease', 'linear');
+  } else {
+    st.setProperty('--move-dur', SNAP_MS + 'ms');
+    st.setProperty('--move-ease', 'cubic-bezier(.34, .03, .24, 1)');
+  }
+}
 function stop() {
   if (!playing) return;
   clearInterval(playing); playing = null;
   const b = $('btn-play'); b.classList.remove('on'); b.innerHTML = '&#9654;';
   b.setAttribute('aria-label', 'play');
+  applyTiming();
 }
 function play() {
   const b = $('btn-play'); b.classList.add('on'); b.innerHTML = '&#10073;&#10073;';
@@ -1511,14 +1600,15 @@ function play() {
   playing = setInterval(() => {
     if (frame >= M.frames.length - 1) stop(); else go(frame + 1);
   }, SPEEDS[String(speed)]);
+  applyTiming();
 }
 function toggle() { playing ? stop() : play(); }
 function setSpeed(s) {
   speed = s;
   document.querySelectorAll('.speed button').forEach(b =>
     b.classList.toggle('on', b.dataset.speed === String(s)));
-  document.documentElement.style.setProperty('--move', Math.round(SPEEDS[String(s)] * 0.72) + 'ms');
   if (playing) { stop(); play(); }
+  applyTiming();
 }
 
 $('turn-slider').max = M.frames.length - 1;
@@ -1531,10 +1621,49 @@ $('btn-play').onclick = toggle;
 document.querySelectorAll('.speed button').forEach(b =>
   b.onclick = () => setSpeed(parseFloat(b.dataset.speed)));
 document.addEventListener('keydown', e => {
+  // Keyboard inside the tab bar drives tab navigation, not turn transport.
+  if (e.target.closest && e.target.closest('.tabbar')) return;
   if (e.key === 'ArrowLeft') { stop(); go(frame - 1); }
   else if (e.key === 'ArrowRight') go(frame + 1);
   else if (e.key === ' ') { e.preventDefault(); toggle(); }
 });
+// --- Side-deck tabs: Guide / Events / Teams / Score. Real tab-role buttons
+// with roving tabindex + aria-selected, arrow/Home/End navigation, and hidden
+// panels; the Guide tab is the default when a guide is present. Deep links and
+// the guide's scrub links keep working (they only drive the board), and the
+// panels' content is rendered by the same draw* functions as before.
+const tabs = Array.from(document.querySelectorAll('.tab'));
+function selectTab(name, focus) {
+  tabs.forEach(b => {
+    const on = b.dataset.tab === name;
+    b.setAttribute('aria-selected', String(on));
+    b.tabIndex = on ? 0 : -1;
+    if (on && focus) b.focus();
+  });
+  document.querySelectorAll('.tabpanel').forEach(p => { p.hidden = p.dataset.tab !== name; });
+}
+tabs.forEach((b, i) => {
+  b.addEventListener('click', () => selectTab(b.dataset.tab, false));
+  b.addEventListener('keydown', ev => {
+    let j = null;
+    const n = tabs.length;
+    if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') j = (i + 1) % n;
+    else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') j = (i - 1 + n) % n;
+    else if (ev.key === 'Home') j = 0;
+    else if (ev.key === 'End') j = n - 1;
+    if (j != null) {
+      ev.preventDefault(); ev.stopPropagation();
+      while (tabs[j].hidden) j = (j + 1) % n;
+      selectTab(tabs[j].dataset.tab, true);
+    }
+  });
+});
+if (!M.guide) {
+  const gt = $('tab-guide'); if (gt) gt.hidden = true;
+  selectTab('events', false);
+} else {
+  selectTab('guide', false);
+}
 // The guide's #tN links scrub in-page to the turn a moment or checklist item
 // points at, and bring the board into view. Shared by the link click handler
 // and the hashchange listener (so a pasted #tN in the address bar works too).

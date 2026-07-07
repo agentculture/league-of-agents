@@ -36,10 +36,14 @@ from league.faces import faces_app, render_brief_markdown
 from league.replay import (
     DEFAULT_FPS,
     DEFAULT_SCALE,
+    DEFAULT_THEME,
+    DEFAULT_TWEEN,
     MAX_FPS,
     MAX_SCALE,
+    MAX_TWEEN,
     MIN_FPS,
     MIN_SCALE,
+    MIN_TWEEN,
 )
 from league.replay import build_frames as build_video_frames
 from league.replay import (
@@ -242,7 +246,7 @@ def cmd_match_overview(args: argparse.Namespace) -> int:
             "brief": "markdown briefing from the faces registry (--team for the fogged view)",
             "replay": "self-contained HTML replay on stdout",
             "record": "render the match log to a shareable GIF (or --format mp4 with "
-            "ffmpeg on PATH), offline, to --out <file>",
+            "ffmpeg on PATH), offline, to --out <file> (--theme light|dark, --tween N)",
             "tui": "replay-stepping terminal view: ground truth or --team fog "
             "(--frame N for non-interactive; --no-color)",
         },
@@ -792,7 +796,8 @@ def _record_provenance(args: argparse.Namespace) -> str:
     load-bearing for the reproducibility merge gate."""
     return (
         f"league match record {args.match_id} --out {args.out} "
-        f"--format {args.format} --scale {args.scale} --fps {args.fps}"
+        f"--format {args.format} --theme {args.theme} --scale {args.scale} "
+        f"--fps {args.fps} --tween {args.tween}"
     )
 
 
@@ -812,7 +817,7 @@ def _render_mp4(video, *, fps: int, out_path: Path, provenance: str) -> None:
     (library code stays subprocess-free and trivially testable)."""
     raw = bytearray()
     for frame in video.frames:
-        rgb = indices_to_rgb(frame.indices)
+        rgb = indices_to_rgb(frame.indices, video.palette)
         raw += rgb * _repeat_count(frame.delay_cs, fps)
     try:
         subprocess.run(  # nosec B603 B607
@@ -866,10 +871,25 @@ def cmd_match_record(args: argparse.Namespace) -> int:
             message=f"--fps {args.fps} out of range",
             remediation=f"pick a frame rate in {MIN_FPS}..{MAX_FPS}",
         )
+    if not MIN_TWEEN <= args.tween <= MAX_TWEEN:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"--tween {args.tween} out of range",
+            remediation=(
+                f"pick a tween count in {MIN_TWEEN}..{MAX_TWEEN} "
+                "(interpolated frames inserted between turns; 0 disables)"
+            ),
+        )
     log = _load(Store(), args.match_id)
     provenance = _record_provenance(args)
     data = build_replay_data(log)
-    video = build_video_frames(data, cell_px=args.scale, turn_delay_cs=_frame_delay_cs(args.fps))
+    video = build_video_frames(
+        data,
+        cell_px=args.scale,
+        turn_delay_cs=_frame_delay_cs(args.fps),
+        theme=args.theme,
+        tween=args.tween,
+    )
     out_path = Path(args.out)
 
     if args.format == "mp4":
@@ -885,7 +905,14 @@ def cmd_match_record(args: argparse.Namespace) -> int:
         _render_mp4(video, fps=args.fps, out_path=out_path, provenance=provenance)
         size = out_path.stat().st_size
     else:
-        gif_bytes = render_gif(log, scale=args.scale, fps=args.fps, provenance=provenance)
+        gif_bytes = render_gif(
+            log,
+            scale=args.scale,
+            fps=args.fps,
+            theme=args.theme,
+            tween=args.tween,
+            provenance=provenance,
+        )
         out_path.write_bytes(gif_bytes)
         size = len(gif_bytes)
 
@@ -893,8 +920,10 @@ def cmd_match_record(args: argparse.Namespace) -> int:
         "match_id": args.match_id,
         "out": str(out_path),
         "format": args.format,
+        "theme": args.theme,
         "scale": args.scale,
         "fps": args.fps,
+        "tween": args.tween,
         "frames": len(video.frames),
         "bytes": size,
         "provenance": provenance,
@@ -1196,6 +1225,13 @@ def register(sub: argparse._SubParsersAction) -> None:
         "fallback.",
     )
     record.add_argument(
+        "--theme",
+        choices=("light", "dark"),
+        default=DEFAULT_THEME,
+        help="Color theme, sharing the HTML replay's validated palette: light "
+        f"(default {DEFAULT_THEME}, Anthropic cream) or dark (Culture black-green).",
+    )
+    record.add_argument(
         "--scale",
         type=int,
         default=DEFAULT_SCALE,
@@ -1207,6 +1243,14 @@ def register(sub: argparse._SubParsersAction) -> None:
         default=DEFAULT_FPS,
         help=f"Turn frames per second ({MIN_FPS}..{MAX_FPS}, default {DEFAULT_FPS}); the "
         "opening/closing cards hold several times longer, automatically.",
+    )
+    record.add_argument(
+        "--tween",
+        type=int,
+        default=DEFAULT_TWEEN,
+        help=f"Interpolated frames inserted between each pair of turns so movement "
+        f"flows instead of teleporting ({MIN_TWEEN}..{MAX_TWEEN}, default {DEFAULT_TWEEN}; "
+        "0 disables).",
     )
     record.add_argument("--json", action="store_true", help="Emit structured JSON.")
     record.set_defaults(func=cmd_match_record)

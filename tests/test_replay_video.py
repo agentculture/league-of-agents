@@ -219,26 +219,37 @@ def test_lzw_handles_empty_and_uniform_and_edge_inputs() -> None:
 # --- frame count / determinism / reproducibility ----------------------------
 
 
-def test_frame_count_is_turns_plus_two_on_the_committed_coop_log() -> None:
+def _expected_frames(turns_played: int, tween: int) -> int:
+    """title + turns + (turns-1)*tween interpolated + closing."""
+    return turns_played + max(0, turns_played - 1) * tween + 2
+
+
+def test_frame_count_follows_the_tween_formula_on_the_committed_coop_log() -> None:
     from league.replay.html import build_replay_data
+    from league.replay.video import DEFAULT_TWEEN
 
     log = _coop_log()
     data = build_replay_data(log)
     turns_played = len(data["frames"]) - 1
     assert turns_played == 17  # pinned: 17 distinct turns (0..16) in this fixture
 
+    # tween=0 reduces to the original "turns + 2".
+    assert len(build_frames(data, tween=0).frames) == turns_played + 2
+    # The default tween inserts (turns-1)*tween interpolated frames between turns.
     video = build_frames(data)
-    assert len(video.frames) == turns_played + 2
+    assert len(video.frames) == _expected_frames(turns_played, DEFAULT_TWEEN)
+    assert len(build_frames(data, tween=6).frames) == _expected_frames(turns_played, 6)
 
 
-def test_frame_count_is_turns_plus_two_on_a_scripted_match() -> None:
+def test_frame_count_follows_the_tween_formula_on_a_scripted_match() -> None:
     from league.replay.html import build_replay_data
+    from league.replay.video import DEFAULT_TWEEN
 
     log = _play_match()
     data = build_replay_data(log)
     turns_played = len(data["frames"]) - 1
-    video = build_frames(data)
-    assert len(video.frames) == turns_played + 2
+    assert len(build_frames(data).frames) == _expected_frames(turns_played, DEFAULT_TWEEN)
+    assert len(build_frames(data, tween=0).frames) == turns_played + 2
 
 
 def test_build_frames_is_deterministic() -> None:
@@ -336,13 +347,86 @@ def test_no_provenance_means_no_comment_block() -> None:
 
 def test_palette_reuses_the_validated_html_replay_hues() -> None:
     """The raster face must draw with the SAME validated team/status/board
-    hues the HTML replay uses (dataviz palette.md) — never re-derive its own."""
-    assert replay_html.TEAM_COLORS[0] == "#2a78d6"
-    assert replay_html.TEAM_COLORS[1] == "#e34948"
+    hues the HTML replay uses (dataviz palette.md) — never re-derive its own.
+    The light default is the restyled clay/violet team pair."""
+    assert replay_html.TEAM_COLORS[0] == "#b65b38"  # clay
+    assert replay_html.TEAM_COLORS[1] == "#4b3ba6"  # violet
     from league.replay.video import _hex_to_rgb
 
     assert PALETTE[8] == _hex_to_rgb(replay_html.TEAM_COLORS[0])
     assert PALETTE[9] == _hex_to_rgb(replay_html.TEAM_COLORS[1])
+
+
+def test_theme_selects_the_html_replay_theme_and_only_the_color_table_changes() -> None:
+    """``--theme`` shares the HTML replay's per-theme tokens: light Anthropic
+    cream, dark Culture black-green. The frame INDICES are theme-independent —
+    only the GIF color table (VideoFrames.palette) differs — so both themes stay
+    byte-deterministic and interpolation is identical."""
+    from league.replay.html import THEME_DARK, THEME_LIGHT, build_replay_data
+    from league.replay.video import _hex_to_rgb, build_palette
+
+    data = build_replay_data(_coop_log())
+    light = build_frames(data, theme="light")
+    dark = build_frames(data, theme="dark")
+
+    # Same pixels, different color table.
+    assert [f.indices for f in light.frames] == [f.indices for f in dark.frames]
+    assert light.palette != dark.palette
+    assert light.palette == build_palette("light")
+    assert dark.palette == build_palette("dark")
+    # The palettes are exactly the HTML replay's theme tokens (team slots 8/9).
+    assert light.palette[8] == _hex_to_rgb(THEME_LIGHT["teams"][0])
+    assert dark.palette[8] == _hex_to_rgb(THEME_DARK["teams"][0])
+    # A dark GIF and a light GIF differ, each deterministic.
+    assert render_gif(_coop_log(), theme="dark") == render_gif(_coop_log(), theme="dark")
+    assert render_gif(_coop_log(), theme="light") != render_gif(_coop_log(), theme="dark")
+
+
+def test_unknown_theme_is_rejected() -> None:
+    from league.replay.html import build_replay_data
+    from league.replay.video import build_palette
+
+    with pytest.raises(ValueError):
+        build_palette("midnight")
+    with pytest.raises(ValueError):
+        build_frames(build_replay_data(_coop_log()), theme="midnight")
+
+
+def test_tween_frames_interpolate_and_stay_deterministic() -> None:
+    """Interpolated tween frames flow movement between turns (linear, fixed
+    count, integer-rounded → deterministic). Frame count matches the documented
+    formula and two builds are byte-identical."""
+    from league.replay.html import build_replay_data
+    from league.replay.video import MAX_TWEEN, MIN_TWEEN
+
+    data = build_replay_data(_coop_log())
+    turns = len(data["frames"]) - 1
+
+    a = build_frames(data, tween=4)
+    b = build_frames(data, tween=4)
+    assert [f.indices for f in a.frames] == [f.indices for f in b.frames]
+    assert len(a.frames) == turns + (turns - 1) * 4 + 2
+    # More tweens → more frames; zero tweens → the base count.
+    assert len(build_frames(data, tween=8).frames) > len(a.frames)
+    assert len(build_frames(data, tween=MIN_TWEEN).frames) == turns + 2
+    # Out-of-range tween is rejected.
+    with pytest.raises(ValueError):
+        build_frames(data, tween=MAX_TWEEN + 1)
+    with pytest.raises(ValueError):
+        build_frames(data, tween=-1)
+
+
+def test_tweened_gif_round_trips_through_the_decoder() -> None:
+    """A tweened, dark-theme GIF still decodes frame-for-frame — the container
+    and LZW stay correct with the extra interpolated frames and the swapped
+    color table."""
+    from league.replay.html import build_replay_data
+
+    data = build_replay_data(_coop_log())
+    video = build_frames(data, tween=3, theme="dark")
+    gif_bytes = _encode_gif(video)
+    _, _, frames, _ = _decode_gif(gif_bytes)
+    assert [f[0] for f in frames] == [f.indices for f in video.frames]
 
 
 def test_build_frames_rejects_invalid_parameters() -> None:
@@ -489,6 +573,48 @@ def test_match_record_rejects_out_of_range_scale_and_fps(arena, capsys) -> None:
     assert not out_file.exists()
 
     rc = main(["match", "record", "m-rec2", "--out", str(out_file), "--fps", "0"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "hint:" in err
+    assert not out_file.exists()
+
+
+def test_match_record_theme_and_tween_flags(arena, capsys) -> None:
+    _play_a_match("m-rec-th")
+    capsys.readouterr()
+    out_file = arena / "m-rec-th.gif"
+    rc = main(
+        [
+            "match",
+            "record",
+            "m-rec-th",
+            "--out",
+            str(out_file),
+            "--theme",
+            "dark",
+            "--tween",
+            "2",
+            "--json",
+        ]
+    )
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["theme"] == "dark"
+    assert payload["tween"] == 2
+    # Provenance records both new axes so the render is reproducible.
+    assert "--theme dark" in payload["provenance"]
+    assert "--tween 2" in payload["provenance"]
+    raw = out_file.read_bytes()
+    _, _, frames, comment = _decode_gif(raw)
+    assert len(frames) == payload["frames"]
+    assert comment == payload["provenance"]
+
+
+def test_match_record_rejects_out_of_range_tween(arena, capsys) -> None:
+    _play_a_match("m-rec-tw")
+    capsys.readouterr()
+    out_file = arena / "m-rec-tw.gif"
+    rc = main(["match", "record", "m-rec-tw", "--out", str(out_file), "--tween", "999"])
     assert rc == 1
     err = capsys.readouterr().err
     assert "hint:" in err
