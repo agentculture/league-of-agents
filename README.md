@@ -64,6 +64,19 @@ model drivers):
 uv run league harness run --config docs/playtests/season-0/opener.config.json --apply
 ```
 
+Or skip the hand-authored setup entirely: `league play` bundles every
+documented mode as a preset (`league play list`), so each one launches with
+a single command (`league play show <preset>` prints the resolved config
+first if you want to check before applying):
+
+```bash
+uv run league play start solo-vs-bot --apply          # one agent, handicapped, vs the house bot
+uv run league play start team-vs-bot --apply          # one mind per seat (stateless) vs the house bot
+uv run league play start team-vs-team --apply         # bot-file vs bot-file, fully offline
+uv run league play start orchestrator-vs-bot --apply  # a master mind + per-seat ground agents vs the house bot
+uv run league play start resident-vs-bot --apply      # one long-lived session per seat vs the house bot
+```
+
 ## CLI
 
 | Verb | What it does |
@@ -74,10 +87,11 @@ uv run league harness run --config docs/playtests/season-0/opener.config.json --
 | `match new\|act\|tick\|show\|list\|score\|replay\|rematch` | The play loop: stage orders, deterministic resolution, dual scores, HTML replay, fair rematches (same scenario+seed, new roster). |
 | `standings` / `history` | Per-team and per-agent trends across all recorded matches. |
 | `harness run` | Play a configured match with live drivers end to end. |
+| `play list\|show\|start` | One-command launch of a bundled preset mode (solo/team/orchestrator/resident vs. the house bot). |
 
 Every read verb supports `--json`; write verbs (`team register`, `match
-new/act/tick/rematch`, `harness run`) are **dry-run by default** — `--apply`
-commits. Results go to stdout, errors/diagnostics to stderr (never mixed).
+new/act/tick/rematch`, `harness run`, `play start`) are **dry-run by
+default** — `--apply` commits. Results go to stdout, errors/diagnostics to stderr (never mixed).
 Exit codes: `0` success, `1` user error, `2` environment error, `3+` reserved.
 
 ## How the game grows
