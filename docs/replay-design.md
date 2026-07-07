@@ -169,12 +169,37 @@ the light ones.
   correctly on each surface. The board is the hero — it carries the strongest
   elevation (`--shadow-hero`).
 
-The GIF inherits the same vision. `league.replay.video` imports the same
-per-theme tokens from `league.replay.html` (`THEMES`), and
-`league match record --theme light|dark` (default light) selects the matching
-board plane / grid / ink / team / resource / status hues. The frame *indices*
-are theme-independent — only the GIF's global color table changes — so both
-themes stay byte-deterministic and the interpolation is identical.
+The GIF inherits the same vision — and the same *composition*.
+`league.replay.video` imports the per-theme tokens from `league.replay.html`
+(`THEMES`) and adds the HTML face's own neutral/chrome steps lifted verbatim
+from its CSS custom properties (page matte `--plane`, card surface
+`--surface`, hairline `--grid`, secondary `--ink-2`, chrome `--accent`) — a
+25-slot palette per theme, selected by
+`league match record --theme light|dark` (default light). Every frame kind is
+composed like the HTML face:
+
+- The **title card** is a centered lockup — the title over a thin accent
+  rule, the match id, a scenario · mode · seed metadata line, then one
+  swatch-chipped row per team with its roster — framed by hairline corner
+  marks on the page matte.
+- **Turn frames** make the board the hero: a hairline low-contrast grid on a
+  subtly distinct board panel, shape-coded furniture (diamond resource nodes,
+  mission rings, control-point discs with owner tint + ring), unit discs
+  wearing a surface-colored ring (the raster cousin of
+  `.u-body { stroke: var(--surface) }`), a muted caption above, and a
+  surface-toned footer strip below carrying the turn counter and per-team
+  scores in aligned, swatch-labelled columns. Tween frames share this chrome
+  exactly and interpolate only the units.
+- The **closing card** leads with big score numerals over swatch-labelled
+  team rows and names the winner beneath its team chip (or `DRAW` /
+  `NO WINNER`), centered like the title card.
+
+Typography is the 5×7 glyph grid at integer scales (3× title, 2× section,
+1× tracked captions, 5× score numerals); secondary text wears the muted /
+secondary-ink steps, never pure black or white, and identity always rides a
+swatch beside the text. The frame *indices* are theme-independent — only the
+GIF's global color table changes — so both themes stay byte-deterministic and
+the interpolation is identical.
 
 ## Motion inventory
 
