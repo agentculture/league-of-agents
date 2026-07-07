@@ -55,6 +55,24 @@ def test_arena_catalog_reads(arena, capsys) -> None:
     assert "hint:" in err
 
 
+def test_arena_catalog_carries_skirmish_2_with_vision(arena, capsys) -> None:
+    """The fogged scenario is in the catalog and `arena show` surfaces vision.
+
+    skirmish-2's whole premise is per-role fog — an agent reading the board
+    from the CLI must be able to see the radii it will be playing under.
+    """
+    assert main(["arena", "list"]) == 0
+    assert "skirmish-2" in capsys.readouterr().out.splitlines()
+    assert main(["arena", "show", "skirmish-2", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["id"] == "skirmish-2"
+    visions = {role: stats["vision"] for role, stats in data["roles"].items()}
+    assert all(visions["scout"] > v for role, v in visions.items() if role != "scout")
+    assert main(["arena", "show", "skirmish-2"]) == 0
+    text = capsys.readouterr().out
+    assert "vision" in text
+
+
 def test_team_register_is_dry_run_by_default(arena, capsys) -> None:
     assert main(_register("blue", "claude-sonnet-5")) == 0
     out = capsys.readouterr().out
