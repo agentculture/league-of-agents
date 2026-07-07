@@ -1,0 +1,414 @@
+{"driver_kinds":{"fable":"stateless","house":"bot"},"initial_state":{"control_points":[{"hold":[],"id":"cp-relay","owner":null,"pos":[7,5]},{"hold":[],"id":"cp-beacon","owner":null,"pos":[12,0]},{"hold":[],"id":"cp-well","owner":null,"pos":[1,11]}],"grid_height":12,"grid_width":14,"match_id":"m-preset-orchestrator-vs-bot","missions":[{"amount":10,"completed_by":[],"completed_turn":null,"id":"ms-caravan","kind":"deliver","pos":[6,6],"reward":10,"status":"open"},{"amount":4,"completed_by":[],"completed_turn":null,"id":"ms-beacon","kind":"hold","pos":[12,0],"reward":8,"status":"open"}],"mode":"competitive","resource_nodes":[{"id":"rn-lowland","pos":[5,5],"remaining":12},{"id":"rn-highland","pos":[8,6],"remaining":12}],"scenario_id":"skirmish-2","seed":20260713,"status":"pending","teams":[{"agents":[{"id":"fable-1","model":"claude-sonnet-5","role":"scout"},{"id":"fable-2","model":"claude-sonnet-5","role":"harvester"},{"id":"fable-3","model":"claude-sonnet-5","role":"defender"}],"id":"fable","name":"Orchestrated Team","resources":0},{"agents":[{"id":"house-1","model":"bot:greedy","role":"scout"},{"id":"house-2","model":"bot:greedy","role":"harvester"},{"id":"house-3","model":"bot:greedy","role":"defender"}],"id":"house","name":"House Baseline","resources":0}],"turn":0,"turn_limit":16,"units":[{"agent_id":"fable-1","alive":true,"carrying":0,"id":"fable-u1","pos":[0,0],"role":"scout","team_id":"fable"},{"agent_id":"fable-2","alive":true,"carrying":0,"id":"fable-u2","pos":[1,0],"role":"harvester","team_id":"fable"},{"agent_id":"fable-3","alive":true,"carrying":0,"id":"fable-u3","pos":[0,1],"role":"defender","team_id":"fable"},{"agent_id":"house-1","alive":true,"carrying":0,"id":"house-u1","pos":[13,11],"role":"scout","team_id":"house"},{"agent_id":"house-2","alive":true,"carrying":0,"id":"house-u2","pos":[12,11],"role":"harvester","team_id":"house"},{"agent_id":"house-3","alive":true,"carrying":0,"id":"house-u3","pos":[13,10],"role":"defender","team_id":"house"}],"winner":null},"log_version":1,"map_read":{"fable":"full"},"unit_comms":{"fable":false}}
+{"data":{},"kind":"match_started","seq":0,"turn":0}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-1 (scout): sprint due east along row y=0 from (0,0) to cp-beacon (12,0) — 12 tiles, ~4 turns at move-3. On arrival, issue HOLD every turn and do not move: 2 consecutive turns captures it, 4 more completes ms-beacon (6 hold turns total, done ~turn10). If a house unit is already there or arrives alongside you, occupancy isn't sole — hold anyway and wait them out, don't abandon the point."},"kind":"message_sent","seq":1,"turn":1}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-2 (harvester): head to rn-lowland (5,5) — 9 tiles, ~5 turns at move-2. Then loop: gather (fills you to 3) -> move 2 tiles to deliver point (6,6) -> deliver. Repeat this gather/move/deliver cycle for the rest of the match; this is our main feed for ms-caravan's 10 resources."},"kind":"message_sent","seq":2,"turn":1}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-3 (defender): travel with fable-2 to rn-lowland (5,5), same 9-tile trip. Gather once, deliver once to (6,6) — that single delivery is the margin that gets us over 10 total, since fable-2 alone falls just short by turn 16. After that delivery, push 2 tiles to cp-relay (7,5) and hold it — it's right next to our gathering hub, cheap insurance against house grabbing it for free."},"kind":"message_sent","seq":3,"turn":1}
+{"data":{"from":"fable-1","team_id":"fable","text":"Moving east along y=0 toward cp-beacon (12,0), now at (3,0). Will keep reporting fog as I reveal it."},"kind":"message_sent","seq":4,"turn":1}
+{"data":{"from":"fable-2","team_id":"fable","text":"En route to rn-lowland (5,5), now at (2,1), ETA ~4 more turns."},"kind":"message_sent","seq":5,"turn":1}
+{"data":{"from":"fable-3","team_id":"fable","text":"Moving toward rn-lowland (5,5) via (2,1), tracking with fable-2's route. Will gather once, deliver to (6,6), then push to cp-relay (7,5) per plan."},"kind":"message_sent","seq":6,"turn":1}
+{"data":{"team_id":"house","text":"greedy split: harvester runs node-to-target relay; scout takes the far point, defender the near one"},"kind":"plan_declared","seq":7,"turn":1}
+{"data":{"action":"move","team_id":"fable","to":[3,0],"unit_id":"fable-u1"},"kind":"action_declared","seq":8,"turn":1}
+{"data":{"action":"move","team_id":"fable","to":[2,1],"unit_id":"fable-u2"},"kind":"action_declared","seq":9,"turn":1}
+{"data":{"action":"move","team_id":"fable","to":[2,1],"unit_id":"fable-u3"},"kind":"action_declared","seq":10,"turn":1}
+{"data":{"action":"move","team_id":"house","to":[12,9],"unit_id":"house-u1"},"kind":"action_declared","seq":11,"turn":1}
+{"data":{"action":"move","team_id":"house","to":[10,11],"unit_id":"house-u2"},"kind":"action_declared","seq":12,"turn":1}
+{"data":{"action":"move","team_id":"house","to":[11,10],"unit_id":"house-u3"},"kind":"action_declared","seq":13,"turn":1}
+{"data":{"to":[3,0],"unit_id":"fable-u1"},"kind":"unit_moved","seq":14,"turn":1}
+{"data":{"to":[2,1],"unit_id":"fable-u2"},"kind":"unit_moved","seq":15,"turn":1}
+{"data":{"to":[2,1],"unit_id":"fable-u3"},"kind":"unit_moved","seq":16,"turn":1}
+{"data":{"to":[12,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":17,"turn":1}
+{"data":{"to":[10,11],"unit_id":"house-u2"},"kind":"unit_moved","seq":18,"turn":1}
+{"data":{"to":[11,10],"unit_id":"house-u3"},"kind":"unit_moved","seq":19,"turn":1}
+{"data":{"turn":1},"kind":"turn_advanced","seq":20,"turn":1}
+{"data":{"turn":1},"kind":"turn_resolved","seq":21,"turn":1}
+{"data":{"agent_id":"fable-master","elapsed_ms":401419,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":22,"turn":1}
+{"data":{"agent_id":"fable-1","elapsed_ms":10602,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":23,"turn":1}
+{"data":{"agent_id":"fable-2","elapsed_ms":13963,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":24,"turn":1}
+{"data":{"agent_id":"fable-3","elapsed_ms":13836,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":25,"turn":1}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":26,"turn":1}
+{"data":{"from":"fable-master","team_id":"fable","text":"SPLIT STRATEGY — two independent threads, no unit waits on another. fable-1 (scout): go straight to cp-beacon (12,0) along the y=0 edge — pure x-travel, ~3 turns. On arrival, HOLD every turn without moving: 2 consecutive turns captures it, then 4 more consecutive turns (6 total) completes ms-beacon (reward 8). If a house unit shows up there too, still hold — don't retreat, sole occupancy is what counts and you have the shorter path in. fable-2 (harvester) + fable-3 (defender): move together to rn-lowland (5,5) — it's only 2 tiles from the deliver point (6,6), the closest node to ms-caravan. Cycle: gather (fills to carry cap) -> move to (6,6) -> deliver -> move back -> repeat. Node has exactly 12 remaining: harvester's 3 full loads (9) plus defender's loads (3) clears the 10 needed for ms-caravan (reward 10) by roughly turn 15. Don't detour for cp-relay or cp-well — we don't have spare units, stay on mission. If house units block your node or delivery tile, path around them rather than waiting."},"kind":"message_sent","seq":27,"turn":2}
+{"data":{"from":"fable-1","team_id":"fable","text":"Moving to (6,0), on pace for cp-beacon (12,0) in ~2 more turns. Will hold there once I arrive."},"kind":"message_sent","seq":28,"turn":2}
+{"data":{"from":"fable-2","team_id":"fable","text":"Ack split plan, moving toward rn-lowland (5,5) with fable-3, diagonal step this turn to (3,2). Heads up: my state doesn't show ms-caravan or a deliver point at (6,6) yet (missions list only has ms-beacon so far) -- will confirm exact deliver tile/mission amount once we get vision on it, may need a course correction then."},"kind":"message_sent","seq":29,"turn":2}
+{"data":{"from":"fable-3","team_id":"fable","text":"fable-3: en route to rn-lowland with fable-2, agreed. Note: ms-caravan / deliver@(6,6) isn't in my visible missions yet (fog) - only ms-beacon confirmed so far, cp-relay (7,5) is the only relay point I can see. Will flag once we spot the real deliver tile/mission id near there."},"kind":"message_sent","seq":30,"turn":2}
+{"data":{"action":"move","team_id":"fable","to":[6,0],"unit_id":"fable-u1"},"kind":"action_declared","seq":31,"turn":2}
+{"data":{"action":"move","team_id":"fable","to":[3,2],"unit_id":"fable-u2"},"kind":"action_declared","seq":32,"turn":2}
+{"data":{"action":"move","team_id":"fable","to":[3,2],"unit_id":"fable-u3"},"kind":"action_declared","seq":33,"turn":2}
+{"data":{"action":"move","team_id":"house","to":[9,9],"unit_id":"house-u1"},"kind":"action_declared","seq":34,"turn":2}
+{"data":{"action":"move","team_id":"house","to":[8,11],"unit_id":"house-u2"},"kind":"action_declared","seq":35,"turn":2}
+{"data":{"action":"move","team_id":"house","to":[9,10],"unit_id":"house-u3"},"kind":"action_declared","seq":36,"turn":2}
+{"data":{"to":[6,0],"unit_id":"fable-u1"},"kind":"unit_moved","seq":37,"turn":2}
+{"data":{"to":[3,2],"unit_id":"fable-u2"},"kind":"unit_moved","seq":38,"turn":2}
+{"data":{"to":[3,2],"unit_id":"fable-u3"},"kind":"unit_moved","seq":39,"turn":2}
+{"data":{"to":[9,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":40,"turn":2}
+{"data":{"to":[8,11],"unit_id":"house-u2"},"kind":"unit_moved","seq":41,"turn":2}
+{"data":{"to":[9,10],"unit_id":"house-u3"},"kind":"unit_moved","seq":42,"turn":2}
+{"data":{"turn":2},"kind":"turn_advanced","seq":43,"turn":2}
+{"data":{"turn":2},"kind":"turn_resolved","seq":44,"turn":2}
+{"data":{"agent_id":"fable-master","elapsed_ms":126413,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":45,"turn":2}
+{"data":{"agent_id":"fable-1","elapsed_ms":8606,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":46,"turn":2}
+{"data":{"agent_id":"fable-2","elapsed_ms":73626,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":47,"turn":2}
+{"data":{"agent_id":"fable-3","elapsed_ms":59302,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":48,"turn":2}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":49,"turn":2}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-1 (scout): break off solo — head straight for cp-beacon (12,0), ~2 turns of movement (distance 6, move 3). On arrival, hold there continuously: 2 turns to capture the point, then 4 more consecutive turns to complete ms-beacon (amount 4 = 2+4 = 6 turns total holding, uninterrupted). Do not detour for resources or fights. If a house unit contests sole occupancy, stay put and keep holding rather than repositioning — losing the streak resets the count."},"kind":"message_sent","seq":50,"turn":3}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-2 (harvester): move to rn-lowland (5,5) (distance 5, ~3 turns), gather to full (3), then move to the delivery square (6,6) (distance 2, 1 turn) and deliver. Loop gather-deliver continuously afterward. fable-3 is running the same loop in parallel on the same node — don't wait for them, just keep cycling independently. This mission (ms-caravan, needs 10) should close by roughly turn 10 with both of you working it."},"kind":"message_sent","seq":51,"turn":3}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-3 (defender): pair with fable-2 on the same gather/deliver loop — rn-lowland (5,5) to gather to full (2), then deliver at (6,6), repeat. Running in parallel with fable-2 splits the 10-resource ms-caravan mission roughly 3-and-2 per cycle so it closes faster than either of you alone could manage solo within the turn limit. If a house unit tries to plant sole occupancy on cp-relay (7,5) nearby, break off briefly to contest it, but resume the gather loop once clear — the caravan delivery is the priority."},"kind":"message_sent","seq":52,"turn":3}
+{"data":{"from":"fable-1","team_id":"fable","text":"Moving to (9,0) this turn, then (12,0) next turn to start the beacon hold. On track for 2-turn approach as planned."},"kind":"message_sent","seq":53,"turn":3}
+{"data":{"from":"fable-2","team_id":"fable","text":"Moving toward rn-lowland (5,5), at (4,3) now — 3 more turns to arrive and start gathering."},"kind":"message_sent","seq":54,"turn":3}
+{"data":{"from":"fable-3","team_id":"fable","text":"Moving toward rn-lowland (5,5) to start the gather loop with fable-2. Note: I only see ms-beacon in my state, not ms-caravan yet — will proceed on your info, flag if that mission never resolves into view."},"kind":"message_sent","seq":55,"turn":3}
+{"data":{"action":"move","team_id":"fable","to":[9,0],"unit_id":"fable-u1"},"kind":"action_declared","seq":56,"turn":3}
+{"data":{"action":"move","team_id":"fable","to":[4,3],"unit_id":"fable-u2"},"kind":"action_declared","seq":57,"turn":3}
+{"data":{"action":"move","team_id":"fable","to":[4,3],"unit_id":"fable-u3"},"kind":"action_declared","seq":58,"turn":3}
+{"data":{"action":"move","team_id":"house","to":[12,9],"unit_id":"house-u1"},"kind":"action_declared","seq":59,"turn":3}
+{"data":{"action":"move","team_id":"house","to":[8,9],"unit_id":"house-u2"},"kind":"action_declared","seq":60,"turn":3}
+{"data":{"action":"move","team_id":"house","to":[7,10],"unit_id":"house-u3"},"kind":"action_declared","seq":61,"turn":3}
+{"data":{"to":[9,0],"unit_id":"fable-u1"},"kind":"unit_moved","seq":62,"turn":3}
+{"data":{"to":[4,3],"unit_id":"fable-u2"},"kind":"unit_moved","seq":63,"turn":3}
+{"data":{"to":[4,3],"unit_id":"fable-u3"},"kind":"unit_moved","seq":64,"turn":3}
+{"data":{"to":[12,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":65,"turn":3}
+{"data":{"to":[8,9],"unit_id":"house-u2"},"kind":"unit_moved","seq":66,"turn":3}
+{"data":{"to":[7,10],"unit_id":"house-u3"},"kind":"unit_moved","seq":67,"turn":3}
+{"data":{"turn":3},"kind":"turn_advanced","seq":68,"turn":3}
+{"data":{"turn":3},"kind":"turn_resolved","seq":69,"turn":3}
+{"data":{"agent_id":"fable-master","elapsed_ms":110842,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":70,"turn":3}
+{"data":{"agent_id":"fable-1","elapsed_ms":11676,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":71,"turn":3}
+{"data":{"agent_id":"fable-2","elapsed_ms":14497,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":72,"turn":3}
+{"data":{"agent_id":"fable-3","elapsed_ms":17485,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":73,"turn":3}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":74,"turn":3}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-1/u1 (scout): move now straight to cp-beacon [12,0] - you're exactly 3 tiles out, matches your move stat exactly. Once there, HOLD every remaining turn without moving: 2 consecutive turns captures it, keep holding to 6 total turns to finish ms-beacon. This is your only job - don't detour for resources or enemies, House's units are all in the southeast and shouldn't reach you."},"kind":"message_sent","seq":75,"turn":4}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-2/u2 (harvester): head to rn-lowland [5,5] (closer than highland, and away from House's harvester near [8,9]). Gather to full, then move to the deliver square [6,6] and deliver. Loop this (gather-deliver-gather-deliver) until ms-caravan (10) is done. u3 is running the same loop alongside you for extra throughput - solo you'll fall just short of 10 by the turn limit, so both of you gathering is what closes it."},"kind":"message_sent","seq":76,"turn":4}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-3/u3 (defender): same target as u2 - move to rn-lowland [5,5], gather (carry 1), deliver at [6,6], repeat in parallel with u2. Your extra hauling is the margin that gets ms-caravan to 10 in time. If a House unit shows up at the node or the deliver square instead, hold your ground to block them rather than continuing to gather."},"kind":"message_sent","seq":77,"turn":4}
+{"data":{"from":"fable-1","team_id":"fable","text":"Moving to cp-beacon [12,0] now, exactly 3 tiles. Will hold there every turn after to capture (2 turns) then complete ms-beacon (6 total). Will report if any House unit shows up near the beacon."},"kind":"message_sent","seq":78,"turn":4}
+{"data":{"from":"fable-2","team_id":"fable","text":"u2 moving toward rn-lowland, will be at [5,4] this turn then gather next turn at [5,5]."},"kind":"message_sent","seq":79,"turn":4}
+{"data":{"from":"fable-3","team_id":"fable","text":"u3 en route to rn-lowland: [4,3]->[5,4] this turn (max move is 2, direct hop is 3 away), reaching [5,5] next turn to gather. Will loop gather/deliver at [6,6] alongside u2 for ms-caravan. Will hold ground instead of gathering if a House unit contests the node or deliver square."},"kind":"message_sent","seq":80,"turn":4}
+{"data":{"action":"move","team_id":"fable","to":[12,0],"unit_id":"fable-u1"},"kind":"action_declared","seq":81,"turn":4}
+{"data":{"action":"move","team_id":"fable","to":[5,4],"unit_id":"fable-u2"},"kind":"action_declared","seq":82,"turn":4}
+{"data":{"action":"move","team_id":"fable","to":[5,4],"unit_id":"fable-u3"},"kind":"action_declared","seq":83,"turn":4}
+{"data":{"action":"move","team_id":"house","to":[9,9],"unit_id":"house-u1"},"kind":"action_declared","seq":84,"turn":4}
+{"data":{"action":"move","team_id":"house","to":[8,7],"unit_id":"house-u2"},"kind":"action_declared","seq":85,"turn":4}
+{"data":{"action":"move","team_id":"house","to":[7,8],"unit_id":"house-u3"},"kind":"action_declared","seq":86,"turn":4}
+{"data":{"to":[12,0],"unit_id":"fable-u1"},"kind":"unit_moved","seq":87,"turn":4}
+{"data":{"to":[5,4],"unit_id":"fable-u2"},"kind":"unit_moved","seq":88,"turn":4}
+{"data":{"to":[5,4],"unit_id":"fable-u3"},"kind":"unit_moved","seq":89,"turn":4}
+{"data":{"to":[9,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":90,"turn":4}
+{"data":{"to":[8,7],"unit_id":"house-u2"},"kind":"unit_moved","seq":91,"turn":4}
+{"data":{"to":[7,8],"unit_id":"house-u3"},"kind":"unit_moved","seq":92,"turn":4}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":1},"kind":"control_point_held","seq":93,"turn":4}
+{"data":{"turn":4},"kind":"turn_advanced","seq":94,"turn":4}
+{"data":{"turn":4},"kind":"turn_resolved","seq":95,"turn":4}
+{"data":{"agent_id":"fable-master","elapsed_ms":123809,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":96,"turn":4}
+{"data":{"agent_id":"fable-1","elapsed_ms":6900,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":97,"turn":4}
+{"data":{"agent_id":"fable-2","elapsed_ms":12988,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":98,"turn":4}
+{"data":{"agent_id":"fable-3","elapsed_ms":23799,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":99,"turn":4}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":100,"turn":4}
+{"data":{"from":"fable-master","team_id":"fable","text":"u1(scout): keep holding cp-beacon(12,0) every turn, action=hold, do not move. You're at 1/6 toward ms-beacon capture+hold; 4 more consecutive holds finishes it (capture lands turn after next, mission complete ~turn 8). Highest priority: never break the hold."},"kind":"message_sent","seq":101,"turn":5}
+{"data":{"from":"fable-master","team_id":"fable","text":"u2(harvester): move to rn-lowland(5,5) this turn. Next turn gather (fills to 3). Then move to (6,6) and deliver. Repeat gather-move-deliver loop continuously until ms-caravan reaches 10 resources. Solo you only reach ~9 by turn 16, so u3 must run parallel loops too."},"kind":"message_sent","seq":102,"turn":5}
+{"data":{"from":"fable-master","team_id":"fable","text":"u3(defender): move to rn-lowland(5,5) alongside u2 this turn. Next turn gather (fills to 1). Then move to (6,6) and deliver, and repeat the same loop as u2 in parallel — your extra runs close the gap so ms-caravan finishes before turn 16. Skip cp-relay/cp-well for now; caravan+beacon are our only priorities this match."},"kind":"message_sent","seq":103,"turn":5}
+{"data":{"from":"fable-1","team_id":"fable","text":"Holding cp-beacon at (12,0), streak 1/4 toward mission complete ~turn 8. Will not move."},"kind":"message_sent","seq":104,"turn":5}
+{"data":{"from":"fable-2","team_id":"fable","text":"Moving to rn-lowland(5,5) now; will gather next turn then run the gather-move-deliver loop to (6,6) as instructed."},"kind":"message_sent","seq":105,"turn":5}
+{"data":{"from":"fable-3","team_id":"fable","text":"u3 moving to rn-lowland(5,5) now, will gather next turn then run the gather->(6,6) deliver loop in parallel with u2 to close the caravan gap."},"kind":"message_sent","seq":106,"turn":5}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u1"},"kind":"action_declared","seq":107,"turn":5}
+{"data":{"action":"move","team_id":"fable","to":[5,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":108,"turn":5}
+{"data":{"action":"move","team_id":"fable","to":[5,5],"unit_id":"fable-u3"},"kind":"action_declared","seq":109,"turn":5}
+{"data":{"action":"move","team_id":"house","to":[12,9],"unit_id":"house-u1"},"kind":"action_declared","seq":110,"turn":5}
+{"data":{"action":"move","team_id":"house","to":[8,6],"unit_id":"house-u2"},"kind":"action_declared","seq":111,"turn":5}
+{"data":{"action":"move","team_id":"house","to":[7,6],"unit_id":"house-u3"},"kind":"action_declared","seq":112,"turn":5}
+{"data":{"to":[5,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":113,"turn":5}
+{"data":{"to":[5,5],"unit_id":"fable-u3"},"kind":"unit_moved","seq":114,"turn":5}
+{"data":{"to":[12,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":115,"turn":5}
+{"data":{"to":[8,6],"unit_id":"house-u2"},"kind":"unit_moved","seq":116,"turn":5}
+{"data":{"to":[7,6],"unit_id":"house-u3"},"kind":"unit_moved","seq":117,"turn":5}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":2},"kind":"control_point_held","seq":118,"turn":5}
+{"data":{"cp_id":"cp-beacon","team_id":"fable"},"kind":"control_point_captured","seq":119,"turn":5}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":2},"kind":"control_point_held","seq":120,"turn":5}
+{"data":{"turn":5},"kind":"turn_advanced","seq":121,"turn":5}
+{"data":{"turn":5},"kind":"turn_resolved","seq":122,"turn":5}
+{"data":{"agent_id":"fable-master","elapsed_ms":117743,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":123,"turn":5}
+{"data":{"agent_id":"fable-1","elapsed_ms":4551,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":124,"turn":5}
+{"data":{"agent_id":"fable-2","elapsed_ms":5325,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":125,"turn":5}
+{"data":{"agent_id":"fable-3","elapsed_ms":5017,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":126,"turn":5}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":127,"turn":5}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-1: HOLD position at cp-beacon (action=hold, do not move). You're at streak 2/6 on the beacon hold mission (amount 4 needs 2+4=6 total turns) — 4 more consecutive turns locks reward 8. Any move resets this, so stay put no matter what you see."},"kind":"message_sent","seq":128,"turn":6}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-2: You're the primary caravan hauler for ms-caravan (deliver 10, currently 0). Cycle: gather at rn-lowland (fills to your carry-3), move to [6,6] (2 tiles, within your move-2), deliver, move back to rn-lowland, repeat. Minimize idle turns — every trip nets 3 toward the 10 target."},"kind":"message_sent","seq":129,"turn":6}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-3: Run the same gather-shuttle-deliver cycle as fable-2 in parallel from rn-lowland (carry-1 per trip) — two haulers moving simultaneously reaches the amount-10 caravan target far faster than one. Keep pace with fable-2's cycle. Once team resources hit 10 (mission complete) or if we're clearly ahead of the turn-16 deadline, break off toward cp-relay [7,5] to contest it — house's defender is one tile away and may take it uncontested otherwise, but do not divert until the caravan delivery is secured."},"kind":"message_sent","seq":130,"turn":6}
+{"data":{"from":"fable-1","team_id":"fable","text":"Holding at cp-beacon, streak 2/6 toward ms-beacon (4 more turns to lock reward 8). Not moving."},"kind":"message_sent","seq":131,"turn":6}
+{"data":{"from":"fable-2","team_id":"fable","text":"Gathering at rn-lowland now (fills to carry-3), then moving to [6,6] to deliver next turn. Will keep cycling gather->move->deliver->move back."},"kind":"message_sent","seq":132,"turn":6}
+{"data":{"from":"fable-3","team_id":"fable","text":"At rn-lowland [5,5], gathering now (carry-1). Will shuttle to deliver point after fable-2, keeping pace on ms-caravan. Will hold off on cp-relay until caravan hits 10 or we're ahead of schedule."},"kind":"message_sent","seq":133,"turn":6}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u1"},"kind":"action_declared","seq":134,"turn":6}
+{"data":{"action":"gather","team_id":"fable","to":[5,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":135,"turn":6}
+{"data":{"action":"gather","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":136,"turn":6}
+{"data":{"action":"move","team_id":"house","to":[9,9],"unit_id":"house-u1"},"kind":"action_declared","seq":137,"turn":6}
+{"data":{"action":"gather","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":138,"turn":6}
+{"data":{"action":"move","team_id":"house","to":[7,5],"unit_id":"house-u3"},"kind":"action_declared","seq":139,"turn":6}
+{"data":{"to":[9,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":140,"turn":6}
+{"data":{"to":[7,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":141,"turn":6}
+{"data":{"amount":3,"node_id":"rn-lowland","unit_id":"fable-u2"},"kind":"resource_gathered","seq":142,"turn":6}
+{"data":{"amount":1,"node_id":"rn-lowland","unit_id":"fable-u3"},"kind":"resource_gathered","seq":143,"turn":6}
+{"data":{"amount":3,"node_id":"rn-highland","unit_id":"house-u2"},"kind":"resource_gathered","seq":144,"turn":6}
+{"data":{"cp_id":"cp-relay","team_id":"house","turns":1},"kind":"control_point_held","seq":145,"turn":6}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":3},"kind":"control_point_held","seq":146,"turn":6}
+{"data":{"turn":6},"kind":"turn_advanced","seq":147,"turn":6}
+{"data":{"turn":6},"kind":"turn_resolved","seq":148,"turn":6}
+{"data":{"agent_id":"fable-master","elapsed_ms":91778,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":149,"turn":6}
+{"data":{"agent_id":"fable-1","elapsed_ms":5039,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":150,"turn":6}
+{"data":{"agent_id":"fable-2","elapsed_ms":13167,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":151,"turn":6}
+{"data":{"agent_id":"fable-3","elapsed_ms":26775,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":152,"turn":6}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":153,"turn":6}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-1 (scout): HOLD at cp-beacon (12,0) every remaining turn — do not move for any reason. We're deep into the hold streak (3 turns logged) and ms-beacon (reward 8) completes soon; breaking now throws away the progress. Stay locked down until the mission shows complete."},"kind":"message_sent","seq":154,"turn":7}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-2 (harvester, full at 3/3): move now to the deliver point (6,6) — it's Manhattan distance 2 from (5,5), one move gets you there. Next turn, deliver. Then loop: move back to rn-lowland (5,5), gather to full, move to (6,6), deliver — repeat that shuttle until ms-caravan hits 10 delivered. Plenty of resource left at rn-lowland (8 remaining), no need to switch nodes."},"kind":"message_sent","seq":155,"turn":7}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-3 (defender, full at 1/1): move now to (6,6) alongside fable-2 and deliver next turn. After that, keep shuttling rn-lowland to (6,6) same as fable-2 — every point delivered matters, we need both of you cycling to hit 10 before turn 16. Watch (7,5): a house unit is sitting on cp-relay building a capture streak. If you see a house unit approaching our deliver point at (6,6) to interfere, break off and screen it — otherwise stay on the resource loop."},"kind":"message_sent","seq":156,"turn":7}
+{"data":{"from":"fable-1","team_id":"fable","text":"Holding at cp-beacon (12,0), staying locked down until ms-beacon completes. No house units in my vision (radius 4) threatening the beacon."},"kind":"message_sent","seq":157,"turn":7}
+{"data":{"from":"fable-2","team_id":"fable","text":"Moving to (6,6) now, full at 3/3. Will deliver next turn, then shuttle back to rn-lowland (5,5) and repeat until ms-caravan hits 10."},"kind":"message_sent","seq":158,"turn":7}
+{"data":{"from":"fable-3","team_id":"fable","text":"Moving to (6,6) to deliver next turn per plan. House defender still parked at cp-relay (7,5), not near our deliver point yet — will screen if it turns toward (6,6)."},"kind":"message_sent","seq":159,"turn":7}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u1"},"kind":"action_declared","seq":160,"turn":7}
+{"data":{"action":"move","team_id":"fable","to":[6,6],"unit_id":"fable-u2"},"kind":"action_declared","seq":161,"turn":7}
+{"data":{"action":"move","team_id":"fable","to":[6,6],"unit_id":"fable-u3"},"kind":"action_declared","seq":162,"turn":7}
+{"data":{"action":"move","team_id":"house","to":[12,9],"unit_id":"house-u1"},"kind":"action_declared","seq":163,"turn":7}
+{"data":{"action":"move","team_id":"house","to":[6,6],"unit_id":"house-u2"},"kind":"action_declared","seq":164,"turn":7}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":165,"turn":7}
+{"data":{"to":[6,6],"unit_id":"fable-u2"},"kind":"unit_moved","seq":166,"turn":7}
+{"data":{"to":[6,6],"unit_id":"fable-u3"},"kind":"unit_moved","seq":167,"turn":7}
+{"data":{"to":[12,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":168,"turn":7}
+{"data":{"to":[6,6],"unit_id":"house-u2"},"kind":"unit_moved","seq":169,"turn":7}
+{"data":{"cp_id":"cp-relay","team_id":"house","turns":2},"kind":"control_point_held","seq":170,"turn":7}
+{"data":{"cp_id":"cp-relay","team_id":"house"},"kind":"control_point_captured","seq":171,"turn":7}
+{"data":{"cp_id":"cp-relay","team_id":"house","turns":2},"kind":"control_point_held","seq":172,"turn":7}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":4},"kind":"control_point_held","seq":173,"turn":7}
+{"data":{"turn":7},"kind":"turn_advanced","seq":174,"turn":7}
+{"data":{"turn":7},"kind":"turn_resolved","seq":175,"turn":7}
+{"data":{"agent_id":"fable-master","elapsed_ms":86182,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":176,"turn":7}
+{"data":{"agent_id":"fable-1","elapsed_ms":7593,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":177,"turn":7}
+{"data":{"agent_id":"fable-2","elapsed_ms":5095,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":178,"turn":7}
+{"data":{"agent_id":"fable-3","elapsed_ms":13449,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":179,"turn":7}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":180,"turn":7}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-u1: HOLD at cp-beacon this turn and next turn — do not move. You're at streak 4/6; two more consecutive holds completes ms-beacon (reward 8)."},"kind":"message_sent","seq":181,"turn":8}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-u2: DELIVER now at (6,6) to bank your 3 carried resources toward ms-caravan (needs 10 total, we're at 0). Then move to rn-highland (8,6) — 2 tiles, one move — gather to full, return to (6,6), deliver. Repeat this cycle until the mission completes."},"kind":"message_sent","seq":182,"turn":8}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-u3: DELIVER now at (6,6) to bank your 1 carried resource. Then move to rn-lowland (5,5) — 2 tiles, one move — gather to full, return to (6,6), deliver. Repeat in parallel with fable-u2 on the other node; ignore house-u2 contesting the tile, just keep cycling."},"kind":"message_sent","seq":183,"turn":8}
+{"data":{"from":"fable-1","team_id":"fable","text":"Holding at cp-beacon, streak building toward ms-beacon completion. Will hold again next turn as instructed."},"kind":"message_sent","seq":184,"turn":8}
+{"data":{"from":"fable-2","team_id":"fable","text":"Delivered 3 at (6,6). Moving to rn-highland (8,6) next to refill, then back to deliver — cycling as planned."},"kind":"message_sent","seq":185,"turn":8}
+{"data":{"from":"fable-3","team_id":"fable","text":"Delivering my 1 at (6,6) now. Next turn heading to rn-lowland (5,5) to gather, then back to deliver — cycling in parallel with fable-u2."},"kind":"message_sent","seq":186,"turn":8}
+{"data":{"from":"house-2","team_id":"house","text":"delivered 3"},"kind":"message_sent","seq":187,"turn":8}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u1"},"kind":"action_declared","seq":188,"turn":8}
+{"data":{"action":"deliver","team_id":"fable","unit_id":"fable-u2"},"kind":"action_declared","seq":189,"turn":8}
+{"data":{"action":"deliver","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":190,"turn":8}
+{"data":{"action":"move","team_id":"house","to":[9,9],"unit_id":"house-u1"},"kind":"action_declared","seq":191,"turn":8}
+{"data":{"action":"deliver","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":192,"turn":8}
+{"data":{"action":"move","team_id":"house","to":[9,5],"unit_id":"house-u3"},"kind":"action_declared","seq":193,"turn":8}
+{"data":{"to":[9,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":194,"turn":8}
+{"data":{"to":[9,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":195,"turn":8}
+{"data":{"amount":3,"team_id":"fable","unit_id":"fable-u2"},"kind":"resource_delivered","seq":196,"turn":8}
+{"data":{"amount":1,"team_id":"fable","unit_id":"fable-u3"},"kind":"resource_delivered","seq":197,"turn":8}
+{"data":{"amount":3,"team_id":"house","unit_id":"house-u2"},"kind":"resource_delivered","seq":198,"turn":8}
+{"data":{"cp_id":"cp-relay","team_id":"","turns":0},"kind":"control_point_held","seq":199,"turn":8}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":5},"kind":"control_point_held","seq":200,"turn":8}
+{"data":{"turn":8},"kind":"turn_advanced","seq":201,"turn":8}
+{"data":{"turn":8},"kind":"turn_resolved","seq":202,"turn":8}
+{"data":{"agent_id":"fable-master","elapsed_ms":67016,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":203,"turn":8}
+{"data":{"agent_id":"fable-1","elapsed_ms":5275,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":204,"turn":8}
+{"data":{"agent_id":"fable-2","elapsed_ms":8948,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":205,"turn":8}
+{"data":{"agent_id":"fable-3","elapsed_ms":13121,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":206,"turn":8}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":207,"turn":8}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-u1 (scout, cp-beacon): HOLD this turn. Your streak is 5 — one more consecutive hold completes ms-beacon (reward 8). After it completes, keep holding cp-beacon; nearest House unit is 8+ tiles away and can't contest sole occupancy while you're there. Do not move."},"kind":"message_sent","seq":208,"turn":9}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-u2 (harvester, at deliver point 6,6): Move to rn-highland (8,6) — distance 2, one move gets you there. Next turn: gather (fills carry to 3). Then move back to (6,6) (distance 2) and deliver. We need 6 more resources for ms-caravan (currently 4/10, need 10). After first delivery, if total is still short, repeat the highland loop — a second load of 3 will clear it. House's harvester is parked on the same square and may race you to the nodes; move first."},"kind":"message_sent","seq":209,"turn":9}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-u3 (defender, at deliver point 6,6): Move to rn-lowland (5,5) — distance 2, one move. Next turn: gather (carry 1). Then move back to (6,6) and deliver. Working lowland while fable-u2 works highland in parallel gets ms-caravan's remaining 6 resources faster than one unit alone. After delivering, loop back to lowland again if the mission isn't yet complete."},"kind":"message_sent","seq":210,"turn":9}
+{"data":{"from":"fable-1","team_id":"fable","text":"Holding cp-beacon, streak 5->6, ms-beacon should complete this turn. Staying put after."},"kind":"message_sent","seq":211,"turn":9}
+{"data":{"from":"fable-2","team_id":"fable","text":"Moving to rn-highland (8,6) now; will gather next turn then return to (6,6) to deliver."},"kind":"message_sent","seq":212,"turn":9}
+{"data":{"from":"fable-3","team_id":"fable","text":"Moving to rn-lowland (5,5) now, will gather next turn then deliver to (6,6). Watching for House defender at (7,5) but they are out of my path."},"kind":"message_sent","seq":213,"turn":9}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u1"},"kind":"action_declared","seq":214,"turn":9}
+{"data":{"action":"move","team_id":"fable","to":[8,6],"unit_id":"fable-u2"},"kind":"action_declared","seq":215,"turn":9}
+{"data":{"action":"move","team_id":"fable","to":[5,5],"unit_id":"fable-u3"},"kind":"action_declared","seq":216,"turn":9}
+{"data":{"action":"move","team_id":"house","to":[12,9],"unit_id":"house-u1"},"kind":"action_declared","seq":217,"turn":9}
+{"data":{"action":"move","team_id":"house","to":[8,6],"unit_id":"house-u2"},"kind":"action_declared","seq":218,"turn":9}
+{"data":{"action":"move","team_id":"house","to":[7,5],"unit_id":"house-u3"},"kind":"action_declared","seq":219,"turn":9}
+{"data":{"to":[8,6],"unit_id":"fable-u2"},"kind":"unit_moved","seq":220,"turn":9}
+{"data":{"to":[5,5],"unit_id":"fable-u3"},"kind":"unit_moved","seq":221,"turn":9}
+{"data":{"to":[12,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":222,"turn":9}
+{"data":{"to":[8,6],"unit_id":"house-u2"},"kind":"unit_moved","seq":223,"turn":9}
+{"data":{"to":[7,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":224,"turn":9}
+{"data":{"cp_id":"cp-relay","team_id":"house","turns":1},"kind":"control_point_held","seq":225,"turn":9}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":6},"kind":"control_point_held","seq":226,"turn":9}
+{"data":{"mission_id":"ms-beacon","team_id":"fable"},"kind":"mission_completed","seq":227,"turn":9}
+{"data":{"turn":9},"kind":"turn_advanced","seq":228,"turn":9}
+{"data":{"turn":9},"kind":"turn_resolved","seq":229,"turn":9}
+{"data":{"agent_id":"fable-master","elapsed_ms":88995,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":230,"turn":9}
+{"data":{"agent_id":"fable-1","elapsed_ms":7500,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":231,"turn":9}
+{"data":{"agent_id":"fable-2","elapsed_ms":8359,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":232,"turn":9}
+{"data":{"agent_id":"fable-3","elapsed_ms":12954,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":233,"turn":9}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":234,"turn":9}
+{"data":{"from":"fable-master","team_id":"fable","text":"Beacon's locked in (8/8) — full pivot to Caravan (4/10, 7 turns left). fable-2 (harvester, at rn-highland 8,6): gather now, then run the loop move(6,6)->deliver, back to node, gather, move, deliver — two full round trips nets +6 and finishes it around turn 15. fable-3 (defender, at rn-lowland 5,5): gather now, move to (6,6), deliver your load — that extra +1 is our safety margin if house contests the node. fable-1 (scout): beacon's done, no value holding that tile — head toward (8,6)/rn-highland at full speed to backstop the harvester; if you can't close the distance by ~turn 13, reroute straight to the (6,6) drop point instead. House's own caravan math tops out near 9/10 unless their defender abandons cp-relay to help gather, so we have the tempo advantage — don't hold back, run every gather-deliver cycle you can before turn 16."},"kind":"message_sent","seq":235,"turn":10}
+{"data":{"from":"fable-1","team_id":"fable","text":"Copy, beacon released. Burning full move toward rn-highland (8,6) to backstop fable-2; now at (11,2), on pace to arrive ~turn 12-13. Will pivot to (6,6) drop point if the gap isn't closing by then."},"kind":"message_sent","seq":236,"turn":10}
+{"data":{"from":"fable-2","team_id":"fable","text":"At rn-highland (8,6) with house-u2 contesting the same tile — gathering now per plan, will move to (6,6) to deliver next turn."},"kind":"message_sent","seq":237,"turn":10}
+{"data":{"from":"fable-3","team_id":"fable","text":"At rn-lowland (5,5), gathering now per plan. Next: move to (6,6) and deliver."},"kind":"message_sent","seq":238,"turn":10}
+{"data":{"action":"move","team_id":"fable","to":[11,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":239,"turn":10}
+{"data":{"action":"gather","team_id":"fable","unit_id":"fable-u2"},"kind":"action_declared","seq":240,"turn":10}
+{"data":{"action":"gather","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":241,"turn":10}
+{"data":{"action":"move","team_id":"house","to":[9,9],"unit_id":"house-u1"},"kind":"action_declared","seq":242,"turn":10}
+{"data":{"action":"gather","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":243,"turn":10}
+{"data":{"action":"move","team_id":"house","to":[9,5],"unit_id":"house-u3"},"kind":"action_declared","seq":244,"turn":10}
+{"data":{"to":[11,2],"unit_id":"fable-u1"},"kind":"unit_moved","seq":245,"turn":10}
+{"data":{"to":[9,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":246,"turn":10}
+{"data":{"to":[9,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":247,"turn":10}
+{"data":{"amount":3,"node_id":"rn-highland","unit_id":"fable-u2"},"kind":"resource_gathered","seq":248,"turn":10}
+{"data":{"amount":1,"node_id":"rn-lowland","unit_id":"fable-u3"},"kind":"resource_gathered","seq":249,"turn":10}
+{"data":{"amount":3,"node_id":"rn-highland","unit_id":"house-u2"},"kind":"resource_gathered","seq":250,"turn":10}
+{"data":{"cp_id":"cp-relay","team_id":"","turns":0},"kind":"control_point_held","seq":251,"turn":10}
+{"data":{"cp_id":"cp-beacon","team_id":"","turns":0},"kind":"control_point_held","seq":252,"turn":10}
+{"data":{"turn":10},"kind":"turn_advanced","seq":253,"turn":10}
+{"data":{"turn":10},"kind":"turn_resolved","seq":254,"turn":10}
+{"data":{"agent_id":"fable-master","elapsed_ms":110852,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":255,"turn":10}
+{"data":{"agent_id":"fable-1","elapsed_ms":50859,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":256,"turn":10}
+{"data":{"agent_id":"fable-2","elapsed_ms":8816,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":257,"turn":10}
+{"data":{"agent_id":"fable-3","elapsed_ms":8574,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":258,"turn":10}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":259,"turn":10}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-1 (scout): fall back to cp-beacon now - move to (12,0), exactly 3 tiles, one move covers it. Once there, hold every remaining turn. House's scout is 12 tiles off at (9,9) but could still dash for a late flip; your presence blocks sole occupancy. Ms-caravan is covered by fable-2/fable-3, so your job is guarding the beacon we already banked."},"kind":"message_sent","seq":260,"turn":11}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-2 (harvester): move to the deliver point (6,6) now, 2 tiles, in range. Next turn deliver your 3. Then loop back to (8,6), gather the last 3 off rn-highland (canonical order breaks ties in our favor vs house's harvester on the same square), return to (6,6), and deliver again - that second load pushes team resources past 10 and closes ms-caravan for +10."},"kind":"message_sent","seq":261,"turn":11}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-3 (defender): move to (6,6) now, 2 tiles. Next turn deliver your 1. Then loop back to (5,5), gather again from rn-lowland (uncontested, 7 remaining), return to (6,6), and deliver once more as insurance in case fable-2's highland run gets blocked. Don't try to flip cp-relay - house's defender sits 2 tiles from it and will contest sole occupancy; not worth the risk this late in the match."},"kind":"message_sent","seq":262,"turn":11}
+{"data":{"from":"fable-1","team_id":"fable","text":"Moving to cp-beacon (12,0) now, 3 tiles. Will hold every remaining turn to lock ms-beacon; house scout is far off at (9,9) but I'll stay put to block any late flip attempt."},"kind":"message_sent","seq":263,"turn":11}
+{"data":{"from":"fable-2","team_id":"fable","text":"Moving to deliver point (6,6) now, on track to unload 3 next turn then loop back to rn-highland."},"kind":"message_sent","seq":264,"turn":11}
+{"data":{"from":"fable-3","team_id":"fable","text":"Moving to (6,6) now to deliver my 1 next turn, then looping back to rn-lowland for a second load as insurance behind fable-2's highland run."},"kind":"message_sent","seq":265,"turn":11}
+{"data":{"action":"move","team_id":"fable","to":[12,0],"unit_id":"fable-u1"},"kind":"action_declared","seq":266,"turn":11}
+{"data":{"action":"move","team_id":"fable","to":[6,6],"unit_id":"fable-u2"},"kind":"action_declared","seq":267,"turn":11}
+{"data":{"action":"move","team_id":"fable","to":[6,6],"unit_id":"fable-u3"},"kind":"action_declared","seq":268,"turn":11}
+{"data":{"action":"move","team_id":"house","to":[12,9],"unit_id":"house-u1"},"kind":"action_declared","seq":269,"turn":11}
+{"data":{"action":"move","team_id":"house","to":[6,6],"unit_id":"house-u2"},"kind":"action_declared","seq":270,"turn":11}
+{"data":{"action":"move","team_id":"house","to":[7,5],"unit_id":"house-u3"},"kind":"action_declared","seq":271,"turn":11}
+{"data":{"to":[12,0],"unit_id":"fable-u1"},"kind":"unit_moved","seq":272,"turn":11}
+{"data":{"to":[6,6],"unit_id":"fable-u2"},"kind":"unit_moved","seq":273,"turn":11}
+{"data":{"to":[6,6],"unit_id":"fable-u3"},"kind":"unit_moved","seq":274,"turn":11}
+{"data":{"to":[12,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":275,"turn":11}
+{"data":{"to":[6,6],"unit_id":"house-u2"},"kind":"unit_moved","seq":276,"turn":11}
+{"data":{"to":[7,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":277,"turn":11}
+{"data":{"cp_id":"cp-relay","team_id":"house","turns":1},"kind":"control_point_held","seq":278,"turn":11}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":1},"kind":"control_point_held","seq":279,"turn":11}
+{"data":{"turn":11},"kind":"turn_advanced","seq":280,"turn":11}
+{"data":{"turn":11},"kind":"turn_resolved","seq":281,"turn":11}
+{"data":{"agent_id":"fable-master","elapsed_ms":193208,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":282,"turn":11}
+{"data":{"agent_id":"fable-1","elapsed_ms":9092,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":283,"turn":11}
+{"data":{"agent_id":"fable-2","elapsed_ms":8096,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":284,"turn":11}
+{"data":{"agent_id":"fable-3","elapsed_ms":5040,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":285,"turn":11}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":286,"turn":11}
+{"data":{"team_id":"fable","text":"fable-u1 holds cp-beacon to complete ms-beacon (reward 8) while fable-u2/u3 run the gather-deliver loop at [6,6] to hit the resource threshold."},"kind":"plan_declared","seq":287,"turn":12}
+{"data":{"from":"fable-master","team_id":"fable","text":"Deliver push: fable-u2 and fable-u3, you're both standing on the caravan square [6,6] with cargo (3 and 1) — deliver now, that lands us at 8/10. Beacon mission is already banked, no need to babysit it further for the win condition. Next: fable-u2 (harvester) move to rn-highland [8,6] (2 tiles, one move), gather next turn to fill 3, then return to [6,6] and deliver — that alone clears the 10 threshold with turns to spare. fable-u3 (defender) in parallel: move to rn-lowland [5,5] (2 tiles), gather 1, return to [6,6], deliver — redundant capacity as a safety margin in case anything blocks u2. Splitting nodes avoids us fighting over the same pile. fable-u1 (scout): hold position at cp-beacon [12,0] — you're too far (12 tiles) to help the caravan run in the turns left, so just maintain the point. No need to chase cp-well, it's unreachable in time. We're ahead of house on the caravan race (they're only at 6/10 even after their own delivery) — no blocking needed, just execute the gather-deliver loop clean."},"kind":"message_sent","seq":288,"turn":12}
+{"data":{"from":"fable-1","team_id":"fable","text":"Correction: ms-beacon shows status=open, completed_by=[] in state — it's NOT banked yet, still needs more hold turns (amount 4, i.e. 2+4=6 total). I'm staying on cp-beacon [12,0] to keep the streak alive; no house unit is within reach (nearest is 10 tiles out, well beyond their move+turns left), so this costs us nothing. Keep running the caravan gather/deliver loop — I'll hold the beacon to close out the reward-8 mission too."},"kind":"message_sent","seq":289,"turn":12}
+{"data":{"from":"fable-2","team_id":"fable","text":"Delivering 3 now from [6,6] as ordered. Will head to rn-highland [8,6] next turn to refill."},"kind":"message_sent","seq":290,"turn":12}
+{"data":{"from":"fable-3","team_id":"fable","text":"Delivering my 1 cargo now at [6,6] as directed — puts us at 8/10 with u2's gather-return loop still to come."},"kind":"message_sent","seq":291,"turn":12}
+{"data":{"from":"house-2","team_id":"house","text":"delivered 3"},"kind":"message_sent","seq":292,"turn":12}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u1"},"kind":"action_declared","seq":293,"turn":12}
+{"data":{"action":"deliver","team_id":"fable","to":[6,6],"unit_id":"fable-u2"},"kind":"action_declared","seq":294,"turn":12}
+{"data":{"action":"deliver","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":295,"turn":12}
+{"data":{"action":"move","team_id":"house","to":[9,9],"unit_id":"house-u1"},"kind":"action_declared","seq":296,"turn":12}
+{"data":{"action":"deliver","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":297,"turn":12}
+{"data":{"action":"move","team_id":"house","to":[9,5],"unit_id":"house-u3"},"kind":"action_declared","seq":298,"turn":12}
+{"data":{"to":[9,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":299,"turn":12}
+{"data":{"to":[9,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":300,"turn":12}
+{"data":{"amount":3,"team_id":"fable","unit_id":"fable-u2"},"kind":"resource_delivered","seq":301,"turn":12}
+{"data":{"amount":1,"team_id":"fable","unit_id":"fable-u3"},"kind":"resource_delivered","seq":302,"turn":12}
+{"data":{"amount":3,"team_id":"house","unit_id":"house-u2"},"kind":"resource_delivered","seq":303,"turn":12}
+{"data":{"cp_id":"cp-relay","team_id":"","turns":0},"kind":"control_point_held","seq":304,"turn":12}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":2},"kind":"control_point_held","seq":305,"turn":12}
+{"data":{"turn":12},"kind":"turn_advanced","seq":306,"turn":12}
+{"data":{"turn":12},"kind":"turn_resolved","seq":307,"turn":12}
+{"data":{"agent_id":"fable-master","elapsed_ms":80839,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":308,"turn":12}
+{"data":{"agent_id":"fable-1","elapsed_ms":46968,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":309,"turn":12}
+{"data":{"agent_id":"fable-2","elapsed_ms":6323,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":310,"turn":12}
+{"data":{"agent_id":"fable-3","elapsed_ms":8696,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":311,"turn":12}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":312,"turn":12}
+{"data":{"from":"fable-master","team_id":"fable","text":"We're ahead: beacon hold banked (reward 8), caravan at 8/10 vs house's 6/10, and cp-relay sits open with no house unit on it. Harvester: move to rn-lowland (5,5) this turn (dist 2), gather next turn — 3 carry easily covers the last 2 we need — then return to (6,6) and deliver; caravan should close by turn 15. Defender: move onto cp-relay (7,5) this turn (dist 2, currently empty), then hold turn 13 to flip it from house to us, and keep holding after that to lock the capture in — we don't need your carry, harvester alone closes the gap. Scout: hold position at cp-beacon (12,0) — no house unit is anywhere near it, so staying costs nothing and protects the point we already completed. No one needs to race house for resources; we're clear on both mission and map control."},"kind":"message_sent","seq":313,"turn":13}
+{"data":{"from":"fable-1","team_id":"fable","text":"Holding cp-beacon (12,0) as planned — no house unit near, point stays locked while harvester closes the caravan and defender flips cp-relay."},"kind":"message_sent","seq":314,"turn":13}
+{"data":{"from":"fable-2","team_id":"fable","text":"Moving to rn-lowland (5,5) now, will gather next turn and return to (6,6) to deliver — closing the caravan gap as planned."},"kind":"message_sent","seq":315,"turn":13}
+{"data":{"from":"fable-3","team_id":"fable","text":"Moving onto cp-relay (7,5) now; confirmed empty this turn. Will hold starting turn 13 to flip it and lock the capture."},"kind":"message_sent","seq":316,"turn":13}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u1"},"kind":"action_declared","seq":317,"turn":13}
+{"data":{"action":"move","team_id":"fable","to":[5,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":318,"turn":13}
+{"data":{"action":"move","team_id":"fable","to":[7,5],"unit_id":"fable-u3"},"kind":"action_declared","seq":319,"turn":13}
+{"data":{"action":"move","team_id":"house","to":[12,9],"unit_id":"house-u1"},"kind":"action_declared","seq":320,"turn":13}
+{"data":{"action":"move","team_id":"house","to":[8,6],"unit_id":"house-u2"},"kind":"action_declared","seq":321,"turn":13}
+{"data":{"action":"move","team_id":"house","to":[7,5],"unit_id":"house-u3"},"kind":"action_declared","seq":322,"turn":13}
+{"data":{"to":[5,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":323,"turn":13}
+{"data":{"to":[7,5],"unit_id":"fable-u3"},"kind":"unit_moved","seq":324,"turn":13}
+{"data":{"to":[12,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":325,"turn":13}
+{"data":{"to":[8,6],"unit_id":"house-u2"},"kind":"unit_moved","seq":326,"turn":13}
+{"data":{"to":[7,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":327,"turn":13}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":3},"kind":"control_point_held","seq":328,"turn":13}
+{"data":{"turn":13},"kind":"turn_advanced","seq":329,"turn":13}
+{"data":{"turn":13},"kind":"turn_resolved","seq":330,"turn":13}
+{"data":{"agent_id":"fable-master","elapsed_ms":113274,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":331,"turn":13}
+{"data":{"agent_id":"fable-1","elapsed_ms":4734,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":332,"turn":13}
+{"data":{"agent_id":"fable-2","elapsed_ms":9367,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":333,"turn":13}
+{"data":{"agent_id":"fable-3","elapsed_ms":21689,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":334,"turn":13}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":335,"turn":13}
+{"data":{"team_id":"fable","text":"fable-2 gathers this turn at rn-lowland, moves to [6,6] next turn, delivers turn after to push ms-caravan to completion."},"kind":"plan_declared","seq":336,"turn":14}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-2 (harvester): gather now at rn-lowland (you're standing on it, carry fills to 3). Next turn move to [6,6] (distance 2, exactly your move stat) then deliver the turn after. That lands us at 11/10 on ms-caravan and banks the reward before house's harvester can match it — don't wait, act this turn."},"kind":"message_sent","seq":337,"turn":14}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-3 (defender): hold your ground at cp-relay [7,5]. House's defender shares your square, so neither side can claim sole occupancy while you're there — staying denies them the capture. Don't chase the resource nodes, we don't need the extra gather; just deny."},"kind":"message_sent","seq":338,"turn":14}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-1 (scout): ms-beacon is already banked (turn 9), and cp-well is too far to reach in the turns left (22 tiles away). Best use of you now is holding cp-beacon so we don't hand control back — stay put, no need to move."},"kind":"message_sent","seq":339,"turn":14}
+{"data":{"from":"fable-1","team_id":"fable","text":"Holding cp-beacon at [12,0] to keep control and keep ms-beacon's hold streak alive since it still shows open — will flag if it flips to completed next turn."},"kind":"message_sent","seq":340,"turn":14}
+{"data":{"from":"fable-2","team_id":"fable","text":"Gathering now at rn-lowland (5,5), carry filling to 3. Will move to [6,6] next turn per plan, then deliver."},"kind":"message_sent","seq":341,"turn":14}
+{"data":{"from":"fable-3","team_id":"fable","text":"Holding at cp-relay [7,5], contesting alongside house-u3 — denying sole occupancy. Staying put, not chasing resources."},"kind":"message_sent","seq":342,"turn":14}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u1"},"kind":"action_declared","seq":343,"turn":14}
+{"data":{"action":"gather","team_id":"fable","to":[5,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":344,"turn":14}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":345,"turn":14}
+{"data":{"action":"move","team_id":"house","to":[9,9],"unit_id":"house-u1"},"kind":"action_declared","seq":346,"turn":14}
+{"data":{"action":"gather","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":347,"turn":14}
+{"data":{"action":"move","team_id":"house","to":[9,5],"unit_id":"house-u3"},"kind":"action_declared","seq":348,"turn":14}
+{"data":{"to":[9,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":349,"turn":14}
+{"data":{"to":[9,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":350,"turn":14}
+{"data":{"amount":3,"node_id":"rn-lowland","unit_id":"fable-u2"},"kind":"resource_gathered","seq":351,"turn":14}
+{"data":{"amount":3,"node_id":"rn-highland","unit_id":"house-u2"},"kind":"resource_gathered","seq":352,"turn":14}
+{"data":{"cp_id":"cp-relay","team_id":"fable","turns":1},"kind":"control_point_held","seq":353,"turn":14}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":4},"kind":"control_point_held","seq":354,"turn":14}
+{"data":{"turn":14},"kind":"turn_advanced","seq":355,"turn":14}
+{"data":{"turn":14},"kind":"turn_resolved","seq":356,"turn":14}
+{"data":{"agent_id":"fable-master","elapsed_ms":72468,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":357,"turn":14}
+{"data":{"agent_id":"fable-1","elapsed_ms":12674,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":358,"turn":14}
+{"data":{"agent_id":"fable-2","elapsed_ms":7556,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":359,"turn":14}
+{"data":{"agent_id":"fable-3","elapsed_ms":6193,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":360,"turn":14}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":361,"turn":14}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-u2 (harvester): move to (6,6) now — you're carrying 3 and team resources sit at 8, so reaching the caravan square lets you deliver next turn and push us to 11/10, completing ms-caravan. Do not gather again, just move this turn."},"kind":"message_sent","seq":362,"turn":15}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-u3 (defender): hold at cp-relay again this turn. You already have 1 consecutive hold turn logged — one more hold flips ownership to us and captures the point. Do not move."},"kind":"message_sent","seq":363,"turn":15}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-u1 (scout): stay put and hold at cp-beacon. It's already ours and no house unit can reach it before the match ends, so holding costs nothing and keeps it secure through the final turn."},"kind":"message_sent","seq":364,"turn":15}
+{"data":{"from":"fable-1","team_id":"fable","text":"Holding at cp-beacon as directed — secure, building toward ms-beacon hold amount."},"kind":"message_sent","seq":365,"turn":15}
+{"data":{"from":"fable-2","team_id":"fable","text":"Moving to (6,6) as directed, carrying 3, will deliver next turn."},"kind":"message_sent","seq":366,"turn":15}
+{"data":{"from":"fable-3","team_id":"fable","text":"Holding cp-relay again — second consecutive turn, capturing now. House defender at (9,5) is close enough to contest, watch for it."},"kind":"message_sent","seq":367,"turn":15}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u1"},"kind":"action_declared","seq":368,"turn":15}
+{"data":{"action":"move","team_id":"fable","to":[6,6],"unit_id":"fable-u2"},"kind":"action_declared","seq":369,"turn":15}
+{"data":{"action":"hold","team_id":"fable","to":[7,5],"unit_id":"fable-u3"},"kind":"action_declared","seq":370,"turn":15}
+{"data":{"action":"move","team_id":"house","to":[12,9],"unit_id":"house-u1"},"kind":"action_declared","seq":371,"turn":15}
+{"data":{"action":"move","team_id":"house","to":[6,6],"unit_id":"house-u2"},"kind":"action_declared","seq":372,"turn":15}
+{"data":{"action":"move","team_id":"house","to":[7,5],"unit_id":"house-u3"},"kind":"action_declared","seq":373,"turn":15}
+{"data":{"to":[6,6],"unit_id":"fable-u2"},"kind":"unit_moved","seq":374,"turn":15}
+{"data":{"to":[12,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":375,"turn":15}
+{"data":{"to":[6,6],"unit_id":"house-u2"},"kind":"unit_moved","seq":376,"turn":15}
+{"data":{"to":[7,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":377,"turn":15}
+{"data":{"cp_id":"cp-relay","team_id":"","turns":0},"kind":"control_point_held","seq":378,"turn":15}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":5},"kind":"control_point_held","seq":379,"turn":15}
+{"data":{"turn":15},"kind":"turn_advanced","seq":380,"turn":15}
+{"data":{"turn":15},"kind":"turn_resolved","seq":381,"turn":15}
+{"data":{"agent_id":"fable-master","elapsed_ms":68155,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":382,"turn":15}
+{"data":{"agent_id":"fable-1","elapsed_ms":7830,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":383,"turn":15}
+{"data":{"agent_id":"fable-2","elapsed_ms":11934,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":384,"turn":15}
+{"data":{"agent_id":"fable-3","elapsed_ms":8658,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":385,"turn":15}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":386,"turn":15}
+{"data":{"from":"fable-master","team_id":"fable","text":"fable-2: DELIVER now at (6,6) — you're carrying 3 and we have 8 banked, so delivering hits 11 >= 10 and completes ms-caravan (reward 10) immediately. Do not gather again, just deliver. fable-3: HOLD your square at cp-relay (7,5) — house's defender shares the tile with you, so neither side can capture solo; holding denies them the point for free, don't move off it. fable-1: HOLD at cp-beacon (12,0) — our hold mission there is already complete and we own it; house's scout is 9 tiles away and can't reach in time, so just sit tight and protect it."},"kind":"message_sent","seq":387,"turn":16}
+{"data":{"from":"fable-1","team_id":"fable","text":"Holding cp-beacon (12,0), mission complete and owned, no threat in range."},"kind":"message_sent","seq":388,"turn":16}
+{"data":{"from":"fable-2","team_id":"fable","text":"Delivering 3 now at (6,6) to complete ms-caravan."},"kind":"message_sent","seq":389,"turn":16}
+{"data":{"from":"fable-3","team_id":"fable","text":"Holding cp-relay (7,5) with house-u3 sharing the tile — denying the capture, staying put."},"kind":"message_sent","seq":390,"turn":16}
+{"data":{"from":"house-2","team_id":"house","text":"delivered 3"},"kind":"message_sent","seq":391,"turn":16}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u1"},"kind":"action_declared","seq":392,"turn":16}
+{"data":{"action":"deliver","team_id":"fable","unit_id":"fable-u2"},"kind":"action_declared","seq":393,"turn":16}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":394,"turn":16}
+{"data":{"action":"move","team_id":"house","to":[9,9],"unit_id":"house-u1"},"kind":"action_declared","seq":395,"turn":16}
+{"data":{"action":"deliver","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":396,"turn":16}
+{"data":{"action":"move","team_id":"house","to":[9,5],"unit_id":"house-u3"},"kind":"action_declared","seq":397,"turn":16}
+{"data":{"to":[9,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":398,"turn":16}
+{"data":{"to":[9,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":399,"turn":16}
+{"data":{"amount":3,"team_id":"fable","unit_id":"fable-u2"},"kind":"resource_delivered","seq":400,"turn":16}
+{"data":{"amount":3,"team_id":"house","unit_id":"house-u2"},"kind":"resource_delivered","seq":401,"turn":16}
+{"data":{"cp_id":"cp-relay","team_id":"fable","turns":1},"kind":"control_point_held","seq":402,"turn":16}
+{"data":{"cp_id":"cp-beacon","team_id":"fable","turns":6},"kind":"control_point_held","seq":403,"turn":16}
+{"data":{"mission_id":"ms-caravan","team_id":"fable"},"kind":"mission_completed","seq":404,"turn":16}
+{"data":{"turn":16},"kind":"turn_advanced","seq":405,"turn":16}
+{"data":{"winner":"fable"},"kind":"match_finished","seq":406,"turn":16}
+{"data":{"turn":16},"kind":"turn_resolved","seq":407,"turn":16}
+{"data":{"agent_id":"fable-master","elapsed_ms":48615,"team_id":"fable","unit_id":null},"kind":"seat_latency","seq":408,"turn":16}
+{"data":{"agent_id":"fable-1","elapsed_ms":11900,"team_id":"fable","unit_id":"fable-u1"},"kind":"seat_latency","seq":409,"turn":16}
+{"data":{"agent_id":"fable-2","elapsed_ms":6544,"team_id":"fable","unit_id":"fable-u2"},"kind":"seat_latency","seq":410,"turn":16}
+{"data":{"agent_id":"fable-3","elapsed_ms":10457,"team_id":"fable","unit_id":"fable-u3"},"kind":"seat_latency","seq":411,"turn":16}
+{"data":{"agent_id":null,"elapsed_ms":0,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":412,"turn":16}

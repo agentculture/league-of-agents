@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2026-07-07
+
+### Added
+
+- Replay + video restyle from the first human review: Anthropic-cream light and Culture black-green dark themes (validator-passing, worst adjacent CVD dE 86.7 light / 85.7 dark), team identity moves to clay vs violet, chrome-green accent
+- 100% smooth playback: linear gapless waypoint flow while playing (eased snap only when paused), GIF gains deterministic tween frames (--tween, default 4) and a --theme light|dark flag
+- Tabbed side deck: Guide/Events/Teams/Score beside the sticky board hero — the assessor guide no longer scrolls away from the board
+
+## [0.10.1] - 2026-07-07
+
+### Added
+
+- Cycle-6 closure: the long-horizon memory playtest (resident sonnet 56-16 over gold on a generated 21x17/60-turn board; first perfect cooperation v1; residency measured as a 6.5x tempo lever), the two-mind span-of-control comparison (sonnet 100 vs colleague 98 on the same fogged board; commanding costs ~3x obeying on the colleague substrate), the first human review through the new stack (7 findings recorded verbatim, 3 already commissioned), and the closure ledger mapping every announcement thread to its artifact
+
 ## [0.10.0] - 2026-07-07
 
 ### Added

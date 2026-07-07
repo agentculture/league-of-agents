@@ -263,15 +263,20 @@ GIF89a writer (palette-indexed raster frames + a hand-rolled LZW encoder);
 it always works, nothing to install, and the runtime stays dependency-free.
 `--format mp4` pipes the same raw frames through `ffmpeg` if it's on PATH;
 absent it, the flag fails with a remediated error naming the GIF fallback
-rather than silently downgrading. Frame count is `turns + 2`: an opening
-title card (match id, scenario, teams with color swatches + rosters), one
-frame per turn actually played, and a closing card (final score by axis).
-Reproducible by construction: the same log at the same `--scale`/`--fps`
-renders byte-identical output, and the exact command is embedded as a GIF
-Comment Extension (or MP4 `comment` metadata) — provenance travels with the
-artifact, not in a separate sidecar. `--scale` is pixels per grid cell
-(bounds enforced); `--fps` is turn-frame rate (the title/closing cards hold
-several times longer automatically, for readability).
+rather than silently downgrading. Frame count is `turns + (turns - 1) * tween
++ 2`: an opening title card (match id, scenario, teams with color swatches +
+rosters), one frame per turn actually played, `--tween N` linearly
+interpolated frames between each pair of turns (default 4; 0 disables) so
+movement flows instead of teleporting, and a closing card (final score by
+axis). `--theme light|dark` (default light) selects the same validated palette
+as the HTML replay — light Anthropic cream, dark Culture black-green — and
+changes only the GIF's color table. Reproducible by construction: the same log
+at the same `--theme`/`--scale`/`--fps`/`--tween` renders byte-identical
+output, and the exact command is embedded as a GIF Comment Extension (or MP4
+`comment` metadata) — provenance travels with the artifact, not in a separate
+sidecar. `--scale` is pixels per grid cell (bounds enforced); `--fps` is
+turn-frame rate (the title/closing cards hold several times longer
+automatically, for readability).
 
 `--team <id>` scopes `legal_actions`/`last_turn_rejections` to that team.
 Add `--fog` (requires `--team`) for that team's fog-of-war projection (plan

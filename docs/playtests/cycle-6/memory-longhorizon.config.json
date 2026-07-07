@@ -1,0 +1,65 @@
+{
+ "match": {
+  "scenario": "gen-777-w21y17t60c2r2m2k2",
+  "mode": "competitive",
+  "seed": 20260714,
+  "id": "m-memory-longhorizon"
+ },
+ "_comment": "Cycle-6 t8: long-horizon memory playtest \u2014 resident claude-sonnet-5 seats (one long-lived session per seat, memory IS the session) on a seeded generated 21x17 board, 60-turn limit, vs the gold house bot. Fogged map_read so remembering early sightings matters.",
+ "teams": [
+  {
+   "id": "keeper",
+   "name": "Memory Keepers",
+   "driver": {
+    "type": "resident",
+    "transport": "claude",
+    "command": "claude",
+    "model": "claude-sonnet-5",
+    "timeout": 240
+   },
+   "map_read": "fog",
+   "agents": [
+    {
+     "id": "keeper-1",
+     "model": "claude-sonnet-5",
+     "role": "scout"
+    },
+    {
+     "id": "keeper-2",
+     "model": "claude-sonnet-5",
+     "role": "harvester"
+    },
+    {
+     "id": "keeper-3",
+     "model": "claude-sonnet-5",
+     "role": "defender"
+    }
+   ]
+  },
+  {
+   "id": "house",
+   "name": "House Vanguard (gold)",
+   "driver": {
+    "type": "bot-file",
+    "strategy": "vanguard"
+   },
+   "agents": [
+    {
+     "id": "house-1",
+     "model": "bot-file:vanguard",
+     "role": "scout"
+    },
+    {
+     "id": "house-2",
+     "model": "bot-file:vanguard",
+     "role": "harvester"
+    },
+    {
+     "id": "house-3",
+     "model": "bot-file:vanguard",
+     "role": "defender"
+    }
+   ]
+  }
+ ]
+}

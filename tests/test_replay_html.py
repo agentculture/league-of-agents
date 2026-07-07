@@ -178,39 +178,112 @@ def test_both_themes_are_deliberately_designed() -> None:
 
 
 def test_team_colors_are_the_validated_categorical_hues() -> None:
-    """C6-t4: team identity is the validated categorical pair (blue/red),
-    stepped per surface — light ``#2a78d6``/``#e34948``, dark
-    ``#3987e5``/``#e66767`` (validate_palette.js: all six checks PASS both
-    modes)."""
+    """Team identity is the validated categorical clay (slot 0) vs violet
+    (slot 1), stepped per surface — light ``#b65b38``/``#4b3ba6``, dark
+    ``#cb6e44``/``#877ae0``. validate_palette.js (recorded in
+    docs/replay-design.md) reports ALL CHECKS PASS both modes, worst adjacent
+    CVD ΔE 86.7 light / 85.7 dark. Restyled from the old blue/red pair after
+    the first human review of cycle 6."""
     html = render_html(_play_match())
-    for hexval in ("#2a78d6", "#e34948", "#3987e5", "#e66767"):
+    for hexval in ("#b65b38", "#4b3ba6", "#cb6e44", "#877ae0"):
         assert hexval in html, f"validated team hue {hexval} missing"
+    # The old team reds are retired entirely (the old blue survives only as a
+    # later extra slot, never the team-1 identity).
+    assert "#e34948" not in html and "#e66767" not in html
     # Team identity is a categorical slot referenced by role, never raw hex.
     assert "--team-0" in html and "--team-1" in html
 
 
 def test_status_colors_are_reserved_and_not_team_colors() -> None:
-    """C6-t4: status hues (good/critical) come from the fixed status scale and
-    are distinct from the categorical team hues — a status color never
-    impersonates a team series (dataviz color-formula)."""
+    """Status hues (good/critical) come from the fixed status scale and are
+    distinct from the categorical team hues on both surfaces — a status color
+    never impersonates a team series (dataviz color-formula)."""
     html = render_html(_play_match())
-    assert "#0ca30c" in html  # status good
-    assert "#d03b3b" in html  # status critical
-    # The status reds are a *different* hex than either team red.
-    assert "#d03b3b" != "#e34948" and "#d03b3b" != "#e66767"
+    assert "#0ca30c" in html  # status good (unchanged, fixed)
+    assert "#d03b3b" in html  # status critical (unchanged, fixed)
+    # The status hues are a *different* hex than any team hue in either mode.
+    for team_hex in ("#b65b38", "#4b3ba6", "#cb6e44", "#877ae0"):
+        assert "#d03b3b" != team_hex and "#0ca30c" != team_hex
+
+
+def test_light_is_cream_and_dark_is_black_green() -> None:
+    """The two first-class surfaces after the cycle-6 human review: light =
+    Anthropic cream (warm paper + warm near-black ink), dark = Culture
+    black-green (deep green-tinged black + green-tinged elevation)."""
+    html = render_html(_play_match())
+    assert "--plane: #f0eee5" in html and "--surface: #faf8f1" in html  # cream
+    assert "--ink: #242019" in html  # warm near-black ink
+    assert "--plane: #0c1210" in html and "--surface: #111a16" in html  # black-green
+    assert "--ink: #eaf1ec" in html  # green-tinged near-white ink
+
+
+def test_chrome_accent_is_distinct_chrome_not_a_team() -> None:
+    """A restrained green ``--accent`` dresses chrome only (play button, slider,
+    links) — light ``#1e7a4d`` / dark ``#46c79e`` (WCAG link contrast 4.6:1
+    light / 8.4:1 dark) — and is never a team hue."""
+    html = render_html(_play_match())
+    assert "--accent: #1e7a4d" in html and "--accent: #46c79e" in html
+    # Transport chrome references the accent token, not a team slot.
+    assert "accent-color: var(--accent)" in html
+    assert "background: var(--accent)" in html
+    for team_hex in ("#b65b38", "#4b3ba6", "#cb6e44", "#877ae0"):
+        assert "#1e7a4d" != team_hex and "#46c79e" != team_hex
 
 
 def test_motion_is_present_and_gated_by_reduced_motion() -> None:
-    """C6-t4: purposeful motion ships — smooth unit movement between turns and
+    """Purposeful motion ships — smooth unit movement between turns and
     celebratory keyframes — but every bit of it is disabled under
     ``prefers-reduced-motion: reduce``."""
     html = render_html(_play_match())
     assert "@keyframes" in html  # celebratory animation defined
     assert "transition:" in html  # smooth interpolation between turns
     # Units glide via a transform transition between frames.
-    assert "transform" in html and "--move" in html
+    assert "transform" in html and "--move-dur" in html
     # And all of it is honoured off under reduced motion.
     assert "prefers-reduced-motion: reduce" in html
+
+
+def test_playback_is_linear_gapless_and_paused_snaps() -> None:
+    """Smooth-motion fix from the first human review of cycle 6: the reviewer
+    saw a per-turn accelerate–decelerate lurch. The old glide used one eased
+    transition scaled to 0.72x the interval, so every turn eased in, eased out,
+    then paused. Playback now drives the glide with LINEAR timing whose duration
+    equals the turn-advance interval (gapless, continuous waypoint-to-waypoint
+    flow); a paused step snaps with a short eased transition; reduced motion
+    collapses both to instant."""
+    html = render_html(_play_match())
+    # The glide reads duration + easing from tokens the JS flips by play state.
+    assert "transition: transform var(--move-dur) var(--move-ease)" in html
+    # Playing: linear, duration == the interval (SPEEDS[speed]).
+    assert "'--move-ease', 'linear'" in html
+    assert "SPEEDS[String(speed)] + 'ms'" in html
+    # Paused: a short eased snap.
+    assert "cubic-bezier(.34, .03, .24, 1)" in html
+    # The old ease-scaled single duration is gone.
+    assert "0.72" not in html
+    assert "prefers-reduced-motion: reduce" in html
+
+
+def test_side_panel_is_a_tabbed_deck() -> None:
+    """Layout fix from the first human review of cycle 6: the reviewer had to
+    scroll between the board and the assessor guide. The guide moved out of a
+    bottom ``<details>`` into a tabbed side deck (Guide / Events / Teams /
+    Score) that uses the width and keeps the board in view. Tabs are real,
+    keyboard-accessible buttons with aria-selected + roving tabindex; the guide
+    is the default tab."""
+    html = render_html(_play_match())
+    assert 'role="tablist"' in html
+    assert html.count('class="tab"') == 4  # four tab buttons (panels are .tabpanel)
+    for pid in ("panel-guide", "panel-events", "panel-teams", "panel-score"):
+        assert f'id="{pid}"' in html
+    assert 'aria-selected="true"' in html  # one tab starts selected
+    assert 'id="tab-guide"' in html and "selectTab('guide'" in html
+    # No bottom <details> guide panel anymore.
+    assert "<details" not in html
+    # The guide body and the feed/teams/scores mounts still exist for the
+    # server-computed content to render into.
+    for mount in ("guide-body", "feed", "teams", "scores"):
+        assert f'id="{mount}"' in html
 
 
 def test_playback_speed_control_ships() -> None:
@@ -264,9 +337,9 @@ def test_assessor_guide_is_embedded_in_data_and_panel() -> None:
     html = render_html(log)
     # The panel renders from M.guide (server-computed), not client recomputation.
     assert "M.guide" in html
-    assert 'id="guide"' in html
-    # It is a collapsible panel in the wave-0 card system.
-    assert "<details" in html and "<summary" in html
+    # It is the default tab in the side deck (not a bottom <details> anymore).
+    assert 'id="panel-guide"' in html and 'id="guide-body"' in html
+    assert 'id="tab-guide"' in html and 'role="tablist"' in html
     # Embedded JSON carries the guide — same fold, byte-for-byte.
     assert _extract_embedded(html)["guide"] == json.loads(json.dumps(guide))
 

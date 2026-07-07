@@ -1,0 +1,550 @@
+{"driver_kinds":{"house":"bot","keeper":"resident"},"initial_state":{"control_points":[{"hold":[],"id":"cp-1a","owner":null,"pos":[8,2]},{"hold":[],"id":"cp-1b","owner":null,"pos":[12,14]},{"hold":[],"id":"cp-2a","owner":null,"pos":[4,16]},{"hold":[],"id":"cp-2b","owner":null,"pos":[16,0]}],"grid_height":17,"grid_width":21,"match_id":"m-memory-longhorizon","missions":[{"amount":6,"completed_by":[],"completed_turn":null,"id":"ms-deliver","kind":"deliver","pos":[10,8],"reward":10,"status":"open"},{"amount":3,"completed_by":[],"completed_turn":null,"id":"ms-hold-1a","kind":"hold","pos":[8,2],"reward":8,"status":"open"},{"amount":3,"completed_by":[],"completed_turn":null,"id":"ms-hold-1b","kind":"hold","pos":[12,14],"reward":8,"status":"open"},{"amount":3,"completed_by":[],"completed_turn":null,"id":"ms-hold-2a","kind":"hold","pos":[4,16],"reward":8,"status":"open"},{"amount":3,"completed_by":[],"completed_turn":null,"id":"ms-hold-2b","kind":"hold","pos":[16,0],"reward":8,"status":"open"}],"mode":"competitive","resource_nodes":[{"id":"rn-1a","pos":[8,4],"remaining":12},{"id":"rn-1b","pos":[12,12],"remaining":12},{"id":"rn-2a","pos":[4,13],"remaining":12},{"id":"rn-2b","pos":[16,3],"remaining":12}],"scenario_id":"gen-777-w21y17t60c2r2m2k2","seed":20260714,"status":"pending","teams":[{"agents":[{"id":"keeper-1","model":"claude-sonnet-5","role":"scout"},{"id":"keeper-2","model":"claude-sonnet-5","role":"harvester"},{"id":"keeper-3","model":"claude-sonnet-5","role":"defender"}],"id":"keeper","name":"Memory Keepers","resources":0},{"agents":[{"id":"house-1","model":"bot-file:vanguard","role":"scout"},{"id":"house-2","model":"bot-file:vanguard","role":"harvester"},{"id":"house-3","model":"bot-file:vanguard","role":"defender"}],"id":"house","name":"House Vanguard (gold)","resources":0}],"turn":0,"turn_limit":60,"units":[{"agent_id":"keeper-1","alive":true,"carrying":0,"id":"keeper-u1","pos":[0,0],"role":"scout","team_id":"keeper"},{"agent_id":"keeper-2","alive":true,"carrying":0,"id":"keeper-u2","pos":[1,0],"role":"harvester","team_id":"keeper"},{"agent_id":"keeper-3","alive":true,"carrying":0,"id":"keeper-u3","pos":[0,1],"role":"defender","team_id":"keeper"},{"agent_id":"house-1","alive":true,"carrying":0,"id":"house-u1","pos":[20,16],"role":"scout","team_id":"house"},{"agent_id":"house-2","alive":true,"carrying":0,"id":"house-u2","pos":[19,16],"role":"harvester","team_id":"house"},{"agent_id":"house-3","alive":true,"carrying":0,"id":"house-u3","pos":[20,15],"role":"defender","team_id":"house"}],"winner":null},"log_version":1,"map_read":{"keeper":"fog"},"unit_comms":{}}
+{"data":{},"kind":"match_started","seq":0,"turn":0}
+{"data":{"team_id":"house","text":"vanguard: harvester runs the delivery relay; scout and defender split distinct control points instead of duplicating coverage"},"kind":"plan_declared","seq":1,"turn":1}
+{"data":{"team_id":"keeper","text":"Scout(u1)->hold cp-1a; Harvester(u2)->gather rn-1a, deliver to ms-deliver(10,8); Defender(u3)->hold cp-2b. Reassess after cp-1a completes (~turn9)."},"kind":"plan_declared","seq":2,"turn":1}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"Board is mirror-symmetric so cp-1a and cp-2b are our closest control points, cp-1b/cp-2a are theirs. I'm scouting+heading to cp-1a (dist 10, ~4 turns) to start the hold. keeper-2: head to rn-1a (dist ~11) and start a gather->deliver(10,8) loop for ms-deliver. keeper-3: head to cp-2b (dist ~17) to hold it — slower unit, longer trip is fine since holding doesn't need speed. Once I finish holding cp-1a I'll push toward contesting cp-2a or reinforce gathering."},"kind":"message_sent","seq":3,"turn":1}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"Copy, heading to rn-1a (8,4) to start gather->deliver(10,8) loop for ms-deliver. ETA ~5 turns."},"kind":"message_sent","seq":4,"turn":1}
+{"data":{"from":"keeper-3","team_id":"keeper","text":"Copy, heading to cp-2b (16,0) to hold it. ETA ~9 turns at move 2/turn. Will hold once there to start ms-hold-2b."},"kind":"message_sent","seq":5,"turn":1}
+{"data":{"action":"move","team_id":"house","to":[17,16],"unit_id":"house-u1"},"kind":"action_declared","seq":6,"turn":1}
+{"data":{"action":"move","team_id":"house","to":[17,16],"unit_id":"house-u2"},"kind":"action_declared","seq":7,"turn":1}
+{"data":{"action":"move","team_id":"house","to":[18,15],"unit_id":"house-u3"},"kind":"action_declared","seq":8,"turn":1}
+{"data":{"action":"move","team_id":"keeper","to":[3,0],"unit_id":"keeper-u1"},"kind":"action_declared","seq":9,"turn":1}
+{"data":{"action":"move","team_id":"keeper","to":[3,0],"unit_id":"keeper-u2"},"kind":"action_declared","seq":10,"turn":1}
+{"data":{"action":"move","team_id":"keeper","to":[1,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":11,"turn":1}
+{"data":{"to":[17,16],"unit_id":"house-u1"},"kind":"unit_moved","seq":12,"turn":1}
+{"data":{"to":[17,16],"unit_id":"house-u2"},"kind":"unit_moved","seq":13,"turn":1}
+{"data":{"to":[18,15],"unit_id":"house-u3"},"kind":"unit_moved","seq":14,"turn":1}
+{"data":{"to":[3,0],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":15,"turn":1}
+{"data":{"to":[3,0],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":16,"turn":1}
+{"data":{"to":[1,0],"unit_id":"keeper-u3"},"kind":"unit_moved","seq":17,"turn":1}
+{"data":{"turn":1},"kind":"turn_advanced","seq":18,"turn":1}
+{"data":{"turn":1},"kind":"turn_resolved","seq":19,"turn":1}
+{"data":{"agent_id":"keeper-1","elapsed_ms":105643,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":20,"turn":1}
+{"data":{"agent_id":"keeper-2","elapsed_ms":20461,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":21,"turn":1}
+{"data":{"agent_id":"keeper-3","elapsed_ms":23769,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":22,"turn":1}
+{"data":{"agent_id":null,"elapsed_ms":7,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":23,"turn":1}
+{"data":{"team_id":"keeper","text":"Scout(u1)->hold cp-1a; Harvester(u2)->gather rn-1a, deliver to ms-deliver(10,8); Defender(u3)->hold cp-2b. Reassess after cp-1a completes (~turn9)."},"kind":"plan_declared","seq":24,"turn":2}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"House confirmed a mirrored strategy (harvester relay, scout/defender split points) — our split matches. No contest spotted near cp-1a yet, house units moved toward their side (17,16)/(18,15). Continuing to cp-1a, ETA 2 more turns."},"kind":"message_sent","seq":25,"turn":2}
+{"data":{"action":"move","team_id":"house","to":[14,16],"unit_id":"house-u1"},"kind":"action_declared","seq":26,"turn":2}
+{"data":{"action":"move","team_id":"house","to":[15,16],"unit_id":"house-u2"},"kind":"action_declared","seq":27,"turn":2}
+{"data":{"action":"move","team_id":"house","to":[16,15],"unit_id":"house-u3"},"kind":"action_declared","seq":28,"turn":2}
+{"data":{"action":"move","team_id":"keeper","to":[6,0],"unit_id":"keeper-u1"},"kind":"action_declared","seq":29,"turn":2}
+{"data":{"action":"move","team_id":"keeper","to":[5,0],"unit_id":"keeper-u2"},"kind":"action_declared","seq":30,"turn":2}
+{"data":{"action":"move","team_id":"keeper","to":[3,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":31,"turn":2}
+{"data":{"to":[14,16],"unit_id":"house-u1"},"kind":"unit_moved","seq":32,"turn":2}
+{"data":{"to":[15,16],"unit_id":"house-u2"},"kind":"unit_moved","seq":33,"turn":2}
+{"data":{"to":[16,15],"unit_id":"house-u3"},"kind":"unit_moved","seq":34,"turn":2}
+{"data":{"to":[6,0],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":35,"turn":2}
+{"data":{"to":[5,0],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":36,"turn":2}
+{"data":{"to":[3,0],"unit_id":"keeper-u3"},"kind":"unit_moved","seq":37,"turn":2}
+{"data":{"turn":2},"kind":"turn_advanced","seq":38,"turn":2}
+{"data":{"turn":2},"kind":"turn_resolved","seq":39,"turn":2}
+{"data":{"agent_id":"keeper-1","elapsed_ms":16557,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":40,"turn":2}
+{"data":{"agent_id":"keeper-2","elapsed_ms":8746,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":41,"turn":2}
+{"data":{"agent_id":"keeper-3","elapsed_ms":6087,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":42,"turn":2}
+{"data":{"agent_id":null,"elapsed_ms":3,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":43,"turn":2}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"One step from cp-1a, arriving next turn. House still tracking toward their side (14-16,15-16) — no contest here. Will start hold turn after next."},"kind":"message_sent","seq":44,"turn":3}
+{"data":{"action":"move","team_id":"house","to":[12,15],"unit_id":"house-u1"},"kind":"action_declared","seq":45,"turn":3}
+{"data":{"action":"move","team_id":"house","to":[13,16],"unit_id":"house-u2"},"kind":"action_declared","seq":46,"turn":3}
+{"data":{"action":"move","team_id":"house","to":[14,15],"unit_id":"house-u3"},"kind":"action_declared","seq":47,"turn":3}
+{"data":{"action":"move","team_id":"keeper","to":[8,1],"unit_id":"keeper-u1"},"kind":"action_declared","seq":48,"turn":3}
+{"data":{"action":"move","team_id":"keeper","to":[6,1],"unit_id":"keeper-u2"},"kind":"action_declared","seq":49,"turn":3}
+{"data":{"action":"move","team_id":"keeper","to":[5,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":50,"turn":3}
+{"data":{"to":[12,15],"unit_id":"house-u1"},"kind":"unit_moved","seq":51,"turn":3}
+{"data":{"to":[13,16],"unit_id":"house-u2"},"kind":"unit_moved","seq":52,"turn":3}
+{"data":{"to":[14,15],"unit_id":"house-u3"},"kind":"unit_moved","seq":53,"turn":3}
+{"data":{"to":[8,1],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":54,"turn":3}
+{"data":{"to":[6,1],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":55,"turn":3}
+{"data":{"to":[5,0],"unit_id":"keeper-u3"},"kind":"unit_moved","seq":56,"turn":3}
+{"data":{"turn":3},"kind":"turn_advanced","seq":57,"turn":3}
+{"data":{"turn":3},"kind":"turn_resolved","seq":58,"turn":3}
+{"data":{"agent_id":"keeper-1","elapsed_ms":12550,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":59,"turn":3}
+{"data":{"agent_id":"keeper-2","elapsed_ms":11258,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":60,"turn":3}
+{"data":{"agent_id":"keeper-3","elapsed_ms":4852,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":61,"turn":3}
+{"data":{"agent_id":null,"elapsed_ms":6,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":62,"turn":3}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"Arrived at cp-1a (8,2). Starting hold next turn — capture in 2 turns, mission complete ~turn 9. House trio still clustered near (12-14,15-16), likely converging on cp-1b/rn-1b — no contest expected at cp-1a."},"kind":"message_sent","seq":63,"turn":4}
+{"data":{"action":"move","team_id":"house","to":[12,14],"unit_id":"house-u1"},"kind":"action_declared","seq":64,"turn":4}
+{"data":{"action":"move","team_id":"house","to":[12,15],"unit_id":"house-u2"},"kind":"action_declared","seq":65,"turn":4}
+{"data":{"action":"move","team_id":"house","to":[12,15],"unit_id":"house-u3"},"kind":"action_declared","seq":66,"turn":4}
+{"data":{"action":"move","team_id":"keeper","to":[8,2],"unit_id":"keeper-u1"},"kind":"action_declared","seq":67,"turn":4}
+{"data":{"action":"move","team_id":"keeper","to":[7,2],"unit_id":"keeper-u2"},"kind":"action_declared","seq":68,"turn":4}
+{"data":{"action":"move","team_id":"keeper","to":[7,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":69,"turn":4}
+{"data":{"to":[12,14],"unit_id":"house-u1"},"kind":"unit_moved","seq":70,"turn":4}
+{"data":{"to":[12,15],"unit_id":"house-u2"},"kind":"unit_moved","seq":71,"turn":4}
+{"data":{"to":[12,15],"unit_id":"house-u3"},"kind":"unit_moved","seq":72,"turn":4}
+{"data":{"to":[8,2],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":73,"turn":4}
+{"data":{"to":[7,2],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":74,"turn":4}
+{"data":{"to":[7,0],"unit_id":"keeper-u3"},"kind":"unit_moved","seq":75,"turn":4}
+{"data":{"cp_id":"cp-1a","team_id":"keeper","turns":1},"kind":"control_point_held","seq":76,"turn":4}
+{"data":{"cp_id":"cp-1b","team_id":"house","turns":1},"kind":"control_point_held","seq":77,"turn":4}
+{"data":{"turn":4},"kind":"turn_advanced","seq":78,"turn":4}
+{"data":{"turn":4},"kind":"turn_resolved","seq":79,"turn":4}
+{"data":{"agent_id":"keeper-1","elapsed_ms":11458,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":80,"turn":4}
+{"data":{"agent_id":"keeper-2","elapsed_ms":16371,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":81,"turn":4}
+{"data":{"agent_id":"keeper-3","elapsed_ms":4428,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":82,"turn":4}
+{"data":{"agent_id":null,"elapsed_ms":10,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":83,"turn":4}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"cp-1a held 1 turn, holding again this turn to capture. House scout is holding cp-1b too (1 turn) — symmetric race, we're even. Their harvester/defender pair is at (12,15), likely splitting to rn-1b next."},"kind":"message_sent","seq":84,"turn":5}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":85,"turn":5}
+{"data":{"action":"move","team_id":"house","to":[12,13],"unit_id":"house-u2"},"kind":"action_declared","seq":86,"turn":5}
+{"data":{"action":"move","team_id":"house","to":[10,15],"unit_id":"house-u3"},"kind":"action_declared","seq":87,"turn":5}
+{"data":{"action":"hold","team_id":"keeper","to":[8,2],"unit_id":"keeper-u1"},"kind":"action_declared","seq":88,"turn":5}
+{"data":{"action":"move","team_id":"keeper","to":[8,3],"unit_id":"keeper-u2"},"kind":"action_declared","seq":89,"turn":5}
+{"data":{"action":"move","team_id":"keeper","to":[9,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":90,"turn":5}
+{"data":{"to":[12,13],"unit_id":"house-u2"},"kind":"unit_moved","seq":91,"turn":5}
+{"data":{"to":[10,15],"unit_id":"house-u3"},"kind":"unit_moved","seq":92,"turn":5}
+{"data":{"to":[8,3],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":93,"turn":5}
+{"data":{"to":[9,0],"unit_id":"keeper-u3"},"kind":"unit_moved","seq":94,"turn":5}
+{"data":{"cp_id":"cp-1a","team_id":"keeper","turns":2},"kind":"control_point_held","seq":95,"turn":5}
+{"data":{"cp_id":"cp-1a","team_id":"keeper"},"kind":"control_point_captured","seq":96,"turn":5}
+{"data":{"cp_id":"cp-1a","team_id":"keeper","turns":2},"kind":"control_point_held","seq":97,"turn":5}
+{"data":{"cp_id":"cp-1b","team_id":"house","turns":2},"kind":"control_point_held","seq":98,"turn":5}
+{"data":{"cp_id":"cp-1b","team_id":"house"},"kind":"control_point_captured","seq":99,"turn":5}
+{"data":{"cp_id":"cp-1b","team_id":"house","turns":2},"kind":"control_point_held","seq":100,"turn":5}
+{"data":{"turn":5},"kind":"turn_advanced","seq":101,"turn":5}
+{"data":{"turn":5},"kind":"turn_resolved","seq":102,"turn":5}
+{"data":{"agent_id":"keeper-1","elapsed_ms":12578,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":103,"turn":5}
+{"data":{"agent_id":"keeper-2","elapsed_ms":8661,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":104,"turn":5}
+{"data":{"agent_id":"keeper-3","elapsed_ms":3853,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":105,"turn":5}
+{"data":{"agent_id":null,"elapsed_ms":7,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":106,"turn":5}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"cp-1a captured! Holding through to complete ms-hold-1a (need 3 more turns, ~turn8). House captured cp-1b same turn — even race. keeper-2 almost at rn-1a, keeper-3 on track to cp-2b."},"kind":"message_sent","seq":107,"turn":6}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"Arriving at rn-1a this turn, will start gathering next turn."},"kind":"message_sent","seq":108,"turn":6}
+{"data":{"action":"move","team_id":"house","to":[9,14],"unit_id":"house-u1"},"kind":"action_declared","seq":109,"turn":6}
+{"data":{"action":"move","team_id":"house","to":[12,12],"unit_id":"house-u2"},"kind":"action_declared","seq":110,"turn":6}
+{"data":{"action":"move","team_id":"house","to":[8,15],"unit_id":"house-u3"},"kind":"action_declared","seq":111,"turn":6}
+{"data":{"action":"hold","team_id":"keeper","to":[8,2],"unit_id":"keeper-u1"},"kind":"action_declared","seq":112,"turn":6}
+{"data":{"action":"move","team_id":"keeper","to":[8,4],"unit_id":"keeper-u2"},"kind":"action_declared","seq":113,"turn":6}
+{"data":{"action":"move","team_id":"keeper","to":[11,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":114,"turn":6}
+{"data":{"to":[9,14],"unit_id":"house-u1"},"kind":"unit_moved","seq":115,"turn":6}
+{"data":{"to":[12,12],"unit_id":"house-u2"},"kind":"unit_moved","seq":116,"turn":6}
+{"data":{"to":[8,15],"unit_id":"house-u3"},"kind":"unit_moved","seq":117,"turn":6}
+{"data":{"to":[8,4],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":118,"turn":6}
+{"data":{"to":[11,0],"unit_id":"keeper-u3"},"kind":"unit_moved","seq":119,"turn":6}
+{"data":{"cp_id":"cp-1a","team_id":"keeper","turns":3},"kind":"control_point_held","seq":120,"turn":6}
+{"data":{"cp_id":"cp-1b","team_id":"","turns":0},"kind":"control_point_held","seq":121,"turn":6}
+{"data":{"turn":6},"kind":"turn_advanced","seq":122,"turn":6}
+{"data":{"turn":6},"kind":"turn_resolved","seq":123,"turn":6}
+{"data":{"agent_id":"keeper-1","elapsed_ms":16160,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":124,"turn":6}
+{"data":{"agent_id":"keeper-2","elapsed_ms":8189,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":125,"turn":6}
+{"data":{"agent_id":"keeper-3","elapsed_ms":6649,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":126,"turn":6}
+{"data":{"agent_id":null,"elapsed_ms":8,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":127,"turn":6}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"cp-1a held 3 turns, 2 more to complete ms-hold-1a. Note: house abandoned cp-1b hold (streak reset to 0) and their scout/defender are now moving toward (9,14)/(8,15) — looks like they're redirecting toward cp-2a instead of finishing cp-1b's mission. keeper-3, might be worth reaching cp-2b before they pivot further; keeper-2 gathering at rn-1a on schedule."},"kind":"message_sent","seq":128,"turn":7}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"At rn-1a, gathering now. Carry cap 3, will need 2 gather trips (6 total) to fill ms-deliver."},"kind":"message_sent","seq":129,"turn":7}
+{"data":{"from":"keeper-3","team_id":"keeper","text":"3 turns out from cp-2b, pushing hard. Will start holding as soon as I arrive."},"kind":"message_sent","seq":130,"turn":7}
+{"data":{"action":"move","team_id":"house","to":[6,14],"unit_id":"house-u1"},"kind":"action_declared","seq":131,"turn":7}
+{"data":{"action":"gather","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":132,"turn":7}
+{"data":{"action":"move","team_id":"house","to":[8,13],"unit_id":"house-u3"},"kind":"action_declared","seq":133,"turn":7}
+{"data":{"action":"hold","team_id":"keeper","to":[8,2],"unit_id":"keeper-u1"},"kind":"action_declared","seq":134,"turn":7}
+{"data":{"action":"gather","team_id":"keeper","unit_id":"keeper-u2"},"kind":"action_declared","seq":135,"turn":7}
+{"data":{"action":"move","team_id":"keeper","to":[13,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":136,"turn":7}
+{"data":{"to":[6,14],"unit_id":"house-u1"},"kind":"unit_moved","seq":137,"turn":7}
+{"data":{"to":[8,13],"unit_id":"house-u3"},"kind":"unit_moved","seq":138,"turn":7}
+{"data":{"to":[13,0],"unit_id":"keeper-u3"},"kind":"unit_moved","seq":139,"turn":7}
+{"data":{"amount":3,"node_id":"rn-1b","unit_id":"house-u2"},"kind":"resource_gathered","seq":140,"turn":7}
+{"data":{"amount":3,"node_id":"rn-1a","unit_id":"keeper-u2"},"kind":"resource_gathered","seq":141,"turn":7}
+{"data":{"cp_id":"cp-1a","team_id":"keeper","turns":4},"kind":"control_point_held","seq":142,"turn":7}
+{"data":{"turn":7},"kind":"turn_advanced","seq":143,"turn":7}
+{"data":{"turn":7},"kind":"turn_resolved","seq":144,"turn":7}
+{"data":{"agent_id":"keeper-1","elapsed_ms":16708,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":145,"turn":7}
+{"data":{"agent_id":"keeper-2","elapsed_ms":13312,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":146,"turn":7}
+{"data":{"agent_id":"keeper-3","elapsed_ms":8286,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":147,"turn":7}
+{"data":{"agent_id":null,"elapsed_ms":8,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":148,"turn":7}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"cp-1a held 4/5 — completes next turn. Heads up: house harvester gathered 3 from rn-1b and may be heading to the SAME deliver point (10,8) as us — ms-deliver could be a race, not independent pools. keeper-2, worth pushing the second gather+deliver trip quickly. keeper-3 is 3 out from cp-2b, almost there."},"kind":"message_sent","seq":149,"turn":8}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"Full carry (3/3), heading to deliver(10,8) now — ~3 turns out. Will loop back to rn-1a for the second batch after."},"kind":"message_sent","seq":150,"turn":8}
+{"data":{"action":"move","team_id":"house","to":[4,15],"unit_id":"house-u1"},"kind":"action_declared","seq":151,"turn":8}
+{"data":{"action":"move","team_id":"house","to":[10,12],"unit_id":"house-u2"},"kind":"action_declared","seq":152,"turn":8}
+{"data":{"action":"move","team_id":"house","to":[8,11],"unit_id":"house-u3"},"kind":"action_declared","seq":153,"turn":8}
+{"data":{"action":"hold","team_id":"keeper","to":[8,2],"unit_id":"keeper-u1"},"kind":"action_declared","seq":154,"turn":8}
+{"data":{"action":"move","team_id":"keeper","to":[9,5],"unit_id":"keeper-u2"},"kind":"action_declared","seq":155,"turn":8}
+{"data":{"action":"move","team_id":"keeper","to":[15,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":156,"turn":8}
+{"data":{"to":[4,15],"unit_id":"house-u1"},"kind":"unit_moved","seq":157,"turn":8}
+{"data":{"to":[10,12],"unit_id":"house-u2"},"kind":"unit_moved","seq":158,"turn":8}
+{"data":{"to":[8,11],"unit_id":"house-u3"},"kind":"unit_moved","seq":159,"turn":8}
+{"data":{"to":[9,5],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":160,"turn":8}
+{"data":{"to":[15,0],"unit_id":"keeper-u3"},"kind":"unit_moved","seq":161,"turn":8}
+{"data":{"cp_id":"cp-1a","team_id":"keeper","turns":5},"kind":"control_point_held","seq":162,"turn":8}
+{"data":{"mission_id":"ms-hold-1a","team_id":"keeper"},"kind":"mission_completed","seq":163,"turn":8}
+{"data":{"turn":8},"kind":"turn_advanced","seq":164,"turn":8}
+{"data":{"turn":8},"kind":"turn_resolved","seq":165,"turn":8}
+{"data":{"agent_id":"keeper-1","elapsed_ms":23033,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":166,"turn":8}
+{"data":{"agent_id":"keeper-2","elapsed_ms":25551,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":167,"turn":8}
+{"data":{"agent_id":"keeper-3","elapsed_ms":5102,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":168,"turn":8}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":169,"turn":8}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"ms-hold-1a complete, reward banked! Redeploying: house abandoned cp-1b's hold streak (still theirs by ownership, but mission incomplete and undefended) — I'm pushing there to recapture/finish it, ~6 turns out. House scout is 1 step from cp-2a, they'll likely take that uncontested — not worth chasing. keeper-3, confirm status at cp-2b; keeper-2, continue the deliver loop."},"kind":"message_sent","seq":170,"turn":9}
+{"data":{"from":"keeper-3","team_id":"keeper","text":"Arriving at cp-2b (16,0) this turn. Starting hold next turn — capture in 2, mission complete in 2+N after that."},"kind":"message_sent","seq":171,"turn":9}
+{"data":{"action":"move","team_id":"house","to":[4,16],"unit_id":"house-u1"},"kind":"action_declared","seq":172,"turn":9}
+{"data":{"action":"move","team_id":"house","to":[10,10],"unit_id":"house-u2"},"kind":"action_declared","seq":173,"turn":9}
+{"data":{"action":"move","team_id":"house","to":[8,9],"unit_id":"house-u3"},"kind":"action_declared","seq":174,"turn":9}
+{"data":{"action":"move","team_id":"keeper","to":[9,4],"unit_id":"keeper-u1"},"kind":"action_declared","seq":175,"turn":9}
+{"data":{"action":"move","team_id":"keeper","to":[10,6],"unit_id":"keeper-u2"},"kind":"action_declared","seq":176,"turn":9}
+{"data":{"action":"move","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":177,"turn":9}
+{"data":{"to":[4,16],"unit_id":"house-u1"},"kind":"unit_moved","seq":178,"turn":9}
+{"data":{"to":[10,10],"unit_id":"house-u2"},"kind":"unit_moved","seq":179,"turn":9}
+{"data":{"to":[8,9],"unit_id":"house-u3"},"kind":"unit_moved","seq":180,"turn":9}
+{"data":{"to":[9,4],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":181,"turn":9}
+{"data":{"to":[10,6],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":182,"turn":9}
+{"data":{"to":[16,0],"unit_id":"keeper-u3"},"kind":"unit_moved","seq":183,"turn":9}
+{"data":{"cp_id":"cp-1a","team_id":"","turns":0},"kind":"control_point_held","seq":184,"turn":9}
+{"data":{"cp_id":"cp-2a","team_id":"house","turns":1},"kind":"control_point_held","seq":185,"turn":9}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":1},"kind":"control_point_held","seq":186,"turn":9}
+{"data":{"turn":9},"kind":"turn_advanced","seq":187,"turn":9}
+{"data":{"turn":9},"kind":"turn_resolved","seq":188,"turn":9}
+{"data":{"agent_id":"keeper-1","elapsed_ms":62797,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":189,"turn":9}
+{"data":{"agent_id":"keeper-2","elapsed_ms":9221,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":190,"turn":9}
+{"data":{"agent_id":"keeper-3","elapsed_ms":5655,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":191,"turn":9}
+{"data":{"agent_id":null,"elapsed_ms":8,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":192,"turn":9}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"cp-2b captured (keeper-u3, 1 turn held) and cp-2a captured (house, 1 turn held) — matches the mirror pattern. I'm at (12,4), x-aligned with cp-1b, ~4 more turns of pure y-movement to arrive. House defender (8,9) and harvester (10,10) are both drifting near the deliver point/rn-1b — worth watching in case they double back to cp-1b before I get there."},"kind":"message_sent","seq":193,"turn":10}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"Reaching deliver(10,8) this turn, will deliver next turn. House harvester also carrying 3 at (10,10), close by — racing to bank first."},"kind":"message_sent","seq":194,"turn":10}
+{"data":{"from":"keeper-3","team_id":"keeper","text":"Holding cp-2b (1/2), capture next turn, then continuing hold toward ms-hold-2b (need 3 total)."},"kind":"message_sent","seq":195,"turn":10}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":196,"turn":10}
+{"data":{"action":"move","team_id":"house","to":[10,8],"unit_id":"house-u2"},"kind":"action_declared","seq":197,"turn":10}
+{"data":{"action":"move","team_id":"house","to":[8,7],"unit_id":"house-u3"},"kind":"action_declared","seq":198,"turn":10}
+{"data":{"action":"move","team_id":"keeper","to":[12,4],"unit_id":"keeper-u1"},"kind":"action_declared","seq":199,"turn":10}
+{"data":{"action":"move","team_id":"keeper","to":[10,8],"unit_id":"keeper-u2"},"kind":"action_declared","seq":200,"turn":10}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":201,"turn":10}
+{"data":{"to":[10,8],"unit_id":"house-u2"},"kind":"unit_moved","seq":202,"turn":10}
+{"data":{"to":[8,7],"unit_id":"house-u3"},"kind":"unit_moved","seq":203,"turn":10}
+{"data":{"to":[12,4],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":204,"turn":10}
+{"data":{"to":[10,8],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":205,"turn":10}
+{"data":{"cp_id":"cp-2a","team_id":"house","turns":2},"kind":"control_point_held","seq":206,"turn":10}
+{"data":{"cp_id":"cp-2a","team_id":"house"},"kind":"control_point_captured","seq":207,"turn":10}
+{"data":{"cp_id":"cp-2a","team_id":"house","turns":2},"kind":"control_point_held","seq":208,"turn":10}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":2},"kind":"control_point_held","seq":209,"turn":10}
+{"data":{"cp_id":"cp-2b","team_id":"keeper"},"kind":"control_point_captured","seq":210,"turn":10}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":2},"kind":"control_point_held","seq":211,"turn":10}
+{"data":{"turn":10},"kind":"turn_advanced","seq":212,"turn":10}
+{"data":{"turn":10},"kind":"turn_resolved","seq":213,"turn":10}
+{"data":{"agent_id":"keeper-1","elapsed_ms":16394,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":214,"turn":10}
+{"data":{"agent_id":"keeper-2","elapsed_ms":6875,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":215,"turn":10}
+{"data":{"agent_id":"keeper-3","elapsed_ms":9297,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":216,"turn":10}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":217,"turn":10}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"cp-2a/cp-2b both captured — board split evenly 1-1 on control points, plus our ms-hold-1a lead. Both harvesters are co-located at deliver(10,8) with full carry — should both bank 3 this turn since resources are separate per-team pools. 3 turns left to cp-1b for me."},"kind":"message_sent","seq":218,"turn":11}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"Delivering 3 now (3/6 toward ms-deliver). Heading back to rn-1a for the second batch right after."},"kind":"message_sent","seq":219,"turn":11}
+{"data":{"action":"move","team_id":"house","to":[4,13],"unit_id":"house-u1"},"kind":"action_declared","seq":220,"turn":11}
+{"data":{"action":"deliver","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":221,"turn":11}
+{"data":{"action":"move","team_id":"house","to":[8,5],"unit_id":"house-u3"},"kind":"action_declared","seq":222,"turn":11}
+{"data":{"action":"move","team_id":"keeper","to":[12,7],"unit_id":"keeper-u1"},"kind":"action_declared","seq":223,"turn":11}
+{"data":{"action":"deliver","team_id":"keeper","unit_id":"keeper-u2"},"kind":"action_declared","seq":224,"turn":11}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":225,"turn":11}
+{"data":{"to":[4,13],"unit_id":"house-u1"},"kind":"unit_moved","seq":226,"turn":11}
+{"data":{"to":[8,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":227,"turn":11}
+{"data":{"to":[12,7],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":228,"turn":11}
+{"data":{"amount":3,"team_id":"house","unit_id":"house-u2"},"kind":"resource_delivered","seq":229,"turn":11}
+{"data":{"amount":3,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"resource_delivered","seq":230,"turn":11}
+{"data":{"cp_id":"cp-2a","team_id":"","turns":0},"kind":"control_point_held","seq":231,"turn":11}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":3},"kind":"control_point_held","seq":232,"turn":11}
+{"data":{"turn":11},"kind":"turn_advanced","seq":233,"turn":11}
+{"data":{"turn":11},"kind":"turn_resolved","seq":234,"turn":11}
+{"data":{"agent_id":"keeper-1","elapsed_ms":12471,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":235,"turn":11}
+{"data":{"agent_id":"keeper-2","elapsed_ms":6944,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":236,"turn":11}
+{"data":{"agent_id":"keeper-3","elapsed_ms":8665,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":237,"turn":11}
+{"data":{"agent_id":null,"elapsed_ms":8,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":238,"turn":11}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"Both teams banked 3/6 on deliver — even race there too. House defender is at (8,5), one step from rn-1a — they may be about to gather from OUR nearby node. keeper-2 heads up if you're circling back through there. 2 turns left to cp-1b for me."},"kind":"message_sent","seq":239,"turn":12}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"Heading back to rn-1a for the second gather batch, noted house defender nearby — node has 9 left so should be fine either way."},"kind":"message_sent","seq":240,"turn":12}
+{"data":{"from":"keeper-3","team_id":"keeper","text":"cp-2b held 3 turns now, ms-hold-2b should complete this turn or next. Staying put to lock it in and guard the point."},"kind":"message_sent","seq":241,"turn":12}
+{"data":{"action":"move","team_id":"house","to":[4,10],"unit_id":"house-u1"},"kind":"action_declared","seq":242,"turn":12}
+{"data":{"action":"move","team_id":"house","to":[8,8],"unit_id":"house-u2"},"kind":"action_declared","seq":243,"turn":12}
+{"data":{"action":"move","team_id":"house","to":[8,3],"unit_id":"house-u3"},"kind":"action_declared","seq":244,"turn":12}
+{"data":{"action":"move","team_id":"keeper","to":[12,10],"unit_id":"keeper-u1"},"kind":"action_declared","seq":245,"turn":12}
+{"data":{"action":"move","team_id":"keeper","to":[9,7],"unit_id":"keeper-u2"},"kind":"action_declared","seq":246,"turn":12}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":247,"turn":12}
+{"data":{"to":[4,10],"unit_id":"house-u1"},"kind":"unit_moved","seq":248,"turn":12}
+{"data":{"to":[8,8],"unit_id":"house-u2"},"kind":"unit_moved","seq":249,"turn":12}
+{"data":{"to":[8,3],"unit_id":"house-u3"},"kind":"unit_moved","seq":250,"turn":12}
+{"data":{"to":[12,10],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":251,"turn":12}
+{"data":{"to":[9,7],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":252,"turn":12}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":4},"kind":"control_point_held","seq":253,"turn":12}
+{"data":{"turn":12},"kind":"turn_advanced","seq":254,"turn":12}
+{"data":{"turn":12},"kind":"turn_resolved","seq":255,"turn":12}
+{"data":{"agent_id":"keeper-1","elapsed_ms":16958,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":256,"turn":12}
+{"data":{"agent_id":"keeper-2","elapsed_ms":16452,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":257,"turn":12}
+{"data":{"agent_id":"keeper-3","elapsed_ms":7213,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":258,"turn":12}
+{"data":{"agent_id":null,"elapsed_ms":9,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":259,"turn":12}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"1 turn out from cp-1b now. House defender (8,3) is right on top of rn-1a and their harvester (8,8) is trailing toward the same area — looks like they're contesting our node hard for their second batch. keeper-2, might be worth gathering fast or considering rn-2b as a fallback if it's crowded."},"kind":"message_sent","seq":260,"turn":13}
+{"data":{"action":"move","team_id":"house","to":[4,7],"unit_id":"house-u1"},"kind":"action_declared","seq":261,"turn":13}
+{"data":{"action":"move","team_id":"house","to":[8,6],"unit_id":"house-u2"},"kind":"action_declared","seq":262,"turn":13}
+{"data":{"action":"move","team_id":"house","to":[8,1],"unit_id":"house-u3"},"kind":"action_declared","seq":263,"turn":13}
+{"data":{"action":"move","team_id":"keeper","to":[12,13],"unit_id":"keeper-u1"},"kind":"action_declared","seq":264,"turn":13}
+{"data":{"action":"move","team_id":"keeper","to":[8,6],"unit_id":"keeper-u2"},"kind":"action_declared","seq":265,"turn":13}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":266,"turn":13}
+{"data":{"to":[4,7],"unit_id":"house-u1"},"kind":"unit_moved","seq":267,"turn":13}
+{"data":{"to":[8,6],"unit_id":"house-u2"},"kind":"unit_moved","seq":268,"turn":13}
+{"data":{"to":[8,1],"unit_id":"house-u3"},"kind":"unit_moved","seq":269,"turn":13}
+{"data":{"to":[12,13],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":270,"turn":13}
+{"data":{"to":[8,6],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":271,"turn":13}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":5},"kind":"control_point_held","seq":272,"turn":13}
+{"data":{"mission_id":"ms-hold-2b","team_id":"keeper"},"kind":"mission_completed","seq":273,"turn":13}
+{"data":{"turn":13},"kind":"turn_advanced","seq":274,"turn":13}
+{"data":{"turn":13},"kind":"turn_resolved","seq":275,"turn":13}
+{"data":{"agent_id":"keeper-1","elapsed_ms":12801,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":276,"turn":13}
+{"data":{"agent_id":"keeper-2","elapsed_ms":8827,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":277,"turn":13}
+{"data":{"agent_id":"keeper-3","elapsed_ms":7816,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":278,"turn":13}
+{"data":{"agent_id":null,"elapsed_ms":9,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":279,"turn":13}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"ms-hold-2b complete too! We've now banked both ms-hold-1a and ms-hold-2b (16 pts) while house has captured cp-1b/cp-2a but abandoned both hold streaks with 0 completions so far. Arriving at cp-1b this turn, starting the recapture hold next turn."},"kind":"message_sent","seq":280,"turn":14}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"House harvester co-located with me at (8,6), both converging on rn-1a. Moving in to gather next turn regardless."},"kind":"message_sent","seq":281,"turn":14}
+{"data":{"from":"keeper-3","team_id":"keeper","text":"ms-hold-2b banked. Heads up: cp-1a is currently unguarded by us (keeper-u1 moved on) and house-u3 is at (8,1), just 1 step away — they could flip ownership even though our mission there is already scored. Staying put to guard cp-2b since no threat here yet; can reposition if the team needs me elsewhere."},"kind":"message_sent","seq":282,"turn":14}
+{"data":{"action":"move","team_id":"house","to":[4,4],"unit_id":"house-u1"},"kind":"action_declared","seq":283,"turn":14}
+{"data":{"action":"move","team_id":"house","to":[8,4],"unit_id":"house-u2"},"kind":"action_declared","seq":284,"turn":14}
+{"data":{"action":"move","team_id":"house","to":[9,0],"unit_id":"house-u3"},"kind":"action_declared","seq":285,"turn":14}
+{"data":{"action":"move","team_id":"keeper","to":[12,14],"unit_id":"keeper-u1"},"kind":"action_declared","seq":286,"turn":14}
+{"data":{"action":"move","team_id":"keeper","to":[8,4],"unit_id":"keeper-u2"},"kind":"action_declared","seq":287,"turn":14}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":288,"turn":14}
+{"data":{"to":[4,4],"unit_id":"house-u1"},"kind":"unit_moved","seq":289,"turn":14}
+{"data":{"to":[8,4],"unit_id":"house-u2"},"kind":"unit_moved","seq":290,"turn":14}
+{"data":{"to":[9,0],"unit_id":"house-u3"},"kind":"unit_moved","seq":291,"turn":14}
+{"data":{"to":[12,14],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":292,"turn":14}
+{"data":{"to":[8,4],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":293,"turn":14}
+{"data":{"cp_id":"cp-1b","team_id":"keeper","turns":1},"kind":"control_point_held","seq":294,"turn":14}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":6},"kind":"control_point_held","seq":295,"turn":14}
+{"data":{"turn":14},"kind":"turn_advanced","seq":296,"turn":14}
+{"data":{"turn":14},"kind":"turn_resolved","seq":297,"turn":14}
+{"data":{"agent_id":"keeper-1","elapsed_ms":19561,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":298,"turn":14}
+{"data":{"agent_id":"keeper-2","elapsed_ms":12492,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":299,"turn":14}
+{"data":{"agent_id":"keeper-3","elapsed_ms":33954,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":300,"turn":14}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":301,"turn":14}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"Holding cp-1b, 1/2 turns toward recapture. House-u3 (9,0) is close to cp-1a and could flip it since it's unguarded — that's a minor ownership loss but our ms-hold-1a reward is already locked in, so not worth breaking off cp-2b to defend it. keeper-3, staying at cp-2b is the right call."},"kind":"message_sent","seq":302,"turn":15}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"Gathering at rn-1a alongside house harvester, node has plenty (9 remaining). Third batch after this fills ms-deliver."},"kind":"message_sent","seq":303,"turn":15}
+{"data":{"action":"move","team_id":"house","to":[5,2],"unit_id":"house-u1"},"kind":"action_declared","seq":304,"turn":15}
+{"data":{"action":"gather","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":305,"turn":15}
+{"data":{"action":"move","team_id":"house","to":[11,0],"unit_id":"house-u3"},"kind":"action_declared","seq":306,"turn":15}
+{"data":{"action":"hold","team_id":"keeper","to":[12,14],"unit_id":"keeper-u1"},"kind":"action_declared","seq":307,"turn":15}
+{"data":{"action":"gather","team_id":"keeper","unit_id":"keeper-u2"},"kind":"action_declared","seq":308,"turn":15}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":309,"turn":15}
+{"data":{"to":[5,2],"unit_id":"house-u1"},"kind":"unit_moved","seq":310,"turn":15}
+{"data":{"to":[11,0],"unit_id":"house-u3"},"kind":"unit_moved","seq":311,"turn":15}
+{"data":{"amount":3,"node_id":"rn-1a","unit_id":"house-u2"},"kind":"resource_gathered","seq":312,"turn":15}
+{"data":{"amount":3,"node_id":"rn-1a","unit_id":"keeper-u2"},"kind":"resource_gathered","seq":313,"turn":15}
+{"data":{"cp_id":"cp-1b","team_id":"keeper","turns":2},"kind":"control_point_held","seq":314,"turn":15}
+{"data":{"cp_id":"cp-1b","team_id":"keeper"},"kind":"control_point_captured","seq":315,"turn":15}
+{"data":{"cp_id":"cp-1b","team_id":"keeper","turns":2},"kind":"control_point_held","seq":316,"turn":15}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":7},"kind":"control_point_held","seq":317,"turn":15}
+{"data":{"turn":15},"kind":"turn_advanced","seq":318,"turn":15}
+{"data":{"turn":15},"kind":"turn_resolved","seq":319,"turn":15}
+{"data":{"agent_id":"keeper-1","elapsed_ms":14018,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":320,"turn":15}
+{"data":{"agent_id":"keeper-2","elapsed_ms":8321,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":321,"turn":15}
+{"data":{"agent_id":"keeper-3","elapsed_ms":7896,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":322,"turn":15}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":323,"turn":15}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"cp-1b flipped to us! We now hold 3/4 control points (1a, 1b, 2b) vs house's 1 (2a). Holding here 2/5 toward ms-hold-1b. House-u3 (11,0) is drifting toward cp-2b's area — keeper-3, keep an eye out. rn-1a down to 3 remaining, so that node's nearly tapped for both sides."},"kind":"message_sent","seq":324,"turn":16}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"Full carry again, heading to deliver(10,8) — this batch should complete ms-deliver (6/6)."},"kind":"message_sent","seq":325,"turn":16}
+{"data":{"from":"keeper-3","team_id":"keeper","text":"Staying put at cp-2b to block house-u3's approach — my presence prevents them from getting sole occupancy to flip it."},"kind":"message_sent","seq":326,"turn":16}
+{"data":{"action":"move","team_id":"house","to":[8,2],"unit_id":"house-u1"},"kind":"action_declared","seq":327,"turn":16}
+{"data":{"action":"move","team_id":"house","to":[8,6],"unit_id":"house-u2"},"kind":"action_declared","seq":328,"turn":16}
+{"data":{"action":"move","team_id":"house","to":[13,0],"unit_id":"house-u3"},"kind":"action_declared","seq":329,"turn":16}
+{"data":{"action":"hold","team_id":"keeper","to":[12,14],"unit_id":"keeper-u1"},"kind":"action_declared","seq":330,"turn":16}
+{"data":{"action":"move","team_id":"keeper","to":[9,5],"unit_id":"keeper-u2"},"kind":"action_declared","seq":331,"turn":16}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":332,"turn":16}
+{"data":{"to":[8,2],"unit_id":"house-u1"},"kind":"unit_moved","seq":333,"turn":16}
+{"data":{"to":[8,6],"unit_id":"house-u2"},"kind":"unit_moved","seq":334,"turn":16}
+{"data":{"to":[13,0],"unit_id":"house-u3"},"kind":"unit_moved","seq":335,"turn":16}
+{"data":{"to":[9,5],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":336,"turn":16}
+{"data":{"cp_id":"cp-1a","team_id":"house","turns":1},"kind":"control_point_held","seq":337,"turn":16}
+{"data":{"cp_id":"cp-1b","team_id":"keeper","turns":3},"kind":"control_point_held","seq":338,"turn":16}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":8},"kind":"control_point_held","seq":339,"turn":16}
+{"data":{"turn":16},"kind":"turn_advanced","seq":340,"turn":16}
+{"data":{"turn":16},"kind":"turn_resolved","seq":341,"turn":16}
+{"data":{"agent_id":"keeper-1","elapsed_ms":13624,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":342,"turn":16}
+{"data":{"agent_id":"keeper-2","elapsed_ms":8603,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":343,"turn":16}
+{"data":{"agent_id":"keeper-3","elapsed_ms":8658,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":344,"turn":16}
+{"data":{"agent_id":null,"elapsed_ms":9,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":345,"turn":16}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"House flipped cp-1a back (expected, ownership only — our mission reward there stands). Holding cp-1b, 3/5. House-u3 is 3 out from cp-2b; keeper-3's presence should block sole occupancy if they arrive. keeper-2 en route to deliver with what should be the completing batch."},"kind":"message_sent","seq":346,"turn":17}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":347,"turn":17}
+{"data":{"action":"move","team_id":"house","to":[8,8],"unit_id":"house-u2"},"kind":"action_declared","seq":348,"turn":17}
+{"data":{"action":"move","team_id":"house","to":[15,0],"unit_id":"house-u3"},"kind":"action_declared","seq":349,"turn":17}
+{"data":{"action":"hold","team_id":"keeper","to":[12,14],"unit_id":"keeper-u1"},"kind":"action_declared","seq":350,"turn":17}
+{"data":{"action":"move","team_id":"keeper","to":[10,6],"unit_id":"keeper-u2"},"kind":"action_declared","seq":351,"turn":17}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":352,"turn":17}
+{"data":{"to":[8,8],"unit_id":"house-u2"},"kind":"unit_moved","seq":353,"turn":17}
+{"data":{"to":[15,0],"unit_id":"house-u3"},"kind":"unit_moved","seq":354,"turn":17}
+{"data":{"to":[10,6],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":355,"turn":17}
+{"data":{"cp_id":"cp-1a","team_id":"house","turns":2},"kind":"control_point_held","seq":356,"turn":17}
+{"data":{"cp_id":"cp-1a","team_id":"house"},"kind":"control_point_captured","seq":357,"turn":17}
+{"data":{"cp_id":"cp-1a","team_id":"house","turns":2},"kind":"control_point_held","seq":358,"turn":17}
+{"data":{"cp_id":"cp-1b","team_id":"keeper","turns":4},"kind":"control_point_held","seq":359,"turn":17}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":9},"kind":"control_point_held","seq":360,"turn":17}
+{"data":{"turn":17},"kind":"turn_advanced","seq":361,"turn":17}
+{"data":{"turn":17},"kind":"turn_resolved","seq":362,"turn":17}
+{"data":{"agent_id":"keeper-1","elapsed_ms":12345,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":363,"turn":17}
+{"data":{"agent_id":"keeper-2","elapsed_ms":8138,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":364,"turn":17}
+{"data":{"agent_id":"keeper-3","elapsed_ms":7869,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":365,"turn":17}
+{"data":{"agent_id":null,"elapsed_ms":10,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":366,"turn":17}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"Holding cp-1b, 4/5 — completes next turn. House-u3 (15,0) is now adjacent to cp-2b; keeper-3's presence there should keep it contested/blocked rather than flipped since sole occupancy won't be possible with both units present."},"kind":"message_sent","seq":367,"turn":18}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"Arriving at deliver(10,8), will deliver next turn to complete ms-deliver (6/6)."},"kind":"message_sent","seq":368,"turn":18}
+{"data":{"action":"move","team_id":"house","to":[9,0],"unit_id":"house-u1"},"kind":"action_declared","seq":369,"turn":18}
+{"data":{"action":"move","team_id":"house","to":[10,8],"unit_id":"house-u2"},"kind":"action_declared","seq":370,"turn":18}
+{"data":{"action":"move","team_id":"house","to":[13,0],"unit_id":"house-u3"},"kind":"action_declared","seq":371,"turn":18}
+{"data":{"action":"hold","team_id":"keeper","to":[12,14],"unit_id":"keeper-u1"},"kind":"action_declared","seq":372,"turn":18}
+{"data":{"action":"move","team_id":"keeper","to":[10,8],"unit_id":"keeper-u2"},"kind":"action_declared","seq":373,"turn":18}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":374,"turn":18}
+{"data":{"to":[9,0],"unit_id":"house-u1"},"kind":"unit_moved","seq":375,"turn":18}
+{"data":{"to":[10,8],"unit_id":"house-u2"},"kind":"unit_moved","seq":376,"turn":18}
+{"data":{"to":[13,0],"unit_id":"house-u3"},"kind":"unit_moved","seq":377,"turn":18}
+{"data":{"to":[10,8],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":378,"turn":18}
+{"data":{"cp_id":"cp-1a","team_id":"","turns":0},"kind":"control_point_held","seq":379,"turn":18}
+{"data":{"cp_id":"cp-1b","team_id":"keeper","turns":5},"kind":"control_point_held","seq":380,"turn":18}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":10},"kind":"control_point_held","seq":381,"turn":18}
+{"data":{"mission_id":"ms-hold-1b","team_id":"keeper"},"kind":"mission_completed","seq":382,"turn":18}
+{"data":{"turn":18},"kind":"turn_advanced","seq":383,"turn":18}
+{"data":{"turn":18},"kind":"turn_resolved","seq":384,"turn":18}
+{"data":{"agent_id":"keeper-1","elapsed_ms":12473,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":385,"turn":18}
+{"data":{"agent_id":"keeper-2","elapsed_ms":8979,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":386,"turn":18}
+{"data":{"agent_id":"keeper-3","elapsed_ms":7680,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":387,"turn":18}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":388,"turn":18}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"ms-hold-1b complete! We've now banked 3 of 4 hold missions (1a, 1b, 2b) plus even on deliver. Only ms-hold-2a remains, and house's cp-2a looks undefended right now — all 3 of their units are over near our side (9,0)/(10,8)/(13,0). Pushing toward cp-2a (4,16), ~4 turns out, to sweep the last hold mission too."},"kind":"message_sent","seq":389,"turn":19}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"Delivering now — completes ms-deliver (6/6). That's all 4 hold missions + deliver banked for us pending keeper-1's push to cp-2a."},"kind":"message_sent","seq":390,"turn":19}
+{"data":{"action":"move","team_id":"house","to":[12,0],"unit_id":"house-u1"},"kind":"action_declared","seq":391,"turn":19}
+{"data":{"action":"deliver","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":392,"turn":19}
+{"data":{"action":"move","team_id":"house","to":[12,1],"unit_id":"house-u3"},"kind":"action_declared","seq":393,"turn":19}
+{"data":{"action":"move","team_id":"keeper","to":[9,14],"unit_id":"keeper-u1"},"kind":"action_declared","seq":394,"turn":19}
+{"data":{"action":"deliver","team_id":"keeper","unit_id":"keeper-u2"},"kind":"action_declared","seq":395,"turn":19}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":396,"turn":19}
+{"data":{"to":[12,0],"unit_id":"house-u1"},"kind":"unit_moved","seq":397,"turn":19}
+{"data":{"to":[12,1],"unit_id":"house-u3"},"kind":"unit_moved","seq":398,"turn":19}
+{"data":{"to":[9,14],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":399,"turn":19}
+{"data":{"amount":3,"team_id":"house","unit_id":"house-u2"},"kind":"resource_delivered","seq":400,"turn":19}
+{"data":{"amount":3,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"resource_delivered","seq":401,"turn":19}
+{"data":{"cp_id":"cp-1b","team_id":"","turns":0},"kind":"control_point_held","seq":402,"turn":19}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":11},"kind":"control_point_held","seq":403,"turn":19}
+{"data":{"mission_id":"ms-deliver","team_id":"house"},"kind":"mission_completed","seq":404,"turn":19}
+{"data":{"mission_id":"ms-deliver","team_id":"keeper"},"kind":"mission_completed","seq":405,"turn":19}
+{"data":{"turn":19},"kind":"turn_advanced","seq":406,"turn":19}
+{"data":{"turn":19},"kind":"turn_resolved","seq":407,"turn":19}
+{"data":{"agent_id":"keeper-1","elapsed_ms":23524,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":408,"turn":19}
+{"data":{"agent_id":"keeper-2","elapsed_ms":7589,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":409,"turn":19}
+{"data":{"agent_id":"keeper-3","elapsed_ms":8795,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":410,"turn":19}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":411,"turn":19}
+{"data":{"team_id":"keeper","text":"Scout(u1)->push cp-2a for ms-hold-2a; Harvester(u2)->recontest cp-1a for board control; Defender(u3)->hold cp-2b, blocks flip via mixed occupancy."},"kind":"plan_declared","seq":412,"turn":20}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"ms-deliver banked for both sides (6/6 each). Only ms-hold-2a is left uncontested-open on the board — pushing toward cp-2a, ~3 more turns. House-u1/u3 are drifting back toward (12,0)/(12,1), possibly eyeing cp-2b again — keeper-3, stay sharp."},"kind":"message_sent","seq":413,"turn":20}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"ms-deliver done both sides, no more benefit gathering rn-1a further. Redeploying toward cp-1a (8,2) to recontest — currently 2-2 split, I can capture/hold since harvester can_capture. ~4 turns out."},"kind":"message_sent","seq":414,"turn":20}
+{"data":{"action":"move","team_id":"house","to":[15,0],"unit_id":"house-u1"},"kind":"action_declared","seq":415,"turn":20}
+{"data":{"action":"move","team_id":"house","to":[8,8],"unit_id":"house-u2"},"kind":"action_declared","seq":416,"turn":20}
+{"data":{"action":"move","team_id":"house","to":[12,3],"unit_id":"house-u3"},"kind":"action_declared","seq":417,"turn":20}
+{"data":{"action":"move","team_id":"keeper","to":[6,14],"unit_id":"keeper-u1"},"kind":"action_declared","seq":418,"turn":20}
+{"data":{"action":"move","team_id":"keeper","to":[9,7],"unit_id":"keeper-u2"},"kind":"action_declared","seq":419,"turn":20}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":420,"turn":20}
+{"data":{"to":[15,0],"unit_id":"house-u1"},"kind":"unit_moved","seq":421,"turn":20}
+{"data":{"to":[8,8],"unit_id":"house-u2"},"kind":"unit_moved","seq":422,"turn":20}
+{"data":{"to":[12,3],"unit_id":"house-u3"},"kind":"unit_moved","seq":423,"turn":20}
+{"data":{"to":[6,14],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":424,"turn":20}
+{"data":{"to":[9,7],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":425,"turn":20}
+{"data":{"cp_id":"cp-2b","team_id":"keeper","turns":12},"kind":"control_point_held","seq":426,"turn":20}
+{"data":{"turn":20},"kind":"turn_advanced","seq":427,"turn":20}
+{"data":{"turn":20},"kind":"turn_resolved","seq":428,"turn":20}
+{"data":{"agent_id":"keeper-1","elapsed_ms":15898,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":429,"turn":20}
+{"data":{"agent_id":"keeper-2","elapsed_ms":35314,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":430,"turn":20}
+{"data":{"agent_id":"keeper-3","elapsed_ms":7833,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":431,"turn":20}
+{"data":{"agent_id":null,"elapsed_ms":13,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":432,"turn":20}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"1 step from cp-2a, arriving next turn. House-u1 is now adjacent to cp-2b (15,0) — likely to co-locate with keeper-3 rather than flip it, but worth watching. House-u3 (12,3) direction unclear, maybe heading for rn-2b."},"kind":"message_sent","seq":433,"turn":21}
+{"data":{"action":"move","team_id":"house","to":[16,0],"unit_id":"house-u1"},"kind":"action_declared","seq":434,"turn":21}
+{"data":{"action":"move","team_id":"house","to":[8,6],"unit_id":"house-u2"},"kind":"action_declared","seq":435,"turn":21}
+{"data":{"action":"move","team_id":"house","to":[12,5],"unit_id":"house-u3"},"kind":"action_declared","seq":436,"turn":21}
+{"data":{"action":"move","team_id":"keeper","to":[4,15],"unit_id":"keeper-u1"},"kind":"action_declared","seq":437,"turn":21}
+{"data":{"action":"move","team_id":"keeper","to":[8,6],"unit_id":"keeper-u2"},"kind":"action_declared","seq":438,"turn":21}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":439,"turn":21}
+{"data":{"to":[16,0],"unit_id":"house-u1"},"kind":"unit_moved","seq":440,"turn":21}
+{"data":{"to":[8,6],"unit_id":"house-u2"},"kind":"unit_moved","seq":441,"turn":21}
+{"data":{"to":[12,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":442,"turn":21}
+{"data":{"to":[4,15],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":443,"turn":21}
+{"data":{"to":[8,6],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":444,"turn":21}
+{"data":{"cp_id":"cp-2b","team_id":"","turns":0},"kind":"control_point_held","seq":445,"turn":21}
+{"data":{"turn":21},"kind":"turn_advanced","seq":446,"turn":21}
+{"data":{"turn":21},"kind":"turn_resolved","seq":447,"turn":21}
+{"data":{"agent_id":"keeper-1","elapsed_ms":12696,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":448,"turn":21}
+{"data":{"agent_id":"keeper-2","elapsed_ms":9613,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":449,"turn":21}
+{"data":{"agent_id":"keeper-3","elapsed_ms":8659,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":450,"turn":21}
+{"data":{"agent_id":null,"elapsed_ms":10,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":451,"turn":21}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"Arrived at cp-2a, starting hold next turn. House-u1 co-located with keeper-3 at cp-2b — hold streak reset to 0 for both, but ownership stays ours and ms-hold-2b reward is already banked, so no real loss. Just a stalemate there now."},"kind":"message_sent","seq":452,"turn":22}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":453,"turn":22}
+{"data":{"action":"move","team_id":"house","to":[8,4],"unit_id":"house-u2"},"kind":"action_declared","seq":454,"turn":22}
+{"data":{"action":"move","team_id":"house","to":[12,7],"unit_id":"house-u3"},"kind":"action_declared","seq":455,"turn":22}
+{"data":{"action":"move","team_id":"keeper","to":[4,16],"unit_id":"keeper-u1"},"kind":"action_declared","seq":456,"turn":22}
+{"data":{"action":"move","team_id":"keeper","to":[8,4],"unit_id":"keeper-u2"},"kind":"action_declared","seq":457,"turn":22}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":458,"turn":22}
+{"data":{"to":[8,4],"unit_id":"house-u2"},"kind":"unit_moved","seq":459,"turn":22}
+{"data":{"to":[12,7],"unit_id":"house-u3"},"kind":"unit_moved","seq":460,"turn":22}
+{"data":{"to":[4,16],"unit_id":"keeper-u1"},"kind":"unit_moved","seq":461,"turn":22}
+{"data":{"to":[8,4],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":462,"turn":22}
+{"data":{"cp_id":"cp-2a","team_id":"keeper","turns":1},"kind":"control_point_held","seq":463,"turn":22}
+{"data":{"turn":22},"kind":"turn_advanced","seq":464,"turn":22}
+{"data":{"turn":22},"kind":"turn_resolved","seq":465,"turn":22}
+{"data":{"agent_id":"keeper-1","elapsed_ms":15946,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":466,"turn":22}
+{"data":{"agent_id":"keeper-2","elapsed_ms":7728,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":467,"turn":22}
+{"data":{"agent_id":"keeper-3","elapsed_ms":8378,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":468,"turn":22}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":469,"turn":22}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"Holding cp-2a, 1/2 toward capture. House-u3 (12,7) may be drifting toward our now-unguarded cp-1b, but that mission reward is already locked in for us so it's a non-issue if they take ownership back."},"kind":"message_sent","seq":470,"turn":23}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"cp-1a looks unguarded (all 3 house units elsewhere: (16,0),(8,4)-with me,(12,7)). Moving onto it now to start recapture hold."},"kind":"message_sent","seq":471,"turn":23}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":472,"turn":23}
+{"data":{"action":"gather","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":473,"turn":23}
+{"data":{"action":"move","team_id":"house","to":[12,9],"unit_id":"house-u3"},"kind":"action_declared","seq":474,"turn":23}
+{"data":{"action":"hold","team_id":"keeper","to":[4,16],"unit_id":"keeper-u1"},"kind":"action_declared","seq":475,"turn":23}
+{"data":{"action":"move","team_id":"keeper","to":[8,2],"unit_id":"keeper-u2"},"kind":"action_declared","seq":476,"turn":23}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":477,"turn":23}
+{"data":{"to":[12,9],"unit_id":"house-u3"},"kind":"unit_moved","seq":478,"turn":23}
+{"data":{"to":[8,2],"unit_id":"keeper-u2"},"kind":"unit_moved","seq":479,"turn":23}
+{"data":{"amount":3,"node_id":"rn-1a","unit_id":"house-u2"},"kind":"resource_gathered","seq":480,"turn":23}
+{"data":{"cp_id":"cp-1a","team_id":"keeper","turns":1},"kind":"control_point_held","seq":481,"turn":23}
+{"data":{"cp_id":"cp-2a","team_id":"keeper","turns":2},"kind":"control_point_held","seq":482,"turn":23}
+{"data":{"cp_id":"cp-2a","team_id":"keeper"},"kind":"control_point_captured","seq":483,"turn":23}
+{"data":{"cp_id":"cp-2a","team_id":"keeper","turns":2},"kind":"control_point_held","seq":484,"turn":23}
+{"data":{"turn":23},"kind":"turn_advanced","seq":485,"turn":23}
+{"data":{"turn":23},"kind":"turn_resolved","seq":486,"turn":23}
+{"data":{"agent_id":"keeper-1","elapsed_ms":12441,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":487,"turn":23}
+{"data":{"agent_id":"keeper-2","elapsed_ms":10595,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":488,"turn":23}
+{"data":{"agent_id":"keeper-3","elapsed_ms":7270,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":489,"turn":23}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":490,"turn":23}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"cp-2a captured! Holding 2/5 toward ms-hold-2a. keeper-2 is 1/2 into recapturing cp-1a too — if that flips we'll own all 4 control points simultaneously."},"kind":"message_sent","seq":491,"turn":24}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"Holding cp-1a, 2/2 — should capture this turn. All 4 control points ours if it lands."},"kind":"message_sent","seq":492,"turn":24}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":493,"turn":24}
+{"data":{"action":"move","team_id":"house","to":[8,6],"unit_id":"house-u2"},"kind":"action_declared","seq":494,"turn":24}
+{"data":{"action":"move","team_id":"house","to":[12,11],"unit_id":"house-u3"},"kind":"action_declared","seq":495,"turn":24}
+{"data":{"action":"hold","team_id":"keeper","to":[4,16],"unit_id":"keeper-u1"},"kind":"action_declared","seq":496,"turn":24}
+{"data":{"action":"hold","team_id":"keeper","unit_id":"keeper-u2"},"kind":"action_declared","seq":497,"turn":24}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":498,"turn":24}
+{"data":{"to":[8,6],"unit_id":"house-u2"},"kind":"unit_moved","seq":499,"turn":24}
+{"data":{"to":[12,11],"unit_id":"house-u3"},"kind":"unit_moved","seq":500,"turn":24}
+{"data":{"cp_id":"cp-1a","team_id":"keeper","turns":2},"kind":"control_point_held","seq":501,"turn":24}
+{"data":{"cp_id":"cp-1a","team_id":"keeper"},"kind":"control_point_captured","seq":502,"turn":24}
+{"data":{"cp_id":"cp-1a","team_id":"keeper","turns":2},"kind":"control_point_held","seq":503,"turn":24}
+{"data":{"cp_id":"cp-2a","team_id":"keeper","turns":3},"kind":"control_point_held","seq":504,"turn":24}
+{"data":{"turn":24},"kind":"turn_advanced","seq":505,"turn":24}
+{"data":{"turn":24},"kind":"turn_resolved","seq":506,"turn":24}
+{"data":{"agent_id":"keeper-1","elapsed_ms":10496,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":507,"turn":24}
+{"data":{"agent_id":"keeper-2","elapsed_ms":10346,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":508,"turn":24}
+{"data":{"agent_id":"keeper-3","elapsed_ms":8206,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":509,"turn":24}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":510,"turn":24}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"All 4 control points are ours now! Holding cp-2a 3/5 toward the final mission. House-u3 (12,11) may be heading for cp-1b again, but that reward's already banked so it's low stakes if they take ownership back."},"kind":"message_sent","seq":511,"turn":25}
+{"data":{"from":"keeper-2","team_id":"keeper","text":"All missions but ms-hold-2a banked and all 4 CPs ours. Staying put on cp-1a to guard it since house-u2 harvester is nearby (8,6) — no urgent gather targets left (rn-1a tapped out)."},"kind":"message_sent","seq":512,"turn":25}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":513,"turn":25}
+{"data":{"action":"move","team_id":"house","to":[8,8],"unit_id":"house-u2"},"kind":"action_declared","seq":514,"turn":25}
+{"data":{"action":"move","team_id":"house","to":[12,13],"unit_id":"house-u3"},"kind":"action_declared","seq":515,"turn":25}
+{"data":{"action":"hold","team_id":"keeper","to":[4,16],"unit_id":"keeper-u1"},"kind":"action_declared","seq":516,"turn":25}
+{"data":{"action":"hold","team_id":"keeper","unit_id":"keeper-u2"},"kind":"action_declared","seq":517,"turn":25}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":518,"turn":25}
+{"data":{"to":[8,8],"unit_id":"house-u2"},"kind":"unit_moved","seq":519,"turn":25}
+{"data":{"to":[12,13],"unit_id":"house-u3"},"kind":"unit_moved","seq":520,"turn":25}
+{"data":{"cp_id":"cp-1a","team_id":"keeper","turns":3},"kind":"control_point_held","seq":521,"turn":25}
+{"data":{"cp_id":"cp-2a","team_id":"keeper","turns":4},"kind":"control_point_held","seq":522,"turn":25}
+{"data":{"turn":25},"kind":"turn_advanced","seq":523,"turn":25}
+{"data":{"turn":25},"kind":"turn_resolved","seq":524,"turn":25}
+{"data":{"agent_id":"keeper-1","elapsed_ms":12118,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":525,"turn":25}
+{"data":{"agent_id":"keeper-2","elapsed_ms":21864,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":526,"turn":25}
+{"data":{"agent_id":"keeper-3","elapsed_ms":6973,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":527,"turn":25}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":528,"turn":25}
+{"data":{"from":"keeper-1","team_id":"keeper","text":"Holding cp-2a, 4/5 — ms-hold-2a completes next turn, which would sweep all 5 missions for us. House-u3 (12,13) is right next to cp-1b now, likely to co-locate or flip ownership, but no mission stakes left there."},"kind":"message_sent","seq":529,"turn":26}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":530,"turn":26}
+{"data":{"action":"move","team_id":"house","to":[10,8],"unit_id":"house-u2"},"kind":"action_declared","seq":531,"turn":26}
+{"data":{"action":"move","team_id":"house","to":[12,14],"unit_id":"house-u3"},"kind":"action_declared","seq":532,"turn":26}
+{"data":{"action":"hold","team_id":"keeper","to":[4,16],"unit_id":"keeper-u1"},"kind":"action_declared","seq":533,"turn":26}
+{"data":{"action":"hold","team_id":"keeper","unit_id":"keeper-u2"},"kind":"action_declared","seq":534,"turn":26}
+{"data":{"action":"hold","team_id":"keeper","to":[16,0],"unit_id":"keeper-u3"},"kind":"action_declared","seq":535,"turn":26}
+{"data":{"to":[10,8],"unit_id":"house-u2"},"kind":"unit_moved","seq":536,"turn":26}
+{"data":{"to":[12,14],"unit_id":"house-u3"},"kind":"unit_moved","seq":537,"turn":26}
+{"data":{"cp_id":"cp-1a","team_id":"keeper","turns":4},"kind":"control_point_held","seq":538,"turn":26}
+{"data":{"cp_id":"cp-1b","team_id":"house","turns":1},"kind":"control_point_held","seq":539,"turn":26}
+{"data":{"cp_id":"cp-2a","team_id":"keeper","turns":5},"kind":"control_point_held","seq":540,"turn":26}
+{"data":{"mission_id":"ms-hold-2a","team_id":"keeper"},"kind":"mission_completed","seq":541,"turn":26}
+{"data":{"turn":26},"kind":"turn_advanced","seq":542,"turn":26}
+{"data":{"winner":"keeper"},"kind":"match_finished","seq":543,"turn":26}
+{"data":{"turn":26},"kind":"turn_resolved","seq":544,"turn":26}
+{"data":{"agent_id":"keeper-1","elapsed_ms":9530,"team_id":"keeper","unit_id":"keeper-u1"},"kind":"seat_latency","seq":545,"turn":26}
+{"data":{"agent_id":"keeper-2","elapsed_ms":13769,"team_id":"keeper","unit_id":"keeper-u2"},"kind":"seat_latency","seq":546,"turn":26}
+{"data":{"agent_id":"keeper-3","elapsed_ms":7014,"team_id":"keeper","unit_id":"keeper-u3"},"kind":"seat_latency","seq":547,"turn":26}
+{"data":{"agent_id":null,"elapsed_ms":10,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":548,"turn":26}
