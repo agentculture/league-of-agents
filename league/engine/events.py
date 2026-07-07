@@ -149,14 +149,20 @@ def apply_event(state: MatchState, event: Event) -> MatchState:
             state, units=_replace_one(state.units, data["unit_id"], alive=False)
         )
     if kind == "mission_completed":
+        # A dead-heat is a dual award (spec decision c15): the tick emits one
+        # completion event per qualifying team and the fold accumulates them
+        # into a canonically sorted tuple — the outcome is id-neutral.
+        mission = _find(state.missions, data["mission_id"])
         return dataclasses.replace(
             state,
             missions=_replace_one(
                 state.missions,
                 data["mission_id"],
                 status="completed",
-                completed_by=data["team_id"],
-                completed_turn=event.turn,
+                completed_by=tuple(sorted({*mission.completed_by, data["team_id"]})),
+                completed_turn=(
+                    mission.completed_turn if mission.completed_turn is not None else event.turn
+                ),
             ),
         )
     if kind == "turn_advanced":

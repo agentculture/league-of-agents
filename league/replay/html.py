@@ -54,7 +54,7 @@ def _snapshot(state: MatchState) -> dict[str, Any]:
                 "amount": m.amount,
                 "reward": m.reward,
                 "status": m.status,
-                "completed_by": m.completed_by,
+                "completed_by": list(m.completed_by),
             }
             for m in state.missions
         ],
@@ -294,16 +294,19 @@ function drawBoard() {
     svg.appendChild(g);
   }
   for (const m of f.missions) {
-    const done = m.status === 'completed' && m.completed_by != null;
+    const done = m.status === 'completed' && m.completed_by.length > 0;
+    // Dual-award dead-heats list every winner; a shared win wears the
+    // neutral ink so neither team's color claims it.
+    const col = !done ? 'var(--muted)'
+      : m.completed_by.length === 1 ? teamColor(m.completed_by[0]) : 'var(--ink-2)';
     if (m.kind === 'deliver') {
       svg.appendChild(svgEl('circle', { cx: cx(m.pos[0]), cy: cy(m.pos[1]), r: 17,
-        fill: 'none', stroke: done ? teamColor(m.completed_by) : 'var(--muted)',
+        fill: 'none', stroke: col,
         'stroke-dasharray': '3 3', 'stroke-width': done ? 2 : 1 }));
     }
     svg.appendChild(svgEl('text', { x: cx(m.pos[0]), y: cy(m.pos[1]) + 28,
-      'text-anchor': 'middle', 'font-size': 9,
-      fill: done ? teamColor(m.completed_by) : 'var(--muted)' },
-      done ? `${m.id} → ${m.completed_by}` : `${m.id}: ${m.kind} ${m.amount}`));
+      'text-anchor': 'middle', 'font-size': 9, fill: col },
+      done ? `${m.id} → ${m.completed_by.join(' + ')}` : `${m.id}: ${m.kind} ${m.amount}`));
   }
   for (const c of f.control_points) {
     const owned = c.owner != null;
@@ -353,7 +356,7 @@ function drawTeams() {
   const f = M.frames[frame];
   $('teams').innerHTML = M.teams.map(t => {
     const res = f.teams.find(x => x.id === t.id).resources;
-    const done = f.missions.filter(m => m.completed_by === t.id).length;
+    const done = f.missions.filter(m => m.completed_by.includes(t.id)).length;
     return `<div class="team">
       <div class="team-head"><span class="swatch" style="background:${teamColor(t.id)}"></span>
         <span class="team-name">${esc(t.name)}</span></div>

@@ -26,8 +26,11 @@ v0 resolution rules (documented here, exercised in tests):
   once its point has been owned-and-occupied ``amount`` turns beyond capture.
   Both teams on the square = contested: the streak resets.
 * A deliver-mission completes when the team's delivered resources reach its
-  ``amount``. Ties (both teams cross in one turn) go to the larger total,
-  then lexicographic team id — a documented v0 bias, deliberately rare.
+  ``amount``. Dead-heats (both teams cross in one turn) are a DUAL AWARD
+  (spec decision c15): every qualifying team completes the mission for the
+  full reward — team-id sort order never influences a mission outcome. (The
+  v0 larger-total-then-lexicographic tiebreak decided a real season-0 match;
+  see docs/playtests/season-0/orchestrator.report.md.)
 * The match finishes when every mission is resolved or the turn limit is hit.
   Competitive winner: mission rewards + 2 points per owned control point +
   delivered resources; equal points is a ``draw``. Cooperative: the team wins
@@ -65,8 +68,11 @@ def outcome_points(state: MatchState) -> dict[str, int]:
     """
     points = {team.id: 0 for team in state.teams}
     for mission in state.missions:
-        if mission.status == "completed" and mission.completed_by in points:
-            points[mission.completed_by] += mission.reward
+        if mission.status != "completed":
+            continue
+        for team_id in mission.completed_by:  # dual awards pay every winner in full
+            if team_id in points:
+                points[team_id] += mission.reward
     for cp in state.control_points:
         if cp.owner in points:
             points[cp.owner] += CP_POINTS
@@ -251,12 +257,11 @@ def resolve_turn(
             continue
         if mission.kind == "deliver":
             totals = {team.id: team.resources for team in mid.teams}
-            reached = sorted(
-                (t for t, total in totals.items() if total >= mission.amount),
-                key=lambda t: (-totals[t], t),
-            )
-            if reached:
-                emit("mission_completed", {"mission_id": mission.id, "team_id": reached[0]})
+            # Dual award (spec decision c15): every team at or over the amount
+            # this turn completes the mission for the full reward. Canonical id
+            # order sequences the events; it never selects a winner.
+            for team_id in sorted(t for t, total in totals.items() if total >= mission.amount):
+                emit("mission_completed", {"mission_id": mission.id, "team_id": team_id})
         elif mission.kind == "hold":
             cp = next((c for c in mid.control_points if c.pos == mission.pos), None)
             if cp is None or cp.owner is None or not cp.hold:
