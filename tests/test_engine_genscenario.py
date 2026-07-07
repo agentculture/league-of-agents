@@ -376,7 +376,10 @@ def test_cli_arena_show_and_match_new_accept_generated_ids(tmp_path, monkeypatch
 
 
 def test_hand_authored_scenarios_and_presets_unchanged() -> None:
-    assert scenario_ids() == ("skirmish-1", "skirmish-2")
+    # The hand-authored boards must stay registered; other tasks may ADD
+    # scenarios (cycle-6 t3 registered recon-1), so this asserts presence,
+    # not an exact registry tuple.
+    assert {"skirmish-1", "skirmish-2"} <= set(scenario_ids())
     for known in scenario_ids():
         assert get_scenario(known).id == known
     # every bundled preset still resolves to a launchable config
