@@ -828,22 +828,24 @@ def cmd_match_brief(args: argparse.Namespace) -> int:
 def cmd_match_replay(args: argparse.Namespace) -> int:
     """Self-contained HTML replay — routed to the right engine lane.
 
-    Detection (plan C7-t9): a match id starting with :data:`CONTINUOUS_ID_PREFIX`
-    (``"c-"``, the same discipline continuous scenario ids use), OR — regardless
-    of naming — the log's OWN header shape (``clock``/``width`` for
+    Detection (plan C7-t9): the log's OWN header shape is the authoritative
+    signal (``clock``/``width`` for
     :class:`~league.engine.continuous.state.CMatchState` vs ``turn``/
-    ``grid_width`` for the grid's ``MatchState``). No new verb: a grid log that
-    matches neither signal falls through to the untouched grid path below,
-    byte-identical to before this routing existed.
+    ``grid_width`` for the grid's ``MatchState``) — a grid match that merely
+    NAMED itself ``c-…`` still replays as grid. The
+    :data:`CONTINUOUS_ID_PREFIX` naming discipline only chooses which lane's
+    not-found error speaks when there is no log on disk to sniff. No new verb:
+    a grid log falls through to the untouched grid path below, byte-identical
+    to before this routing existed.
     """
     match_id = args.match_id
     json_mode = bool(getattr(args, "json", False))
 
-    route_continuous = match_id.startswith(CONTINUOUS_ID_PREFIX)
-    if not route_continuous:
-        path = Store().log_path(match_id)
-        if path.is_file():
-            route_continuous = _sniff_continuous_log(path.read_text(encoding="utf-8"))
+    path = Store().log_path(match_id)
+    if path.is_file():
+        route_continuous = _sniff_continuous_log(path.read_text(encoding="utf-8"))
+    else:
+        route_continuous = match_id.startswith(CONTINUOUS_ID_PREFIX)
 
     if route_continuous:
         clog = _load_continuous(Store(), match_id)

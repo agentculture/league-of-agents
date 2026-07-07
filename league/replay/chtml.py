@@ -319,7 +319,7 @@ def _render_board_svg(frame: dict[str, Any], board: dict[str, int], team_ids: li
         parts.append(
             f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{_UNIT_R}" fill="{color}" class="cunit-body"/>'
             f'<text x="{cx:.1f}" y="{cy + 4:.1f}" text-anchor="middle" class="cunit-glyph">'
-            f"{glyph}</text></g>"
+            f"{_esc(glyph)}</text></g>"
         )
 
     parts.append("</svg>")

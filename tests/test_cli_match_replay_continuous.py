@@ -1,10 +1,11 @@
 """CLI wiring for the continuous replay face (plan C7-t9, spec c12/c2).
 
-``league match replay`` is extended, not duplicated into a new verb: it
-detects a continuous log by match-id prefix (``CONTINUOUS_ID_PREFIX``, "c-")
-OR by the log's own header shape, and routes to the continuous face
-(:mod:`league.replay.chtml`). A grid log that matches neither signal falls
-through to the untouched grid path — pinned byte-identical here too.
+``league match replay`` is extended, not duplicated into a new verb: the
+log's OWN header shape is the authoritative lane signal, so a grid match that
+merely named itself ``c-…`` still replays as grid (the
+``CONTINUOUS_ID_PREFIX`` naming discipline only picks the error voice when no
+log exists to sniff). A grid log falls through to the untouched grid path —
+pinned byte-identical here too.
 
 There is no continuous-lane store/creation CLI path yet (persistence is a
 later cycle task), so these tests drop a log at the exact path the grid
@@ -59,8 +60,10 @@ def test_replay_detects_continuous_log_by_shape_even_without_c_prefix(arena, cap
 
 
 def test_replay_detects_continuous_log_by_c_prefix(arena, capsys) -> None:
-    """A continuous log whose match id DOES start with 'c-' routes on the
-    prefix signal alone (the same discipline continuous scenario ids use)."""
+    """A continuous log whose match id follows the 'c-' naming discipline
+    routes to the continuous face — via the header sniff, which is
+    authoritative for every log on disk; the prefix itself only picks the
+    error voice when there is nothing to sniff."""
     log = _race_log()
     c_state = dataclasses.replace(log.initial_state, match_id="c-race-demo")
     c_log = CMatchLog(initial_state=c_state, events=log.events, driver_kinds=log.driver_kinds)
@@ -70,6 +73,21 @@ def test_replay_detects_continuous_log_by_c_prefix(arena, capsys) -> None:
     out = capsys.readouterr().out
     assert out.startswith("<!DOCTYPE html>")
     assert out == render_chtml(c_log)
+
+
+def test_grid_log_under_a_c_prefixed_id_still_replays_as_grid(arena, capsys) -> None:
+    """Naming is never authority: the store's id validator does not reserve
+    the 'c-' prefix, so a GRID match that merely named itself 'c-…' must
+    still replay through the grid face — the log's own header shape outranks
+    the id. Prefix-first routing made such a match unreplayable."""
+    raw = (_PLAYTESTS / _GRID_LOG_REL).read_text(encoding="utf-8")
+    _write_log("c-actually-grid", raw)
+
+    assert main(["match", "replay", "c-actually-grid"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("<!DOCTYPE html>")
+    assert out == render_html(MatchLog.from_jsonl(raw))  # the grid face, byte-identical
+    assert "race-fail" not in out
 
 
 def test_replay_json_mode_for_continuous_log(arena, capsys) -> None:

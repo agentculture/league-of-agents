@@ -248,6 +248,29 @@ def test_self_contained_no_external_requests() -> None:
         assert needle not in html, f"external-request marker {needle!r} found"
 
 
+def test_unit_glyph_is_escaped_against_hostile_role_names() -> None:
+    """The role-derived glyph rides through the same escaping as every other
+    log-derived string: a hand-crafted log can put ANY text in a unit's role,
+    and the first character of an unknown role becomes the glyph — so a
+    hostile role name must never reach the SVG text node unescaped."""
+    import dataclasses
+
+    log = _race_log()
+    units = tuple(
+        dataclasses.replace(u, role="<script>alert(1)</script>") if u.id == "blue-u1" else u
+        for u in log.initial_state.units
+    )
+    hostile_state = dataclasses.replace(log.initial_state, units=units)
+    hostile = CMatchLog(
+        initial_state=hostile_state, events=log.events, driver_kinds=log.driver_kinds
+    )
+    html = render_chtml(hostile)
+    # The unknown role's first character "<" must render as its entity, never raw.
+    assert 'class="cunit-glyph"><</text>' not in html
+    assert 'class="cunit-glyph">&lt;</text>' in html
+    assert "<script>alert(1)</script>" not in html
+
+
 def test_output_round_trips_through_disk_unchanged(tmp_path) -> None:
     html = render_chtml(_race_log())
     path = tmp_path / "race.html"
