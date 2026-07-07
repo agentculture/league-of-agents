@@ -184,7 +184,8 @@ commits** — a stray call never silently advances the game.
         --action blue-u1:move:3,1 --action blue-u2:gather \\
         --message blue-1:"east is open" --apply
     league match tick <id> --apply         # force-resolve (timeouts)
-    league match score <id> --json         # outcome + cooperation
+    league match score <id> --json         # outcome + cooperation + tempo
+    league match score <id> --substrate blue=cloud  # substrate-fair tempo
     league match brief <id> [--team blue]  # markdown briefing (the agents' face)
     league match replay <id> > match.html  # self-contained human replay
     league match tui <id> --frame N [--team blue] [--no-color]  # terminal view
