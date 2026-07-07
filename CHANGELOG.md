@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-07-07
+
+### Added
+
+- Cycle-3 spec + plan (devague): AgentFront audience-typed faces (markdown/TUI+HTML/JSON), fog of war with per-role line of sight, orchestrator as a real game mode, coded-strategy bots as opponents — frame converged on user confirmations, with the agentfront dependency unknown resolved by user decision c17 (runtime import); the earlier parked draft of this frame is superseded by the converged spec + 10-task/6-wave plan
+
 ## [0.7.1] - 2026-07-07
 
 ### Added
