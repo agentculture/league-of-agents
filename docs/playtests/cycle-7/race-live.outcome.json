@@ -1,0 +1,8 @@
+{
+  "match_id": "c-race-live",
+  "status": "finished",
+  "game_time": 14,
+  "winner": "blue",
+  "outcome_points": { "blue": 19, "red": 0 },
+  "events": 54
+}

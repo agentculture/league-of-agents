@@ -23,6 +23,8 @@ from typing import Any
 
 from league.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
 from league.cli._output import emit_result
+from league.engine.continuous.events import CMatchLog
+from league.engine.continuous.scenario import CONTINUOUS_ID_PREFIX
 from league.engine.events import MatchLog
 from league.engine.knowledge import KnowledgeFrame, knowledge_by_turn, latest_knowledge
 from league.engine.legal import legal_actions
@@ -44,11 +46,13 @@ from league.replay import (
     MIN_FPS,
     MIN_SCALE,
     MIN_TWEEN,
+    build_continuous_replay_data,
 )
 from league.replay import build_frames as build_video_frames
 from league.replay import (
     build_replay_data,
     indices_to_rgb,
+    render_chtml,
     render_frame,
     render_gif,
     render_html,
@@ -224,6 +228,52 @@ def _load(store: Store, match_id: str) -> MatchLog:
         ) from err
 
 
+# -- continuous-lane replay routing (plan C7-t9, spec c12/c2) ----------------
+#
+# There is no continuous-lane store/creation path yet (persistence is a later
+# task's concern) — the grid ``Store`` is engine-agnostic about WHERE a log
+# lives (``.league/matches/<id>/log.jsonl``), only about how it parses one, so
+# a continuous log dropped at that same path (e.g. by ``docs/playtests``
+# fixtures or a future harness) is found the identical way. ``replay`` is the
+# only verb extended — every other verb stays exactly grid-only, untouched.
+
+
+def _sniff_continuous_log(raw: str) -> bool:
+    """Peek at a match log's own header shape without fully parsing either
+    engine lane's dataclasses: continuous ``CMatchState`` headers carry
+    ``clock``/``width``; grid ``MatchState`` headers carry ``turn``/
+    ``grid_width``. Falls back to ``False`` (grid) on any parse hiccup —
+    ``_load``'s existing error path still reports a clean CliError for a
+    genuinely corrupt file."""
+    lines = raw.splitlines()
+    if not lines:
+        return False
+    try:
+        header = json.loads(lines[0])
+        initial = header.get("initial_state", {})
+    except (ValueError, AttributeError):
+        return False
+    return isinstance(initial, dict) and "clock" in initial and "turn" not in initial
+
+
+def _load_continuous(store: Store, match_id: str) -> CMatchLog:
+    path = store.log_path(match_id)
+    if not path.is_file():
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"no match {match_id!r}",
+            remediation="run 'league match list' to see matches",
+        )
+    try:
+        return CMatchLog.from_jsonl(path.read_text(encoding="utf-8"))
+    except (KeyError, ValueError) as err:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"match {match_id!r} could not be read as a continuous log: {err}",
+            remediation="run 'league match list' to see matches",
+        ) from err
+
+
 def cmd_match_overview(args: argparse.Namespace) -> int:
     json_mode = bool(getattr(args, "json", False))
     data = {
@@ -244,7 +294,8 @@ def cmd_match_overview(args: argparse.Namespace) -> int:
             "probe": "span-of-control probe: subagents fielded, per-seat realization, "
             "guidance linkage, from the log alone",
             "brief": "markdown briefing from the faces registry (--team for the fogged view)",
-            "replay": "self-contained HTML replay on stdout",
+            "replay": "self-contained HTML replay on stdout (grid or continuous, "
+            "detected automatically)",
             "record": "render the match log to a shareable GIF (or --format mp4 with "
             "ffmpeg on PATH), offline, to --out <file> (--theme light|dark, --tween N)",
             "tui": "replay-stepping terminal view: ground truth or --team fog "
@@ -775,8 +826,37 @@ def cmd_match_brief(args: argparse.Namespace) -> int:
 
 
 def cmd_match_replay(args: argparse.Namespace) -> int:
-    log = _load(Store(), args.match_id)
-    if getattr(args, "json", False):
+    """Self-contained HTML replay — routed to the right engine lane.
+
+    Detection (plan C7-t9): the log's OWN header shape is the authoritative
+    signal (``clock``/``width`` for
+    :class:`~league.engine.continuous.state.CMatchState` vs ``turn``/
+    ``grid_width`` for the grid's ``MatchState``) — a grid match that merely
+    NAMED itself ``c-…`` still replays as grid. The
+    :data:`CONTINUOUS_ID_PREFIX` naming discipline only chooses which lane's
+    not-found error speaks when there is no log on disk to sniff. No new verb:
+    a grid log falls through to the untouched grid path below, byte-identical
+    to before this routing existed.
+    """
+    match_id = args.match_id
+    json_mode = bool(getattr(args, "json", False))
+
+    path = Store().log_path(match_id)
+    if path.is_file():
+        route_continuous = _sniff_continuous_log(path.read_text(encoding="utf-8"))
+    else:
+        route_continuous = match_id.startswith(CONTINUOUS_ID_PREFIX)
+
+    if route_continuous:
+        clog = _load_continuous(Store(), match_id)
+        if json_mode:
+            emit_result(build_continuous_replay_data(clog), json_mode=True)
+        else:
+            emit_result(render_chtml(clog), json_mode=False)
+        return 0
+
+    log = _load(Store(), match_id)
+    if json_mode:
         emit_result(build_replay_data(log), json_mode=True)
     else:
         emit_result(render_html(log), json_mode=False)

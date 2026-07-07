@@ -27,6 +27,14 @@ breaking change, or regenerate the affected playtest artifacts (log, score,
 replay, report) as a deliberate, documented event called out in the PR that
 made the change. A silent "regenerate and move on" defeats the entire point
 of committing playtests as a historical record.
+
+Two lanes (cycle-7 t10 — a deliberate, documented extension in the PR that
+commits the first continuous playtest): the sweep now sorts each discovered
+log by its own header shape — a continuous log (``league/engine/continuous``,
+initial state carries ``clock``/``width``) folds through ``CMatchLog`` and
+checks its final ``outcome_points`` against the committed ``*.outcome.json``;
+a grid log (``turn``/``grid_width``) folds exactly as it always did. Same
+tripwire, both engines.
 """
 
 from __future__ import annotations
@@ -38,6 +46,8 @@ from typing import Any
 
 import pytest
 
+from league.engine.continuous.events import CMatchLog
+from league.engine.continuous.resolve import outcome_points
 from league.engine.events import MatchLog
 from league.engine.scoring import score_match
 
@@ -50,6 +60,10 @@ PLAYTESTS_DIR = Path(__file__).parent.parent / "docs" / "playtests"
 # vacuously collecting zero tests.
 _MIN_KNOWN_LOGS = 10
 
+# The continuous lane's own anti-vacuity floor: cycle-7 t10 committed the
+# first continuous playtest (cycle-7/race-live.log.jsonl).
+_MIN_KNOWN_CONTINUOUS_LOGS = 1
+
 # The whole sweep — fold + score every committed log — must stay well inside
 # this budget so it runs on every invocation without becoming the test suite's
 # slow outlier.
@@ -58,6 +72,16 @@ _BUDGET_SECONDS = 10.0
 
 def _discover_logs() -> list[Path]:
     return sorted(PLAYTESTS_DIR.glob("**/*.log.jsonl"))
+
+
+def _is_continuous(path: Path) -> bool:
+    """Lane detection by the log's own header shape, never by filename: the
+    continuous ``CMatchState`` header carries ``clock``/``width`` where the
+    grid's ``MatchState`` carries ``turn``/``grid_width`` (the same signal
+    ``league match replay`` routes on)."""
+    first_line = path.read_text(encoding="utf-8").splitlines()[0]
+    header = json.loads(first_line).get("initial_state", {})
+    return "clock" in header and "grid_width" not in header
 
 
 def _discover_scores_by_match_id() -> dict[str, Path]:
@@ -81,11 +105,32 @@ def _discover_scores_by_match_id() -> dict[str, Path]:
 
 
 LOG_PATHS = _discover_logs()
+GRID_LOG_PATHS = [p for p in LOG_PATHS if not _is_continuous(p)]
+CONTINUOUS_LOG_PATHS = [p for p in LOG_PATHS if _is_continuous(p)]
 SCORE_PATHS_BY_MATCH_ID = _discover_scores_by_match_id()
 
 
 def _log_id(path: Path) -> str:
     return str(path.relative_to(PLAYTESTS_DIR))
+
+
+def _discover_outcomes_by_match_id() -> dict[str, Path]:
+    """Index every committed ``*.outcome.json`` (the continuous runner summary)
+    by its own ``match_id`` — the continuous lane's pairing, same by-id
+    discipline as the grid's ``*.score.json``."""
+    by_match_id: dict[str, Path] = {}
+    for path in sorted(PLAYTESTS_DIR.glob("**/*.outcome.json")):
+        try:
+            payload: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        match_id = payload.get("match_id")
+        if match_id:
+            by_match_id[match_id] = path
+    return by_match_id
+
+
+OUTCOME_PATHS_BY_MATCH_ID = _discover_outcomes_by_match_id()
 
 
 def test_the_glob_finds_every_known_committed_log() -> None:
@@ -96,14 +141,18 @@ def test_the_glob_finds_every_known_committed_log() -> None:
     thing in this module that cannot be fooled that way.
     """
     assert LOG_PATHS, "glob found no committed logs under docs/playtests/ — the sweep is vacuous"
-    assert len(LOG_PATHS) >= _MIN_KNOWN_LOGS, (
-        f"expected at least {_MIN_KNOWN_LOGS} committed playtest logs, found {len(LOG_PATHS)}: "
-        f"{[_log_id(p) for p in LOG_PATHS]} — logs may have been removed without updating this "
-        "floor, or the glob pattern is broken"
+    assert len(GRID_LOG_PATHS) >= _MIN_KNOWN_LOGS, (
+        f"expected at least {_MIN_KNOWN_LOGS} committed grid playtest logs, found "
+        f"{len(GRID_LOG_PATHS)}: {[_log_id(p) for p in GRID_LOG_PATHS]} — logs may have been "
+        "removed without updating this floor, or the glob pattern is broken"
+    )
+    assert len(CONTINUOUS_LOG_PATHS) >= _MIN_KNOWN_CONTINUOUS_LOGS, (
+        f"expected at least {_MIN_KNOWN_CONTINUOUS_LOGS} committed continuous playtest logs, "
+        f"found {len(CONTINUOUS_LOG_PATHS)} — the continuous lane's sweep went vacuous"
     )
 
 
-@pytest.mark.parametrize("log_path", LOG_PATHS, ids=_log_id)
+@pytest.mark.parametrize("log_path", GRID_LOG_PATHS, ids=_log_id)
 def test_committed_log_still_folds_cleanly(log_path: Path) -> None:
     """``from_jsonl`` parses and ``final_state()`` computes without error."""
     payload = log_path.read_text(encoding="utf-8")
@@ -113,7 +162,35 @@ def test_committed_log_still_folds_cleanly(log_path: Path) -> None:
     assert final.status in ("active", "finished")
 
 
-@pytest.mark.parametrize("log_path", LOG_PATHS, ids=_log_id)
+@pytest.mark.parametrize("log_path", CONTINUOUS_LOG_PATHS, ids=_log_id)
+def test_committed_continuous_log_still_folds_cleanly(log_path: Path) -> None:
+    """The continuous lane's half of the tripwire: ``CMatchLog.from_jsonl``
+    parses and ``final_state()`` folds without error."""
+    log = CMatchLog.from_jsonl(log_path.read_text(encoding="utf-8"))
+    final = log.final_state()
+    assert final.match_id
+    assert final.status in ("active", "finished")
+
+
+@pytest.mark.parametrize("log_path", CONTINUOUS_LOG_PATHS, ids=_log_id)
+def test_committed_continuous_log_outcome_matches_its_committed_outcome(log_path: Path) -> None:
+    """Where a ``*.outcome.json`` pairs with this continuous log, the folded
+    final state still produces the recorded winner and outcome points."""
+    log = CMatchLog.from_jsonl(log_path.read_text(encoding="utf-8"))
+    final = log.final_state()
+    outcome_path = OUTCOME_PATHS_BY_MATCH_ID.get(final.match_id)
+    if outcome_path is None:
+        pytest.skip(f"no committed outcome.json pairs with match_id {final.match_id!r}")
+    committed = json.loads(outcome_path.read_text(encoding="utf-8"))
+    assert outcome_points(final) == committed["outcome_points"], (
+        f"outcome drift: {_log_id(log_path)} no longer folds to the outcome committed in "
+        f"{outcome_path.relative_to(PLAYTESTS_DIR)}"
+    )
+    assert final.winner == committed.get("winner")
+    assert final.clock == committed.get("game_time")
+
+
+@pytest.mark.parametrize("log_path", GRID_LOG_PATHS, ids=_log_id)
 def test_committed_log_outcome_matches_its_committed_score(log_path: Path) -> None:
     """Where a ``*.score.json`` pairs with this log, outcome totals still agree.
 
@@ -138,7 +215,7 @@ def test_at_least_one_log_paired_with_a_committed_score() -> None:
     """Guard the pairing itself against going vacuous the same way as the glob."""
     paired = sum(
         1
-        for log_path in LOG_PATHS
+        for log_path in GRID_LOG_PATHS
         if MatchLog.from_jsonl(log_path.read_text(encoding="utf-8")).final_state().match_id
         in SCORE_PATHS_BY_MATCH_ID
     )
@@ -149,13 +226,18 @@ def test_at_least_one_log_paired_with_a_committed_score() -> None:
 
 
 def test_the_full_sweep_runs_fast() -> None:
-    """Fold + score every committed log and stay well inside the time budget."""
+    """Fold + score every committed log — both lanes — inside the time budget."""
     start = time.perf_counter()
-    for log_path in LOG_PATHS:
+    for log_path in GRID_LOG_PATHS:
         log = MatchLog.from_jsonl(log_path.read_text(encoding="utf-8"))
         final = log.final_state()
         score_match(log)
         assert final is not None
+    for log_path in CONTINUOUS_LOG_PATHS:
+        clog = CMatchLog.from_jsonl(log_path.read_text(encoding="utf-8"))
+        cfinal = clog.final_state()
+        outcome_points(cfinal)
+        assert cfinal is not None
     elapsed = time.perf_counter() - start
     assert elapsed < _BUDGET_SECONDS, (
         f"compatibility sweep took {elapsed:.2f}s over {len(LOG_PATHS)} logs, "
