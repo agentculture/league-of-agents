@@ -3,7 +3,7 @@
 Every driver interacts with the arena **only** via the public CLI surface
 (``league match show --json`` → orders → ``league match act --orders-json
 --apply``), so whatever plays here plays exactly what any external agent
-would (spec c2/h13). Two driver types ship:
+would (spec c2/h13). Three driver types ship:
 
 * ``bot`` — a deterministic greedy policy (stdlib only). The baseline
   opponent and the harness's own test double.
@@ -12,6 +12,20 @@ would (spec c2/h13). Two driver types ship:
   from stdout as the team's orders. A colleague-backend model, a Sonnet
   subagent, an orchestrator, or Claude itself is **a roster-config change,
   not a code change** — swap ``argv`` and the roster's ``model`` labels.
+* ``resident`` — one long-lived session per seat for the whole match (plan
+  task t5; per-seat by definition). Turn 1 sends the full briefing (rules +
+  scenario + role); every later turn sends only a delta (new events since the
+  seat last acted, compact state, teammate messages, own rejections, own
+  legal actions) into the SAME session. Two transports ship, per the t3 spike
+  (docs/specs/notes/cultureagent-spike.md): ``"claude"`` — the spike's proven
+  zero-dep fallback, ``claude -p --session-id/--resume`` with driver-minted
+  UUIDs (labeled ``claude-cli``; chosen over importing cultureagent's
+  ``AgentRunner`` from the culture venv to keep league's runtime
+  dependency-free) — and ``"colleague"`` — a driver-held transcript against
+  the vLLM OpenAI endpoint, labeled ``colleague-direct`` because
+  cultureagent's colleague backend cannot thread sessions as shipped. Every
+  send/receive is appended to ``.league/matches/<id>/sessions/<agent>.jsonl``
+  for audit.
 
 Every driver also carries a declared *residency* — the fairness axis of spec
 c10/h7 (see :func:`driver_kind`): ``bot`` is always ``"bot"``; a ``command``
@@ -39,15 +53,20 @@ Config shape (JSON)::
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import io
 import json
+import os
+import re
 
 # Command drivers run operator-configured argv without a shell.
 import subprocess  # nosec B404
 import sys
+import urllib.request
 from typing import Any, Callable, Mapping
 
 from league.cli import main as cli_main
+from league.store import Store
 
 Driver = Callable[[dict[str, Any], str, int, Mapping[str, Any] | None], dict[str, Any]]
 
@@ -358,6 +377,23 @@ def make_command_driver(spec: Mapping[str, Any], scenario: dict[str, Any]) -> Dr
     return orders
 
 
+def _fold_seat_reply(
+    combined: dict[str, Any], result: Mapping[str, Any], unit_id: str, agent_id: str
+) -> None:
+    """Fold one seat's reply into the team's orders — shared by every per-seat
+    driver (command and resident): a seat commands its own unit only, its
+    messages are attributed to it, and the first offered plan wins."""
+    action = result.get("action")
+    if isinstance(action, dict):
+        action["unit_id"] = unit_id  # a seat commands its own unit, only
+        combined["actions"].append(action)
+    for message in result.get("messages", []) or []:
+        if isinstance(message, dict) and message.get("text"):
+            combined["messages"].append({"from": agent_id, "text": str(message["text"])})
+    if result.get("plan") and "plan" not in combined:
+        combined["plan"] = str(result["plan"])
+
+
 def make_per_seat_driver(
     spec: Mapping[str, Any], scenario: dict[str, Any], agents: list[dict[str, Any]]
 ) -> Driver:
@@ -409,15 +445,345 @@ def make_per_seat_driver(
             except RuntimeError as err:
                 print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
                 continue
-            action = result.get("action")
-            if isinstance(action, dict):
-                action["unit_id"] = unit["id"]  # a seat commands its own unit, only
-                combined["actions"].append(action)
-            for message in result.get("messages", []) or []:
-                if isinstance(message, dict) and message.get("text"):
-                    combined["messages"].append({"from": agent["id"], "text": str(message["text"])})
-            if result.get("plan") and "plan" not in combined:
-                combined["plan"] = str(result["plan"])
+            _fold_seat_reply(combined, result, unit["id"], agent["id"])
+        if not combined["messages"]:
+            combined.pop("messages")
+        return combined
+
+    return orders
+
+
+# -- resident minds: one long-lived session per seat (plan task t5) ---------
+#
+# The session transport is abstracted behind SESSION_TRANSPORTS so tests
+# inject a fake session and no test ever needs a live model endpoint; the
+# real adapters below are thin shells over the exact invocations the t3 spike
+# proved live (docs/specs/notes/cultureagent-spike.md).
+
+
+def _mint_session_id(match_id: str, agent_id: str) -> str:
+    """A deterministic, UUID-shaped session id from (match, seat).
+
+    Deterministic on purpose: a crashed harness re-mints the same id for the
+    same seat, so ``claude -p --resume`` picks the conversation back up
+    mid-match (the spike's crash-resume property). ``hashlib`` keeps the
+    engine-wide no-``uuid``/no-``random`` determinism rule intact.
+    """
+    digest = hashlib.sha256(f"{match_id}/{agent_id}".encode("utf-8")).hexdigest()
+    return f"{digest[:8]}-{digest[8:12]}-4{digest[13:16]}-8{digest[17:20]}-{digest[20:32]}"
+
+
+class ClaudeCliSession:
+    """A claude seat: the spike's proven zero-dependency fallback transport.
+
+    ``claude -p --session-id <minted>`` on the first send, ``--resume`` on
+    every later one — mechanically the same session loop cultureagent's
+    ``AgentRunner`` runs internally, but owned by this driver so league's
+    runtime never imports the culture venv (the spike's recorded trade-off).
+    """
+
+    transport = "claude-cli"
+
+    def __init__(self, spec: Mapping[str, Any], match_id: str, agent_id: str) -> None:
+        self._command = str(spec.get("command", "claude"))
+        self._model = spec.get("model")
+        self.session_id = _mint_session_id(match_id, agent_id)
+        self._started = False
+
+    def _argv(self, flag: str) -> list[str]:
+        argv = [self._command, "-p", flag, self.session_id]
+        if self._model:
+            argv += ["--model", str(self._model)]
+        return argv
+
+    def _run(self, argv: list[str], prompt: str, timeout: float) -> subprocess.CompletedProcess:
+        try:
+            # Operator-configured command, shell=False, bounded by timeout.
+            return subprocess.run(  # nosec B603
+                argv, input=prompt, capture_output=True, text=True, timeout=timeout, check=False
+            )
+        except subprocess.TimeoutExpired as err:
+            raise RuntimeError(
+                f"claude-cli session {self.session_id} timed out after {timeout}s"
+            ) from err
+
+    def send(self, prompt: str, *, timeout: float) -> str:
+        proc = self._run(
+            self._argv("--resume" if self._started else "--session-id"), prompt, timeout
+        )
+        if proc.returncode != 0 and not self._started:
+            # The deterministic id may already exist on disk (crashed match):
+            # resume it instead of failing the seat.
+            proc = self._run(self._argv("--resume"), prompt, timeout)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"claude-cli session {self.session_id} failed (exit {proc.returncode}): "
+                f"{proc.stderr.strip()[:300]}"
+            )
+        self._started = True
+        return proc.stdout
+
+
+_DEFAULT_COLLEAGUE_BASE_URL = "http://localhost:8001/v1"
+
+
+def _http_post_json(url: str, payload: dict[str, Any], timeout: float) -> dict[str, Any]:
+    if not url.startswith(("http://", "https://")):
+        raise RuntimeError(f"colleague-direct base_url must be http(s), got {url!r}")
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310
+        return json.load(response)
+
+
+class ColleagueDirectSession:
+    """A colleague seat: the driver-held transcript IS the session.
+
+    Labeled ``colleague-direct`` everywhere it surfaces, never "cultureagent":
+    the spike proved cultureagent's colleague backend mints a fresh task per
+    message (no cross-message memory as shipped), so continuity lives in this
+    ``messages`` list POSTed to the vLLM OpenAI endpoint — stdlib ``urllib``,
+    zero dependencies, trivially auditable.
+    """
+
+    transport = "colleague-direct"
+
+    def __init__(self, spec: Mapping[str, Any], match_id: str, agent_id: str) -> None:
+        model = spec.get("model")
+        if not model:
+            raise ValueError("a 'colleague' resident transport needs a 'model' in the driver spec")
+        self._model = str(model)
+        self._base_url = str(
+            spec.get("base_url")
+            or os.environ.get("COLLEAGUE_BASE_URL", _DEFAULT_COLLEAGUE_BASE_URL)
+        ).rstrip("/")
+        self._temperature = float(spec.get("temperature", 0.6))
+        self._max_tokens = int(spec.get("max_tokens", 4096))
+        self._chat_template_kwargs = spec.get("chat_template_kwargs")
+        self._history: list[dict[str, str]] = []
+        self.session_id = f"colleague-direct-{_mint_session_id(match_id, agent_id)}"
+
+    def send(self, prompt: str, *, timeout: float) -> str:
+        self._history.append({"role": "user", "content": prompt})
+        payload: dict[str, Any] = {
+            "model": self._model,
+            "messages": list(self._history),
+            "max_tokens": self._max_tokens,
+            "temperature": self._temperature,
+        }
+        if self._chat_template_kwargs:
+            payload["chat_template_kwargs"] = dict(self._chat_template_kwargs)
+        try:
+            data = _http_post_json(f"{self._base_url}/chat/completions", payload, timeout)
+        except OSError as err:
+            # The model never saw this message — keep the transcript honest
+            # so the next attempt isn't preceded by a phantom user turn.
+            self._history.pop()
+            raise RuntimeError(f"colleague-direct session {self.session_id}: {err}") from err
+        message = data["choices"][0]["message"]
+        # The Qwen gotcha (spike, scripts/openai_driver.py): thinking models
+        # may return content=None with the answer in reasoning_content.
+        content = message.get("content") or message.get("reasoning_content") or ""
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.S).strip()
+        self._history.append({"role": "assistant", "content": content})
+        return content
+
+
+# name -> factory(spec, match_id, agent_id). Tests register a fake here so no
+# suite run ever touches a live endpoint; operators pick by spec["transport"].
+SESSION_TRANSPORTS: dict[str, Callable[[Mapping[str, Any], str, str], Any]] = {
+    "claude": ClaudeCliSession,
+    "colleague": ColleagueDirectSession,
+}
+
+_RESIDENT_NOTE = """This is a resident session: it lasts the whole match. This turn-1 briefing is
+the ONLY time you will see the rules and the scenario — remember them. Every
+later turn sends only a delta: new events, your own rejections, your legal
+actions, a compact state, and teammate messages."""
+
+_RESIDENT_DELTA_PROMPT = """Turn {turn} — delta briefing (rules, scenario and role are unchanged
+from turn 1; you still control ONLY unit {unit_id}).
+New events since your last turn (JSON):
+{events}
+{rejections}{legal_actions}
+Compact current state (JSON):
+{state}
+
+Messages your teammates already sent this turn:
+{team_messages}
+
+Reply as before: ONLY one JSON object — your single action for unit
+{unit_id}, plus optional messages/plan.
+"""
+
+
+def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
+    """The delta's state snapshot: what changes turn to turn, nothing that was
+    already taught (grid, roles, scenario constants stay in turn 1)."""
+    return {
+        "turn": state.get("turn"),
+        "status": state.get("status"),
+        "winner": state.get("winner"),
+        "teams": {t["id"]: {"resources": t["resources"]} for t in state.get("teams", [])},
+        "units": [
+            {
+                "id": u["id"],
+                "team_id": u["team_id"],
+                "role": u["role"],
+                "pos": u["pos"],
+                "carrying": u["carrying"],
+                "alive": u["alive"],
+            }
+            for u in state.get("units", [])
+        ],
+        "control_points": [
+            {"id": c["id"], "pos": c["pos"], "owner": c.get("owner")}
+            for c in state.get("control_points", [])
+        ],
+        "missions": [
+            {
+                "id": m["id"],
+                "kind": m.get("kind"),
+                "pos": m.get("pos"),
+                "amount": m.get("amount"),
+                "status": m.get("status"),
+            }
+            for m in state.get("missions", [])
+        ],
+        "resource_nodes": [
+            {"id": n["id"], "pos": n["pos"], "remaining": n["remaining"]}
+            for n in state.get("resource_nodes", [])
+        ],
+    }
+
+
+def _events_since(match_id: str, since_turn: int, upto_turn: int) -> list[dict[str, Any]]:
+    """Events a seat hasn't seen yet, read off the log via the public CLI
+    (``match replay --json``) — the harness never opens the log file itself."""
+    if not match_id:
+        return []
+    events_by_turn = _cli_json(["match", "replay", match_id]).get("events_by_turn", {})
+    return [
+        {"turn": int(turn), **event}
+        for turn in sorted(events_by_turn, key=int)
+        if since_turn < int(turn) <= upto_turn
+        for event in events_by_turn[turn]
+    ]
+
+
+def make_resident_driver(
+    spec: Mapping[str, Any], scenario: dict[str, Any], agents: list[dict[str, Any]]
+) -> Driver:
+    """One long-lived session per seat for the whole match (per-seat by
+    definition). Turn 1 = full briefing into a fresh session; turn N>1 = delta
+    only, into the SAME session. Every exchange (and every failure) is
+    appended to ``.league/matches/<id>/sessions/<agent-id>.jsonl`` for audit.
+    """
+    transport = spec.get("transport")
+    if transport not in SESSION_TRANSPORTS:
+        raise ValueError(
+            f"unknown resident transport {transport!r}; "
+            f"expected one of {sorted(SESSION_TRANSPORTS)}"
+        )
+    timeout = float(spec.get("timeout", 300))
+    extra = str(spec.get("prompt", ""))
+    rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
+    sessions: dict[str, Any] = {}
+    briefed: set[str] = set()  # seats whose session has actually seen the rules
+    last_seen: dict[str, int] = {}  # state turn at the seat's last successful briefing
+
+    def _full_briefing(agent: dict[str, Any], unit: dict[str, Any], **fields: Any) -> str:
+        seat_extra = "\n".join(
+            part for part in (_RESIDENT_NOTE, extra, seat_prompts[agent["id"]]) if part
+        )
+        return _SEAT_PROMPT.format(
+            agent_id=agent["id"],
+            team_id=unit["team_id"],
+            unit_id=unit["id"],
+            role=unit["role"],
+            rules=rules,
+            extra=f"\n{seat_extra}\n",
+            scenario=json.dumps(scenario, sort_keys=True),
+            **fields,
+        )
+
+    def orders(
+        state: dict[str, Any],
+        team_id: str,
+        turn: int,
+        context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        context = context or {}
+        legal_actions = context.get("legal_actions", {})
+        rejections = context.get("rejections", [])
+        match_id = str(state.get("match_id") or "")
+        store = Store()
+        my_units = {
+            u["agent_id"]: u for u in state["units"] if u["team_id"] == team_id and u["alive"]
+        }
+        new_events: dict[str, list[dict[str, Any]]] = {}  # per since-turn, fetched lazily
+        combined: dict[str, Any] = {"actions": [], "messages": []}
+        for agent in agents:
+            unit = my_units.get(agent["id"])
+            if unit is None:
+                continue
+            session = sessions.get(agent["id"])
+            if session is None:
+                session = SESSION_TRANSPORTS[transport](spec, match_id, agent["id"])
+                sessions[agent["id"]] = session
+            shared = {
+                "rejections": _format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
+                "legal_actions": _format_legal_actions(legal_actions, [unit["id"]]),
+                "team_messages": json.dumps(combined["messages"], sort_keys=True),
+            }
+            if agent["id"] not in briefed:
+                # First contact (or every prior attempt failed): the seat has
+                # never seen the rules, so it gets the full briefing — never a
+                # delta it can't ground.
+                prompt = _full_briefing(
+                    agent, unit, state=json.dumps(state, sort_keys=True), **shared
+                )
+            else:
+                since = last_seen.get(agent["id"], 0)
+                if str(since) not in new_events:
+                    new_events[str(since)] = _events_since(match_id, since, state["turn"])
+                prompt = _RESIDENT_DELTA_PROMPT.format(
+                    turn=turn,
+                    unit_id=unit["id"],
+                    events=json.dumps(new_events[str(since)], sort_keys=True),
+                    state=json.dumps(_compact_state(state), sort_keys=True),
+                    **shared,
+                )
+            record = {
+                "turn": turn,
+                "agent_id": agent["id"],
+                "session_id": session.session_id,
+                "transport": session.transport,
+                "sent": prompt,
+            }
+            try:
+                reply = session.send(prompt, timeout=timeout)
+            except RuntimeError as err:
+                if match_id:
+                    store.append_session_record(
+                        match_id, agent["id"], {**record, "error": str(err)}
+                    )
+                print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
+                continue
+            if match_id:
+                store.append_session_record(match_id, agent["id"], {**record, "received": reply})
+            briefed.add(agent["id"])
+            last_seen[agent["id"]] = state["turn"]
+            try:
+                result = _extract_json(reply)
+            except ValueError as err:
+                print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
+                continue
+            _fold_seat_reply(combined, result, unit["id"], agent["id"])
         if not combined["messages"]:
             combined.pop("messages")
         return combined
@@ -431,15 +797,17 @@ def build_driver(
     agents: list[dict[str, Any]] | None = None,
 ) -> Driver:
     kind = spec.get("type")
-    if spec.get("per_seat") and kind != "command":
-        raise ValueError("per_seat is only supported for 'command' drivers")
+    if spec.get("per_seat") and kind not in ("command", "resident"):
+        raise ValueError("per_seat is only supported for 'command' and 'resident' drivers")
     if kind == "bot":
         return make_bot_driver(scenario)
+    if kind == "resident":  # per-seat by definition
+        return make_resident_driver(spec, scenario, agents or [])
     if kind == "command" and spec.get("per_seat"):
         return make_per_seat_driver(spec, scenario, agents or [])
     if kind == "command":
         return make_command_driver(spec, scenario)
-    raise ValueError(f"unknown driver type {kind!r}; expected 'bot' or 'command'")
+    raise ValueError(f"unknown driver type {kind!r}; expected 'bot', 'command' or 'resident'")
 
 
 # -- residency: the declared fairness axis (spec c10/h7) --------------------
@@ -451,15 +819,18 @@ def driver_kind(spec: Mapping[str, Any]) -> str:
     """The residency label recorded for a team's driver — metadata about HOW its
     minds were invoked, never game state (it never touches ``MatchState``).
 
-    ``bot`` drivers are always ``"bot"``. ``command`` drivers default to
-    ``"stateless"`` (today's fresh-subprocess-per-turn reality) unless the spec
-    declares ``"residency": "resident"`` — one persistent session per seat,
-    wired by a later task; declaring it here lets the fairness axis be recorded
-    ahead of that driver existing.
+    ``bot`` drivers are always ``"bot"``. ``resident`` drivers are always
+    ``"resident"`` — one persistent session per seat for the whole match
+    (:func:`make_resident_driver`). ``command`` drivers default to
+    ``"stateless"`` (fresh subprocess per turn) unless the spec declares
+    ``"residency": "resident"`` — e.g. a command whose own process holds
+    per-seat sessions.
     """
     kind = spec.get("type")
     if kind == "bot":
         return "bot"
+    if kind == "resident":
+        return "resident"
     if kind == "command":
         residency = spec.get("residency", "stateless")
         if residency not in ("stateless", "resident"):
@@ -468,7 +839,7 @@ def driver_kind(spec: Mapping[str, Any]) -> str:
                 "expected 'stateless' or 'resident'"
             )
         return residency
-    raise ValueError(f"unknown driver type {kind!r}; expected 'bot' or 'command'")
+    raise ValueError(f"unknown driver type {kind!r}; expected 'bot', 'command' or 'resident'")
 
 
 # -- the run loop -----------------------------------------------------------

@@ -12,6 +12,7 @@ Layout::
       teams/<team-id>.json
       matches/<match-id>/log.jsonl
       matches/<match-id>/pending/<team-id>.json
+      matches/<match-id>/sessions/<agent-id>.jsonl
 """
 
 from __future__ import annotations
@@ -122,6 +123,26 @@ class Store:
         with path.open("a", encoding="utf-8") as fh:
             for event in events:
                 fh.write(_canon(event.to_dict()) + "\n")
+
+    # -- per-seat session transcripts (the resident driver's audit trail) ---
+    #
+    # Not game state and never read by the engine: what each resident seat
+    # was sent and what came back, one JSONL file per agent, appended per
+    # turn — so a replay reviewer can reconstruct WHY a seat acted, not just
+    # what the log says it did.
+
+    def sessions_dir(self, match_id: str) -> Path:
+        return self.match_dir(match_id) / "sessions"
+
+    def session_transcript_path(self, match_id: str, agent_id: str) -> Path:
+        return self.sessions_dir(match_id) / f"{validate_id(agent_id, what='agent id')}.jsonl"
+
+    def append_session_record(self, match_id: str, agent_id: str, record: dict[str, Any]) -> Path:
+        path = self.session_transcript_path(match_id, agent_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(_canon(record) + "\n")
+        return path
 
     # -- pending orders (staged by `match act`, consumed by resolution) ----
 
