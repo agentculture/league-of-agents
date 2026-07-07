@@ -32,6 +32,18 @@ an explicit, checkable assertion instead of an implicit one:
   ``tests/test_determinism_gate_continuous.py`` already document) shows up
   here as a failing test, not just a `git diff` a reviewer might miss.
 
+Extended for plan task C8-t2 (the per-unit scorecard axis, spec c10/h1): the
+grid's per-unit grades engine (``league/engine/grades.py``, plan task C8-t1)
+and the continuous one (``league/engine/continuous/grades.py``, this task)
+are a NEW axis beside outcome/cooperation/tempo/probe, and the same two-lane
+boundary applies to them — neither may import the other, or the other's
+engine package, in either direction. C8-t1 lands in a *different* worktree
+this wave, so ``league/engine/grades.py`` may not exist yet when this file's
+tests run here; :func:`test_grid_grades_module_does_not_import_the_continuous_package`
+names it by path string per the task brief and skips gracefully when absent,
+checking the boundary the instant the file exists (this task's own merge, or
+later) rather than silently never covering it.
+
 The committed-log compat sweep itself already lives in
 ``tests/test_committed_logs_compat.py`` (cycle-6 t11) and needs no
 duplication — it discovers every ``docs/playtests/**/*.log.jsonl`` by glob and
@@ -42,6 +54,8 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+
+import pytest
 
 from tests.test_engine_state import _BANNED_MODULES, ENGINE_DIR
 
@@ -61,11 +75,17 @@ _EXPECTED_CONTINUOUS_MODULES = {
     "legal.py",
     "resolve.py",
     "scenario.py",
+    "grades.py",
 }
 
 # Grid-only scoring-axis modules (spec c11/h11): cooperation v1, tempo t0,
 # span probe p0. None of them may reach into the continuous package.
 _GRID_SCORING_MODULES = ("scoring.py", "tempo.py", "probe.py")
+
+# The grid lane's per-unit scorecard engine (plan task C8-t1). Named by path
+# string, not imported: it lands in a different worktree this wave and may not
+# exist here yet (see the module docstring's C8-t2 extension note).
+_GRID_GRADES_MODULE = "grades.py"
 
 # The exact committed content of both determinism hash fixtures, recorded at
 # the start of this task (verified byte-identical to HEAD via `git diff
@@ -195,6 +215,58 @@ def test_continuous_package_does_not_import_grid_scoring_axes() -> None:
         f"the continuous package imports a grid-only scoring axis: {offenders} — "
         "league/engine/continuous/resolve.py ports its own outcome tally instead; "
         "it must stay that way (spec c11/h11 two-lane boundary)"
+    )
+
+
+def test_grid_grades_module_does_not_import_the_continuous_package() -> None:
+    """The grid lane's per-unit scorecard engine (``league/engine/grades.py``,
+    plan task C8-t1, built in a parallel worktree this wave) must never import
+    ``league.engine.continuous`` — the same two-lane boundary already enforced
+    above for scoring/tempo/probe, extended to the new grades axis (spec
+    c10/h1). Grades never feed team scores and never cross the lane boundary,
+    same as every other axis.
+
+    C8-t1 lands ``grades.py`` in a DIFFERENT worktree this wave; this repo may
+    not have the file yet. Named by path string per the task brief, so the
+    boundary is checked the instant the file appears (this task's own merge,
+    or a later one) instead of waiting on a human to remember to add coverage.
+    """
+    path = ENGINE_DIR / _GRID_GRADES_MODULE
+    if not path.is_file():
+        pytest.skip(f"{path} does not exist yet in this worktree (parallel task C8-t1)")
+    offenders = [
+        module
+        for module in _imported_dotted_modules(path)
+        if module == "league.engine.continuous" or module.startswith("league.engine.continuous.")
+    ]
+    assert not offenders, (
+        f"league/engine/grades.py (grid per-unit scorecard engine) imports the continuous "
+        f"package: {offenders} — the two-lane boundary must hold for the new grades axis too"
+    )
+
+
+def test_continuous_grades_module_does_not_import_the_grid_engine() -> None:
+    """The mirror direction: ``league/engine/continuous/grades.py`` (this
+    task, C8-t2) must never import the grid engine — neither its top package
+    nor any of its scoring-axis modules — so the grades axis stays two-lane
+    honest in both directions, exactly like every other continuous module.
+    """
+    path = CONTINUOUS_DIR / "grades.py"
+    if not path.is_file():
+        pytest.skip(f"{path} does not exist yet in this worktree")
+    offenders = []
+    for module in _imported_dotted_modules(path):
+        parts = module.split(".")
+        is_grid_engine_itself = module == "league.engine"
+        is_grid_engine_submodule = (
+            parts[:2] == ["league", "engine"] and len(parts) >= 3 and parts[2] != "continuous"
+        )
+        if is_grid_engine_itself or is_grid_engine_submodule:
+            offenders.append(module)
+    assert not offenders, (
+        f"league/engine/continuous/grades.py imports the grid engine: {offenders} — the "
+        "continuous per-unit scorecard engine must be a pure function of the continuous "
+        "log alone (two-lane honesty, spec c11/h11)"
     )
 
 

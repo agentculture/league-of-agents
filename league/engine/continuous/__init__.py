@@ -29,6 +29,13 @@ from league.engine.continuous.events import (
     apply_event,
     fold_events,
 )
+from league.engine.continuous.grades import (
+    GRADE_UNIT,
+    OFF_ROLE_DEN,
+    OFF_ROLE_NUM,
+    PURPOSES,
+    cgrade_units,
+)
 from league.engine.continuous.legal import (
     Plan,
     legal_actions_continuous,
@@ -145,6 +152,12 @@ __all__ = [
     "CMatchLog",
     "apply_event",
     "fold_events",
+    # continuous per-unit scorecards (grades.py)
+    "GRADE_UNIT",
+    "OFF_ROLE_DEN",
+    "OFF_ROLE_NUM",
+    "PURPOSES",
+    "cgrade_units",
     # continuous role speed/duration data (roles.py)
     "DEFAULT_CROLE_STATS",
     "CRoleStats",
