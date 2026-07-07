@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-07-07
+
+### Added
+
+- Arena season 0 spec (devague /think): deterministic matches, dual scoring (outcome + cooperation), replayable + beautiful observability, benchmarking/tracking, subagent-creation as a game mode, recursive spec→plan→implement cycle (docs/specs/)
+- Arena season 0 build plan (devague /spec-to-plan): 16 user-confirmed tasks in 7 file-disjoint waves covering all 36 spec targets, incl. three playtests and the live-test-between-specs cycle rule (docs/plans/)
+
 ## [0.4.1] - 2026-07-07
 
 ### Changed
