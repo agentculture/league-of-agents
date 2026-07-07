@@ -1,0 +1,398 @@
+{
+  "coordination": {
+    "v0": {
+      "cooperation": {
+        "solo": {
+          "score": 80,
+          "signals": {
+            "communication": 1.0,
+            "delegation_spread": 0.3333,
+            "discipline": 1.0,
+            "plan_coherence": 1.0
+          }
+        },
+        "swarm": {
+          "score": 89,
+          "signals": {
+            "communication": 1.0,
+            "delegation_spread": 0.9815,
+            "discipline": 0.6415,
+            "plan_coherence": 1.0
+          }
+        }
+      },
+      "match_id": "m-season0-coordination",
+      "mode": "competitive",
+      "outcome": {
+        "solo": {
+          "control": 0,
+          "missions": 10,
+          "resources": 6,
+          "total": 16
+        },
+        "swarm": {
+          "control": 4,
+          "missions": 8,
+          "resources": 0,
+          "total": 12
+        }
+      },
+      "scenario_id": "skirmish-1",
+      "turns_played": 18,
+      "winner": "solo"
+    },
+    "v1": {
+      "cooperation": {
+        "solo": {
+          "components": {
+            "delegation_spread": {
+              "base_spread": 0.3333,
+              "penalty": 0.0,
+              "rejection_rate": 0.0,
+              "value": 0.3333
+            },
+            "discipline": {
+              "declared": 18,
+              "rejected": 0,
+              "value": 1.0
+            },
+            "message_utility": {
+              "messages": 28,
+              "useful": 23,
+              "value": 0.8214
+            },
+            "plan_fidelity": {
+              "plans": 18,
+              "useful": 16,
+              "value": 0.8889
+            }
+          },
+          "score": 73,
+          "signals": {
+            "delegation_spread": 0.3333,
+            "discipline": 1.0,
+            "message_utility": 0.8214,
+            "plan_fidelity": 0.8889
+          },
+          "version": "v1"
+        },
+        "swarm": {
+          "components": {
+            "delegation_spread": {
+              "base_spread": 0.9815,
+              "penalty": 0.1792,
+              "rejection_rate": 0.3585,
+              "value": 0.8022
+            },
+            "discipline": {
+              "declared": 53,
+              "rejected": 19,
+              "value": 0.6415
+            },
+            "message_utility": {
+              "messages": 53,
+              "useful": 38,
+              "value": 0.717
+            },
+            "plan_fidelity": {
+              "plans": 18,
+              "useful": 16,
+              "value": 0.8889
+            }
+          },
+          "score": 75,
+          "signals": {
+            "delegation_spread": 0.8022,
+            "discipline": 0.6415,
+            "message_utility": 0.717,
+            "plan_fidelity": 0.8889
+          },
+          "version": "v1"
+        }
+      },
+      "match_id": "m-season0-coordination",
+      "mode": "competitive",
+      "outcome": {
+        "solo": {
+          "control": 0,
+          "missions": 10,
+          "resources": 6,
+          "total": 16
+        },
+        "swarm": {
+          "control": 4,
+          "missions": 8,
+          "resources": 0,
+          "total": 12
+        }
+      },
+      "scenario_id": "skirmish-1",
+      "turns_played": 18,
+      "winner": "solo"
+    }
+  },
+  "opener": {
+    "v0": {
+      "cooperation": {
+        "blue": {
+          "score": 100,
+          "signals": {
+            "communication": 1.0,
+            "delegation_spread": 1.0,
+            "discipline": 1.0,
+            "plan_coherence": 1.0
+          }
+        },
+        "red": {
+          "score": 98,
+          "signals": {
+            "communication": 1.0,
+            "delegation_spread": 0.9444,
+            "discipline": 1.0,
+            "plan_coherence": 1.0
+          }
+        }
+      },
+      "match_id": "m-season0-opener",
+      "mode": "competitive",
+      "outcome": {
+        "blue": {
+          "control": 4,
+          "missions": 10,
+          "resources": 9,
+          "total": 23
+        },
+        "red": {
+          "control": 0,
+          "missions": 0,
+          "resources": 10,
+          "total": 10
+        }
+      },
+      "scenario_id": "skirmish-1",
+      "turns_played": 30,
+      "winner": "blue"
+    },
+    "v1": {
+      "cooperation": {
+        "blue": {
+          "components": {
+            "delegation_spread": {
+              "base_spread": 1.0,
+              "penalty": 0.0,
+              "rejection_rate": 0.0,
+              "value": 1.0
+            },
+            "discipline": {
+              "declared": 90,
+              "rejected": 0,
+              "value": 1.0
+            },
+            "message_utility": {
+              "messages": 90,
+              "useful": 85,
+              "value": 0.9444
+            },
+            "plan_fidelity": {
+              "plans": 27,
+              "useful": 27,
+              "value": 1.0
+            }
+          },
+          "score": 98,
+          "signals": {
+            "delegation_spread": 1.0,
+            "discipline": 1.0,
+            "message_utility": 0.9444,
+            "plan_fidelity": 1.0
+          },
+          "version": "v1"
+        },
+        "red": {
+          "components": {
+            "delegation_spread": {
+              "base_spread": 0.9444,
+              "penalty": 0.0,
+              "rejection_rate": 0.0,
+              "value": 0.9444
+            },
+            "discipline": {
+              "declared": 85,
+              "rejected": 0,
+              "value": 1.0
+            },
+            "message_utility": {
+              "messages": 85,
+              "useful": 80,
+              "value": 0.9412
+            },
+            "plan_fidelity": {
+              "plans": 29,
+              "useful": 28,
+              "value": 0.9655
+            }
+          },
+          "score": 96,
+          "signals": {
+            "delegation_spread": 0.9444,
+            "discipline": 1.0,
+            "message_utility": 0.9412,
+            "plan_fidelity": 0.9655
+          },
+          "version": "v1"
+        }
+      },
+      "match_id": "m-season0-opener",
+      "mode": "competitive",
+      "outcome": {
+        "blue": {
+          "control": 4,
+          "missions": 10,
+          "resources": 9,
+          "total": 23
+        },
+        "red": {
+          "control": 0,
+          "missions": 0,
+          "resources": 10,
+          "total": 10
+        }
+      },
+      "scenario_id": "skirmish-1",
+      "turns_played": 30,
+      "winner": "blue"
+    }
+  },
+  "orchestrator": {
+    "v0": {
+      "cooperation": {
+        "baseline": {
+          "score": 85,
+          "signals": {
+            "communication": 0.25,
+            "delegation_spread": 1.0,
+            "discipline": 1.0,
+            "plan_coherence": 1.0
+          }
+        },
+        "fable": {
+          "score": 100,
+          "signals": {
+            "communication": 1.0,
+            "delegation_spread": 1.0,
+            "discipline": 1.0,
+            "plan_coherence": 1.0
+          }
+        }
+      },
+      "match_id": "m-season0-orchestrator",
+      "mode": "competitive",
+      "outcome": {
+        "baseline": {
+          "control": 0,
+          "missions": 10,
+          "resources": 6,
+          "total": 16
+        },
+        "fable": {
+          "control": 2,
+          "missions": 8,
+          "resources": 6,
+          "total": 16
+        }
+      },
+      "scenario_id": "skirmish-1",
+      "turns_played": 16,
+      "winner": "draw"
+    },
+    "v1": {
+      "cooperation": {
+        "baseline": {
+          "components": {
+            "delegation_spread": {
+              "base_spread": 1.0,
+              "penalty": 0.0,
+              "rejection_rate": 0.0,
+              "value": 1.0
+            },
+            "discipline": {
+              "declared": 48,
+              "rejected": 0,
+              "value": 1.0
+            },
+            "message_utility": {
+              "messages": 2,
+              "useful": 0,
+              "value": 0.0
+            },
+            "plan_fidelity": {
+              "plans": 1,
+              "useful": 0,
+              "value": 0.0
+            }
+          },
+          "score": 55,
+          "signals": {
+            "delegation_spread": 1.0,
+            "discipline": 1.0,
+            "message_utility": 0.0,
+            "plan_fidelity": 0.0
+          },
+          "version": "v1"
+        },
+        "fable": {
+          "components": {
+            "delegation_spread": {
+              "base_spread": 1.0,
+              "penalty": 0.0,
+              "rejection_rate": 0.0,
+              "value": 1.0
+            },
+            "discipline": {
+              "declared": 48,
+              "rejected": 0,
+              "value": 1.0
+            },
+            "message_utility": {
+              "messages": 49,
+              "useful": 47,
+              "value": 0.9592
+            },
+            "plan_fidelity": {
+              "plans": 6,
+              "useful": 6,
+              "value": 1.0
+            }
+          },
+          "score": 99,
+          "signals": {
+            "delegation_spread": 1.0,
+            "discipline": 1.0,
+            "message_utility": 0.9592,
+            "plan_fidelity": 1.0
+          },
+          "version": "v1"
+        }
+      },
+      "match_id": "m-season0-orchestrator",
+      "mode": "competitive",
+      "outcome": {
+        "baseline": {
+          "control": 0,
+          "missions": 10,
+          "resources": 6,
+          "total": 16
+        },
+        "fable": {
+          "control": 2,
+          "missions": 8,
+          "resources": 6,
+          "total": 16
+        }
+      },
+      "scenario_id": "skirmish-1",
+      "turns_played": 16,
+      "winner": "draw"
+    }
+  }
+}
