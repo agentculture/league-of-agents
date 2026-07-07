@@ -185,6 +185,7 @@ commits** — a stray call never silently advances the game.
     league match tick <id> --apply         # force-resolve (timeouts)
     league match score <id> --json         # outcome + cooperation
     league match replay <id> > match.html  # self-contained human replay
+    league match tui <id> --frame N [--team blue] [--no-color]  # terminal view
 
 Orders can also be one JSON object: `--orders-json '{"plan": ..., "messages":
 [...], "actions": [...]}'`.
@@ -288,6 +289,7 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("match", "tick"): _MATCH,
     ("match", "score"): _MATCH,
     ("match", "replay"): _MATCH,
+    ("match", "tui"): _MATCH,
     ("match", "rematch"): _MATCH,
     ("standings",): _STANDINGS,
     ("history",): _STANDINGS,

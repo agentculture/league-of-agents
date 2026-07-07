@@ -14,16 +14,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 from typing import Any
 
 from league.cli._errors import EXIT_USER_ERROR, CliError
 from league.cli._output import emit_result
 from league.engine.events import MatchLog
+from league.engine.knowledge import knowledge_by_turn
 from league.engine.legal import legal_actions
 from league.engine.scenario import get_scenario, instantiate
 from league.engine.scoring import score_match
 from league.engine.tick import resolve_turn, start_match
-from league.replay import build_replay_data, render_html
+from league.replay import build_replay_data, render_frame, render_html, run_interactive_shell
 from league.store import Store, validate_id
 
 
@@ -98,6 +101,8 @@ def cmd_match_overview(args: argparse.Namespace) -> int:
             "tick": "force-resolve the turn with whatever is staged (dry-run; --apply)",
             "score": "outcome + cooperation scores from the log",
             "replay": "self-contained HTML replay on stdout",
+            "tui": "replay-stepping terminal view: ground truth or --team fog "
+            "(--frame N for non-interactive; --no-color)",
         },
     }
     if json_mode:
@@ -484,6 +489,59 @@ def cmd_match_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+def _color_enabled(args: argparse.Namespace) -> bool:
+    """``--no-color`` and the ``NO_COLOR`` convention both disable ANSI color."""
+    if getattr(args, "no_color", False):
+        return False
+    if os.environ.get("NO_COLOR"):
+        return False
+    return True
+
+
+def cmd_match_tui(args: argparse.Namespace) -> int:
+    """Replay-stepping terminal view: ground truth, or a team's fogged knowledge.
+
+    ``--frame N`` (or a non-tty stdout) renders one frame to stdout and
+    exits — the path the tests and pipes drive. With a tty and no ``--frame``,
+    it launches the curses shell instead (arrow keys step frames, Tab toggles
+    the team).
+    """
+    store = Store()
+    log = _load(store, args.match_id)
+    data = build_replay_data(log)
+    team_ids = {t.id for t in log.initial_state.teams}
+
+    knowledge = None
+    if args.team is not None:
+        if args.team not in team_ids:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"team {args.team!r} is not in match {args.match_id!r}",
+                remediation=f"teams here: {', '.join(sorted(team_ids)) or 'none'}",
+            )
+        scenario = get_scenario(log.initial_state.scenario_id)
+        knowledge = knowledge_by_turn(log, scenario)
+
+    if args.frame is None and sys.stdout.isatty():
+        run_interactive_shell(data, knowledge, initial_team=args.team)
+        return 0
+
+    total = len(data["frames"])
+    frame_index = args.frame if args.frame is not None else total - 1
+    resolved = frame_index + total if frame_index < 0 else frame_index
+    if not 0 <= resolved < total:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"--frame {frame_index} out of range for {args.match_id!r} (0..{total - 1})",
+            remediation=f"pick a frame in 0..{total - 1} (or omit --frame for the last one)",
+        )
+    lines = render_frame(
+        data, resolved, team=args.team, knowledge=knowledge, color=_color_enabled(args)
+    )
+    emit_result("\n".join(lines), json_mode=False)
+    return 0
+
+
 def cmd_match_rematch(args: argparse.Namespace) -> int:
     """Fair comparison by construction: identical scenario + seed, new roster."""
     json_mode = bool(getattr(args, "json", False))
@@ -640,6 +698,22 @@ def register(sub: argparse._SubParsersAction) -> None:
     replay.add_argument("match_id", help="Match id.")
     replay.add_argument("--json", action="store_true", help="Replay data as JSON instead of HTML.")
     replay.set_defaults(func=cmd_match_replay)
+
+    tui = noun_sub.add_parser(
+        "tui", help="Replay-stepping terminal view (ground truth or --team fog)."
+    )
+    tui.add_argument("match_id", help="Match id.")
+    tui.add_argument(
+        "--frame",
+        type=int,
+        help="Frame index to render non-interactively (default: last frame; "
+        "negative counts from the end).",
+    )
+    tui.add_argument("--team", help="Render this team's knowledge instead of ground truth.")
+    tui.add_argument(
+        "--no-color", action="store_true", help="Disable ANSI color (also honors NO_COLOR)."
+    )
+    tui.set_defaults(func=cmd_match_tui)
 
     rematch = noun_sub.add_parser(
         "rematch", help="Same scenario + seed with a new roster (dry-run by default)."
