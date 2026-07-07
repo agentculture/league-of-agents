@@ -1,0 +1,61 @@
+{
+  "match": {
+    "scenario": "skirmish-1",
+    "mode": "competitive",
+    "seed": 101,
+    "id": "m-house-silver-vs-bronze-seed101"
+  },
+  "teams": [
+    {
+      "id": "blue",
+      "name": "Blue Rusher",
+      "driver": {
+        "type": "bot-file",
+        "strategy": "rusher"
+      },
+      "agents": [
+        {
+          "id": "blue-1",
+          "model": "bot-file:rusher",
+          "role": "scout"
+        },
+        {
+          "id": "blue-2",
+          "model": "bot-file:rusher",
+          "role": "harvester"
+        },
+        {
+          "id": "blue-3",
+          "model": "bot-file:rusher",
+          "role": "defender"
+        }
+      ]
+    },
+    {
+      "id": "red",
+      "name": "Red Shambler",
+      "driver": {
+        "type": "bot-file",
+        "strategy": "shambler"
+      },
+      "agents": [
+        {
+          "id": "red-1",
+          "model": "bot-file:shambler",
+          "role": "scout"
+        },
+        {
+          "id": "red-2",
+          "model": "bot-file:shambler",
+          "role": "harvester"
+        },
+        {
+          "id": "red-3",
+          "model": "bot-file:shambler",
+          "role": "defender"
+        }
+      ]
+    }
+  ],
+  "max_rounds": 32
+}
