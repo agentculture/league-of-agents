@@ -51,6 +51,13 @@ from league.engine.continuous.roles import (
     role_table_to_json,
     stats_for,
 )
+from league.engine.continuous.scenario import (
+    CONTINUOUS_ID_PREFIX,
+    CScenario,
+    cscenario_ids,
+    get_cscenario,
+    instantiate,
+)
 from league.engine.continuous.space import (
     ARRIVAL_TOLERANCE_MU,
     MAX_STEP_UNDERSHOOT_MU,
@@ -157,4 +164,10 @@ __all__ = [
     "ResolveResult",
     "outcome_points",
     "resolve_match",
+    # continuous scenario registry (scenario.py)
+    "CONTINUOUS_ID_PREFIX",
+    "CScenario",
+    "cscenario_ids",
+    "get_cscenario",
+    "instantiate",
 ]
