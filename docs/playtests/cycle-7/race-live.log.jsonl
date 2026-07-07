@@ -1,0 +1,55 @@
+{"driver_kinds":{"blue":"resident","red":"resident"},"initial_state":{"clock":0,"control_points":[{"id":"cp-crossing","owner":null,"pos":{"x":5000,"y":4000},"takers":[]}],"height":8000,"match_id":"c-race-live","missions":[{"amount":5,"completed_by":[],"completed_time":null,"id":"ms-hold","kind":"hold","pos":{"x":5000,"y":4000},"reward":8,"status":"open"},{"amount":3,"completed_by":[],"completed_time":null,"id":"ms-supply","kind":"deliver","pos":{"x":1000,"y":1000},"reward":6,"status":"open"}],"mode":"competitive","resource_nodes":[{"id":"rn-home","pos":{"x":1000,"y":1000},"remaining":3}],"scenario_id":"c-skirmish-1","seed":20260707,"status":"pending","teams":[{"agents":[{"id":"blue-defender","model":"claude-sonnet","role":"defender"},{"id":"blue-harvester","model":"claude-sonnet","role":"harvester"}],"id":"blue","name":"Blue Foundry","resources":0},{"agents":[{"id":"red-defender","model":"claude-sonnet","role":"defender"},{"id":"red-harvester","model":"claude-sonnet","role":"harvester"}],"id":"red","name":"Red Relay","resources":0}],"time_limit":20,"units":[{"action":null,"agent_id":"blue-defender","alive":true,"carrying":0,"id":"blue-u1","pos":{"x":4000,"y":4000},"role":"defender","team_id":"blue"},{"action":null,"agent_id":"blue-harvester","alive":true,"carrying":0,"id":"blue-u2","pos":{"x":1000,"y":1000},"role":"harvester","team_id":"blue"},{"action":null,"agent_id":"red-defender","alive":true,"carrying":0,"id":"red-u1","pos":{"x":9000,"y":7000},"role":"defender","team_id":"red"},{"action":null,"agent_id":"red-harvester","alive":true,"carrying":0,"id":"red-u2","pos":{"x":5000,"y":4000},"role":"harvester","team_id":"red"}],"width":10000,"winner":null},"log_version":1}
+{"data":{},"game_time":0,"kind":"match_started","seq":0}
+{"data":{"game_time":0,"unit_id":"blue-u1"},"game_time":0,"kind":"decision_point","seq":1}
+{"data":{"completion_time":2,"kind":"move","start_time":0,"target_pos":{"x":5000,"y":4000},"unit_id":"blue-u1"},"game_time":0,"kind":"action_started","seq":2}
+{"data":{"game_time":0,"unit_id":"blue-u2"},"game_time":0,"kind":"decision_point","seq":3}
+{"data":{"completion_time":8,"kind":"gather","start_time":0,"target_id":"rn-home","unit_id":"blue-u2"},"game_time":0,"kind":"action_started","seq":4}
+{"data":{"game_time":0,"unit_id":"red-u1"},"game_time":0,"kind":"decision_point","seq":5}
+{"data":{"completion_time":10,"kind":"move","start_time":0,"target_pos":{"x":5000,"y":4000},"unit_id":"red-u1"},"game_time":0,"kind":"action_started","seq":6}
+{"data":{"game_time":0,"unit_id":"red-u2"},"game_time":0,"kind":"decision_point","seq":7}
+{"data":{"completion_time":10,"kind":"take_post","start_time":0,"target_id":"cp-crossing","unit_id":"red-u2"},"game_time":0,"kind":"action_started","seq":8}
+{"data":{"from":{"x":4000,"y":4000},"to":{"x":5000,"y":4000},"unit_id":"blue-u1"},"game_time":2,"kind":"unit_moved","seq":9}
+{"data":{"unit_id":"blue-u1"},"game_time":2,"kind":"action_completed","seq":10}
+{"data":{"game_time":2,"unit_id":"blue-u1"},"game_time":2,"kind":"decision_point","seq":11}
+{"data":{"completion_time":8,"kind":"take_post","start_time":2,"target_id":"cp-crossing","unit_id":"blue-u1"},"game_time":2,"kind":"action_started","seq":12}
+{"data":{"cp_id":"cp-crossing","team_id":"blue","unit_id":"blue-u1"},"game_time":8,"kind":"post_taken","seq":13}
+{"data":{"unit_id":"blue-u1"},"game_time":8,"kind":"action_completed","seq":14}
+{"data":{"reason":"post taken by a faster agent","unit_id":"red-u2"},"game_time":8,"kind":"action_failed","seq":15}
+{"data":{"game_time":8,"unit_id":"blue-u1"},"game_time":8,"kind":"decision_point","seq":16}
+{"data":{"game_time":8,"unit_id":"red-u2"},"game_time":8,"kind":"decision_point","seq":17}
+{"data":{"completion_time":18,"kind":"take_post","start_time":8,"target_id":"cp-crossing","unit_id":"red-u2"},"game_time":8,"kind":"action_started","seq":18}
+{"data":{"amount":3,"node_id":"rn-home","unit_id":"blue-u2"},"game_time":8,"kind":"resource_gathered","seq":19}
+{"data":{"unit_id":"blue-u2"},"game_time":8,"kind":"action_completed","seq":20}
+{"data":{"game_time":8,"unit_id":"blue-u2"},"game_time":8,"kind":"decision_point","seq":21}
+{"data":{"completion_time":14,"kind":"deliver","start_time":8,"target_id":"blue","unit_id":"blue-u2"},"game_time":8,"kind":"action_started","seq":22}
+{"data":{"from":{"x":9000,"y":7000},"to":{"x":5000,"y":4000},"unit_id":"red-u1"},"game_time":10,"kind":"unit_moved","seq":23}
+{"data":{"unit_id":"red-u1"},"game_time":10,"kind":"action_completed","seq":24}
+{"data":{"game_time":10,"unit_id":"red-u1"},"game_time":10,"kind":"decision_point","seq":25}
+{"data":{"completion_time":16,"kind":"take_post","start_time":10,"target_id":"cp-crossing","unit_id":"red-u1"},"game_time":10,"kind":"action_started","seq":26}
+{"data":{"mission_id":"ms-hold","team_id":"blue"},"game_time":13,"kind":"mission_completed","seq":27}
+{"data":{"amount":3,"team_id":"blue","unit_id":"blue-u2"},"game_time":14,"kind":"resource_delivered","seq":28}
+{"data":{"unit_id":"blue-u2"},"game_time":14,"kind":"action_completed","seq":29}
+{"data":{"mission_id":"ms-supply","team_id":"blue"},"game_time":14,"kind":"mission_completed","seq":30}
+{"data":{"winner":"blue"},"game_time":14,"kind":"match_finished","seq":31}
+{"data":{"agent_id":"blue-defender","elapsed_ms":10372,"team_id":"blue","unit_id":"blue-u1"},"game_time":0,"kind":"seat_latency","seq":32}
+{"data":{"from":"blue-defender","team_id":"blue","text":"Rushing cp-crossing to contest/hold it (red harvester already there, red defender far at 9000,7000). Harvester: run rn-home -> ms-supply deliveries, I'll anchor the hold mission.","unit_id":"blue-u1"},"game_time":0,"kind":"message_sent","seq":33}
+{"data":{"from":"blue-defender","team_id":"blue","text":"u1 holds cp-crossing for ms-hold; u2 farms rn-home and delivers to ms-supply."},"game_time":0,"kind":"plan_declared","seq":34}
+{"data":{"agent_id":"blue-harvester","elapsed_ms":14332,"team_id":"blue","unit_id":"blue-u2"},"game_time":0,"kind":"seat_latency","seq":35}
+{"data":{"from":"blue-harvester","team_id":"blue","text":"On it — gathering at rn-home now, will deliver to ms-supply next.","unit_id":"blue-u2"},"game_time":0,"kind":"message_sent","seq":36}
+{"data":{"from":"blue-harvester","team_id":"blue","text":"Defender holds cp-crossing/ms-hold; harvester runs rn-home gather -> ms-supply deliveries for economy points."},"game_time":0,"kind":"plan_declared","seq":37}
+{"data":{"agent_id":"red-defender","elapsed_ms":42888,"team_id":"red","unit_id":"red-u1"},"game_time":0,"kind":"seat_latency","seq":38}
+{"data":{"from":"red-defender","team_id":"red","text":"rn-home arrival for me is t=20 (time limit, useless). red-u2: you're already sitting on cp-crossing at t=0 — claim/hold it now, you beat blue-defender's t=2 arrival. I'm inbound to cp-crossing (arrive t=10) to reinforce the hold.","unit_id":"red-u1"},"game_time":0,"kind":"message_sent","seq":39}
+{"data":{"from":"red-defender","team_id":"red","text":"red-u2 claims and holds cp-crossing immediately (already on-site, beats blue's t=2); red-defender reinforces cp-crossing arriving t=10; we contest the hold mission directly rather than splitting into economy, since blue is committing both units (defender to hold, harvester to ms-supply)."},"game_time":0,"kind":"plan_declared","seq":40}
+{"data":{"agent_id":"red-harvester","elapsed_ms":37853,"team_id":"red","unit_id":"red-u2"},"game_time":0,"kind":"seat_latency","seq":41}
+{"data":{"from":"red-harvester","team_id":"red","text":"Holding cp-crossing now (already here, complete t=10, beats blue's earliest possible completion t=12). rn-home is lost to blue-harvester already gathering since t=0 — don't chase it. Reinforce the hold at t=10 if you can.","unit_id":"red-u2"},"game_time":0,"kind":"message_sent","seq":42}
+{"data":{"from":"red-harvester","team_id":"red","text":"red-u2 locks cp-crossing/ms-hold; red-u1 reinforces hold on arrival; concede ms-supply race to blue."},"game_time":0,"kind":"plan_declared","seq":43}
+{"data":{"agent_id":"blue-defender","elapsed_ms":8926,"team_id":"blue","unit_id":"blue-u1"},"game_time":2,"kind":"seat_latency","seq":44}
+{"data":{"from":"blue-defender","team_id":"blue","text":"Taking cp-crossing now — my take_post completes at t=8, beating red-u2's t=10. Their claim I can't win the race is wrong for a defender's take_post speed. Harvester: keep gathering/delivering, I've got the hold.","unit_id":"blue-u1"},"game_time":2,"kind":"message_sent","seq":45}
+{"data":{"agent_id":"blue-defender","elapsed_ms":10736,"team_id":"blue","unit_id":"blue-u1"},"game_time":8,"kind":"seat_latency","seq":46}
+{"data":{"from":"blue-defender","team_id":"blue","text":"cp-crossing is ours (owner=blue). Holding position here to bank ms-hold — red-u1 (defender) is inbound, ETA t=10. I'm staying put to defend the post rather than chase rn-home. Harvester: you're free at t=8, start hauling to ms-supply.","unit_id":"blue-u1"},"game_time":8,"kind":"message_sent","seq":47}
+{"data":{"agent_id":"red-harvester","elapsed_ms":90684,"team_id":"red","unit_id":"red-u2"},"game_time":8,"kind":"seat_latency","seq":48}
+{"data":{"from":"red-harvester","team_id":"red","text":"rn-home/ms-supply is a dead end for me — node has exactly 3 remaining matching blue's delivery amount, so it's almost certainly already claimed by the time I'd arrive at t=18. Re-taking cp-crossing as backup instead: your defender take_post should be faster than mine and land before t=18, so you should flip it first — I'm just insurance in case you get interrupted.","unit_id":"red-u2"},"game_time":8,"kind":"message_sent","seq":49}
+{"data":{"agent_id":"blue-harvester","elapsed_ms":5335,"team_id":"blue","unit_id":"blue-u2"},"game_time":8,"kind":"seat_latency","seq":50}
+{"data":{"from":"blue-harvester","team_id":"blue","text":"Delivering ms-supply now, done at t=14.","unit_id":"blue-u2"},"game_time":8,"kind":"message_sent","seq":51}
+{"data":{"agent_id":"red-defender","elapsed_ms":31750,"team_id":"red","unit_id":"red-u1"},"game_time":10,"kind":"seat_latency","seq":52}
+{"data":{"from":"red-defender","team_id":"red","text":"rn-home is empty (remaining=0, blue-harvester already cleared it) — not worth chasing. Taking cp-crossing myself: my take_post completes t=16, beating your t=18, so I should flip it first. Even if blue already banked ms-hold's reward while uncontested, owning cp-crossing at match end (t=20) still scores control-point points for us — 4 time units of held ownership before the clock runs out beats ceding it to blue for the whole match.","unit_id":"red-u1"},"game_time":10,"kind":"message_sent","seq":53}

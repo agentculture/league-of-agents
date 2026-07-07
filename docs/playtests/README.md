@@ -14,12 +14,15 @@ the set is reproducible, not just readable.
 | [`season-0/`](season-0/) | The three season-0 launch matches — opener (solo vs solo), coordination (solo vs swarm under a turn-limit squeeze), and orchestrator mode (a spawning master vs a greedy baseline) — plus a v0/v1 cooperation re-score of all three logs, side by side. | Season-0's closing playtests (`opener`/`coordination`/`orchestrator` reports) and the cycle-5 cooperation-v1 re-score (`cooperation-v1.report.md`). |
 | [`cycle-4/`](cycle-4/) | A preset-launched solo-vs-house-bot match, a three-mind tempo benchmark (Sonnet, Haiku, and a local Qwen agent on the same board), and a clean-checkout end-to-end demo. | Cycle-4 — "goes single-player": presets, house-bot tiers, and the tempo axis. |
 | [`cycle-5/`](cycle-5/) | The colleague guild's cooperative-mode match: three local-model seats coordinating through in-game messages only, no solo handicap. | Cycle-5's orchestrator/harness live-test thread. |
+| [`cycle-6/`](cycle-6/) | The long-horizon memory match (a resident mind on a seeded 21×17 fogged board, 60 turns), the two span-of-control probe runs (Sonnet and colleague orchestrators), their comparison report, and the first recorded human review with its findings ledger. | Cycle-6 — "watchable and vast": seeded generation, the span probe, and the human-evaluation loop. |
+| [`cycle-7/`](cycle-7/) | The first continuous-lane live match: four resident claude seats racing for `cp-crossing` on the event timeline — the race (`post_taken` at t=8 over a mid-take rival, `action_failed` "post taken by a faster agent") happened live and unscripted. | Cycle-7 — "steps off the grid": race semantics, role-given speed, and the mind-facing time-budget contract, all demonstrated in anger. |
 | [`house-tiers/`](house-tiers/) | Four bot-vs-bot matches (two seeds each) proving the house roster's tier ordering — bronze < silver < gold — via `bots/shambler.py` / `bots/rusher.py` / `bots/vanguard.py`. | Cycle-4's house-bot ladder, kept reproducible via [`generate_matches.py`](house-tiers/generate_matches.py). |
 
-Every log in every directory above — 11 as of cycle-6 t11, and growing — is
-swept by `tests/test_committed_logs_compat.py` on every test run: it folds
-each committed log to its final state and, wherever a `*.score.json` pairs
-with it, checks the outcome totals haven't drifted. That sweep is the guard
-against this whole directory going silently stale as the engine changes —
-see its module docstring for what "additive" means and what to do if it ever
-goes red.
+Every log in every directory above — 15 as of cycle-7 t10 (14 grid, 1
+continuous), and growing — is swept by `tests/test_committed_logs_compat.py`
+on every test run: it detects each log's engine lane from its own header,
+folds it to its final state with that lane's fold, and checks the committed
+outcome hasn't drifted (`*.score.json` for grid logs, `*.outcome.json` for
+continuous ones). That sweep is the guard against this whole directory going
+silently stale as the engine changes — see its module docstring for what
+"additive" means and what to do if it ever goes red.
