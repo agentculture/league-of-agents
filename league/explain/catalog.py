@@ -176,8 +176,9 @@ commits** — a stray call never silently advances the game.
 
 ## Usage
 
-    league match new --scenario skirmish-1 --team blue --team red --seed 7 --apply
-    league match show <id> --json          # full state + staged teams
+    league match new --scenario skirmish-1 --team blue --team red --seed 7 \\
+        --driver blue:bot --driver red:stateless --apply
+    league match show <id> --json          # full state + staged teams + driver_kinds
     league match act <id> --team blue --plan "..." \\
         --action blue-u1:move:3,1 --action blue-u2:gather \\
         --message blue-1:"east is open" --apply
@@ -187,6 +188,12 @@ commits** — a stray call never silently advances the game.
 
 Orders can also be one JSON object: `--orders-json '{"plan": ..., "messages":
 [...], "actions": [...]}'`.
+
+`--driver <team-id>:<bot|stateless|resident>` (repeatable) records how a
+team's minds were invoked — a declared fairness axis (spec c10/h7), not game
+state. It lives in the match log header and `match show --json`'s
+`driver_kinds`, never in engine state; omit it and the team's kind is simply
+unrecorded.
 """
 
 
@@ -216,6 +223,13 @@ Driver types (per team, in the config JSON):
    "timeout": 300}` — any external agent as a subprocess: prompt (rules +
   state JSON) on stdin, orders JSON on stdout. A colleague model, a Sonnet
   subagent, or an orchestrator is a config change, not a code change.
+
+Every driver also declares a residency (spec c10/h7): `bot` is always `"bot"`;
+`command` defaults to `"stateless"` (fresh subprocess per turn) unless the
+spec adds `"residency": "resident"` (one persistent session per seat, a later
+task). `run_match` records each team's kind in the match log header, so
+`match show --json`'s `driver_kinds` always answers "how was this team's mind
+driven?" alongside the score.
 
 ## Usage
 

@@ -13,6 +13,12 @@ would (spec c2/h13). Two driver types ship:
   subagent, an orchestrator, or Claude itself is **a roster-config change,
   not a code change** — swap ``argv`` and the roster's ``model`` labels.
 
+Every driver also carries a declared *residency* — the fairness axis of spec
+c10/h7 (see :func:`driver_kind`): ``bot`` is always ``"bot"``; a ``command``
+driver is ``"stateless"`` (fresh subprocess per turn, today's default) unless
+its spec sets ``"residency": "resident"``. ``run_match`` records this per team
+in the match log header so teams stay comparable by more than final score.
+
 Config shape (JSON)::
 
     {"match": {"scenario": "skirmish-1", "mode": "competitive", "seed": 7,
@@ -344,6 +350,35 @@ def build_driver(
     raise ValueError(f"unknown driver type {kind!r}; expected 'bot' or 'command'")
 
 
+# -- residency: the declared fairness axis (spec c10/h7) --------------------
+
+DRIVER_KINDS = ("bot", "stateless", "resident")
+
+
+def driver_kind(spec: Mapping[str, Any]) -> str:
+    """The residency label recorded for a team's driver — metadata about HOW its
+    minds were invoked, never game state (it never touches ``MatchState``).
+
+    ``bot`` drivers are always ``"bot"``. ``command`` drivers default to
+    ``"stateless"`` (today's fresh-subprocess-per-turn reality) unless the spec
+    declares ``"residency": "resident"`` — one persistent session per seat,
+    wired by a later task; declaring it here lets the fairness axis be recorded
+    ahead of that driver existing.
+    """
+    kind = spec.get("type")
+    if kind == "bot":
+        return "bot"
+    if kind == "command":
+        residency = spec.get("residency", "stateless")
+        if residency not in ("stateless", "resident"):
+            raise ValueError(
+                f"unknown residency {residency!r} for a command driver; "
+                "expected 'stateless' or 'resident'"
+            )
+        return residency
+    raise ValueError(f"unknown driver type {kind!r}; expected 'bot' or 'command'")
+
+
 # -- the run loop -----------------------------------------------------------
 
 
@@ -381,6 +416,8 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
             new_argv += ["--team", team["id"]]
         if match_cfg.get("id"):
             new_argv += ["--id", match_cfg["id"]]
+        for team in config["teams"]:
+            new_argv += ["--driver", f"{team['id']}:{driver_kind(team['driver'])}"]
         created = _cli_json(new_argv + ["--apply"])
         match_id = created["match_id"]
 

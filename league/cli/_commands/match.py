@@ -37,6 +37,38 @@ def _safe_id(value: str, what: str) -> str:
         ) from err
 
 
+# Residency: the declared driver-kind fairness axis (spec c10/h7). Metadata
+# about HOW a team's minds were invoked — never game state, so it lives in the
+# match log header (league.engine.events.MatchLog.driver_kinds), not the state.
+_DRIVER_KINDS = ("bot", "stateless", "resident")
+
+
+def _driver_kinds_from_args(args: argparse.Namespace, team_ids: list[str]) -> dict[str, str]:
+    driver_kinds: dict[str, str] = {}
+    for spec in args.driver or ():
+        team_id, sep, kind = spec.partition(":")
+        if not sep or not team_id or not kind:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"bad --driver {spec!r}",
+                remediation="use --driver <team-id>:<bot|stateless|resident>",
+            )
+        if team_id not in team_ids:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"--driver references team {team_id!r}, not one of --team",
+                remediation=f"teams here: {', '.join(team_ids) or 'none'}",
+            )
+        if kind not in _DRIVER_KINDS:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"unknown driver kind {kind!r} for team {team_id!r}",
+                remediation=f"expected one of: {', '.join(_DRIVER_KINDS)}",
+            )
+        driver_kinds[team_id] = kind
+    return driver_kinds
+
+
 def _load(store: Store, match_id: str) -> MatchLog:
     try:
         return store.load_match(match_id)
@@ -104,6 +136,7 @@ def cmd_match_new(args: argparse.Namespace) -> int:
         f"m-{args.scenario}-{args.mode}-s{args.seed}-{len(store.list_matches()) + 1:03d}"
     )
     _safe_id(match_id, "match id")
+    driver_kinds = _driver_kinds_from_args(args, team_ids)
     try:
         state = instantiate(
             scenario, match_id=match_id, seed=args.seed, mode=args.mode, teams=teams
@@ -122,6 +155,7 @@ def cmd_match_new(args: argparse.Namespace) -> int:
         "mode": args.mode,
         "seed": args.seed,
         "teams": [t[0] for t in teams],
+        "driver_kinds": driver_kinds,
         "turn_limit": state.turn_limit,
         "applied": bool(args.apply),
     }
@@ -129,7 +163,7 @@ def cmd_match_new(args: argparse.Namespace) -> int:
         initial = instantiate(
             scenario, match_id=match_id, seed=args.seed, mode=args.mode, teams=teams
         )
-        log = MatchLog(initial_state=initial, events=events)
+        log = MatchLog(initial_state=initial, events=events, driver_kinds=driver_kinds)
         try:
             path = store.create_match(log)
         except FileExistsError as err:
@@ -143,9 +177,14 @@ def cmd_match_new(args: argparse.Namespace) -> int:
         emit_result(payload, json_mode=True)
     else:
         verb = "created" if args.apply else "would create (dry-run; add --apply)"
+        drivers = (
+            f", drivers: {', '.join(f'{t}={k}' for t, k in sorted(driver_kinds.items()))}"
+            if driver_kinds
+            else ""
+        )
         emit_result(
             f"{verb}: {match_id} — {args.scenario} ({args.mode}, seed {args.seed}, "
-            f"teams: {', '.join(payload['teams']) or 'none'})",
+            f"teams: {', '.join(payload['teams']) or 'none'}{drivers})",
             json_mode=False,
         )
     return 0
@@ -189,7 +228,14 @@ def cmd_match_show(args: argparse.Namespace) -> int:
     state = log.final_state()
     pending = sorted(store.pending_orders(args.match_id))
     if json_mode:
-        emit_result({"state": state.to_dict(), "staged_teams": pending}, json_mode=True)
+        emit_result(
+            {
+                "state": state.to_dict(),
+                "staged_teams": pending,
+                "driver_kinds": log.driver_kinds,
+            },
+            json_mode=True,
+        )
         return 0
     lines = [
         f"{state.match_id}: {state.status} — turn {state.turn}/{state.turn_limit} "
@@ -199,8 +245,11 @@ def cmd_match_show(args: argparse.Namespace) -> int:
         lines.append(f"winner: {state.winner}")
     for team in state.teams:
         units = [u for u in state.units if u.team_id == team.id and u.alive]
+        driver = log.driver_kinds.get(team.id)
         lines.append(
-            f"  {team.id}: resources {team.resources}, units "
+            f"  {team.id}: resources {team.resources}"
+            + (f", driver {driver}" if driver else "")
+            + ", units "
             + ", ".join(f"{u.id}@{u.pos[0]},{u.pos[1]}" for u in units)
         )
     for cp in state.control_points:
@@ -511,6 +560,13 @@ def register(sub: argparse._SubParsersAction) -> None:
     new.add_argument("--team", action="append", help="Registered team id; repeatable.")
     new.add_argument("--seed", type=int, default=1, help="Deterministic seed (default 1).")
     new.add_argument("--id", help="Match id (default: derived from scenario/mode/seed).")
+    new.add_argument(
+        "--driver",
+        action="append",
+        metavar="TEAM:KIND",
+        help="Declared driver residency for a team — bot/stateless/resident "
+        "(fairness metadata only, recorded in the match log; repeatable).",
+    )
     new.add_argument("--apply", action="store_true", help="Actually create (default: dry-run).")
     new.add_argument("--json", action="store_true", help="Emit structured JSON.")
     new.set_defaults(func=cmd_match_new)
