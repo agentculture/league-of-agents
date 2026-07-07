@@ -21,10 +21,11 @@ from typing import Any
 from league.cli._errors import EXIT_USER_ERROR, CliError
 from league.cli._output import emit_result
 from league.engine.events import MatchLog
-from league.engine.knowledge import knowledge_by_turn
+from league.engine.knowledge import KnowledgeFrame, knowledge_by_turn, latest_knowledge
 from league.engine.legal import legal_actions
-from league.engine.scenario import get_scenario, instantiate
+from league.engine.scenario import Scenario, get_scenario, instantiate
 from league.engine.scoring import score_match
+from league.engine.state import MatchState
 from league.engine.tick import resolve_turn, start_match
 from league.faces import faces_app, render_brief_markdown
 from league.replay import build_replay_data, render_frame, render_html, run_interactive_shell
@@ -72,6 +73,61 @@ def _driver_kinds_from_args(args: argparse.Namespace, team_ids: list[str]) -> di
             )
         driver_kinds[team_id] = kind
     return driver_kinds
+
+
+# -- fog of war: one team's briefing-safe projection (plan t5, spec c5/h4) --
+#
+# The engine/tick stay full-information and deterministic (spec c12
+# non-goal); fog is a read-side projection layered on top, the same way
+# scoring and knowledge already are — it never touches ``state``, the log,
+# or ``state_hash``. ``_fogged_state`` is the substrate ``match show --team
+# --fog`` and the harness's briefings share: a team's own roster in full (it
+# always knows its own units — they report in), every other team's units and
+# every control point / resource node only as far as the team's knowledge
+# fold (``league.engine.knowledge``) has seen or been told, and a mission
+# revealed only once its declared position coincides with a control point or
+# resource node the team already knows about — a mission is board furniture
+# the team discovers the same way as anything else, never a free hint.
+
+
+def _fogged_state(
+    state: MatchState, scenario: Scenario, team_id: str, frame: KnowledgeFrame
+) -> dict[str, Any]:
+    known_units = {u.id: u for u in frame.units}
+    units: list[dict[str, Any]] = []
+    for unit in state.units:
+        if unit.team_id == team_id:
+            units.append(unit.to_dict())  # a team always knows its own roster
+        else:
+            known = known_units.get(unit.id)
+            if known is not None:
+                units.append(known.to_dict())
+    known_positions = {n.pos for n in frame.resource_nodes} | {c.pos for c in frame.control_points}
+    missions = [m.to_dict() for m in scenario.missions if m.pos in known_positions]
+    return {
+        "match_id": state.match_id,
+        "scenario_id": state.scenario_id,
+        "seed": state.seed,
+        "mode": state.mode,
+        "turn": state.turn,
+        "turn_limit": state.turn_limit,
+        "grid_width": state.grid_width,
+        "grid_height": state.grid_height,
+        "status": state.status,
+        "winner": state.winner,
+        # Own economy is always known; another team's is not ours to report
+        # on (nothing in the knowledge fold tracks it — a fair unknown, not a
+        # bug).
+        "teams": [
+            {**t.to_dict(), "resources": t.resources if t.id == team_id else None}
+            for t in state.teams
+        ],
+        "units": units,
+        "control_points": [c.to_dict() for c in frame.control_points],
+        "missions": missions,
+        "resource_nodes": [n.to_dict() for n in frame.resource_nodes],
+        "cells_seen": sorted([list(cell) for cell in frame.cells_seen]),
+    }
 
 
 def _load(store: Store, match_id: str) -> MatchLog:
@@ -235,10 +291,26 @@ def cmd_match_show(args: argparse.Namespace) -> int:
     log = _load(store, args.match_id)
     state = log.final_state()
     pending = sorted(store.pending_orders(args.match_id))
+    team_id = getattr(args, "team", None)
+    fog = bool(getattr(args, "fog", False))
+    if fog and not team_id:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message="--fog requires --team",
+            remediation="pass --team <team-id> --fog for that team's fogged view",
+        )
+    if team_id is not None and team_id not in {t.id for t in state.teams}:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"team {team_id!r} is not in this match",
+            remediation=f"teams here: {', '.join(t.id for t in state.teams)}",
+        )
     if json_mode:
         scenario = get_scenario(state.scenario_id)
         living_actions = {
-            unit.id: legal_actions(state, scenario, unit.id) for unit in state.units if unit.alive
+            unit.id: legal_actions(state, scenario, unit.id)
+            for unit in state.units
+            if unit.alive and (team_id is None or unit.team_id == team_id)
         }
         # The rejections from the most recently resolved turn — the harness's
         # rejection-feedback loop (spec c8/h5): a seat that never learns why an
@@ -254,18 +326,25 @@ def cmd_match_show(args: argparse.Namespace) -> int:
                 "reason": event.data.get("reason"),
             }
             for event in log.events
-            if event.kind == "action_rejected" and event.turn == state.turn
+            if event.kind == "action_rejected"
+            and event.turn == state.turn
+            and (team_id is None or event.data.get("team_id") == team_id)
         ]
-        emit_result(
-            {
-                "state": state.to_dict(),
-                "staged_teams": pending,
-                "legal_actions": living_actions,
-                "last_turn_rejections": last_turn_rejections,
-                "driver_kinds": log.driver_kinds,
-            },
-            json_mode=True,
-        )
+        payload: dict[str, Any] = {
+            "state": state.to_dict(),
+            "staged_teams": pending,
+            "legal_actions": living_actions,
+            "last_turn_rejections": last_turn_rejections,
+            "driver_kinds": log.driver_kinds,
+        }
+        if fog:
+            # Additive and read-only: swaps only this response's "state" for
+            # the team's fog-of-war projection and adds "knowledge" (the raw
+            # fold) — the plain (no --team/--fog) response above is untouched.
+            frame = latest_knowledge(log, scenario)[team_id]
+            payload["knowledge"] = frame.to_dict()
+            payload["state"] = _fogged_state(state, scenario, team_id, frame)
+        emit_result(payload, json_mode=True)
         return 0
     lines = [
         f"{state.match_id}: {state.status} — turn {state.turn}/{state.turn_limit} "
@@ -691,6 +770,15 @@ def register(sub: argparse._SubParsersAction) -> None:
 
     show = noun_sub.add_parser("show", help="Show a match's current state.")
     show.add_argument("match_id", help="Match id.")
+    show.add_argument(
+        "--team", help="Scope legal_actions/last_turn_rejections (and, with --fog) to this team."
+    )
+    show.add_argument(
+        "--fog",
+        action="store_true",
+        help="Requires --team: replace 'state' with that team's fog-of-war "
+        "knowledge projection and add 'knowledge' (spec c5/h4).",
+    )
     show.add_argument("--json", action="store_true", help="Emit structured JSON.")
     show.set_defaults(func=cmd_match_show)
 
