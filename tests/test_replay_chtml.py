@@ -35,13 +35,14 @@ from league.replay.html import render_html
 
 _PLAYTESTS = Path(__file__).resolve().parent.parent / "docs" / "playtests"
 
-# Pinned BEFORE this task touched anything: sha256 of render_html() on this
-# committed grid log, computed from the unmodified league/replay/html.py.
-# league/replay/html.py is on this task's do-not-touch list, so this hash can
-# only drift if a FUTURE change (in this task or the CLI wiring around it)
-# breaks the untouched grid path — that is exactly the regression this pins.
+# sha256 of render_html() on this committed grid log: the regression this pins
+# is the continuous face (or its CLI routing) bending the grid path, which the
+# continuous work must never touch. It is NOT a freeze on the grid face itself:
+# a deliberate grid-renderer change (like the cycle-6 restyle, PR #18, which
+# moved this pin from 5a1f8919… to its current value) legitimately regenerates
+# it — recompute render_html() on the committed log and say so in the PR.
 _GRID_LOG_REL = "cycle-5/colleague-coop.log.jsonl"
-_GRID_HTML_SHA256 = "5a1f8919d5bd2e4322fdd8f034e44795565dc8793db2e28bdfaee1475a2b4409"
+_GRID_HTML_SHA256 = "bfe89f9211fcd04670e8f7fe2da73c7592338fe8a8b56a7d39a4151ab56be7b2"
 
 
 def _committed_grid_log() -> MatchLog:
