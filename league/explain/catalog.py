@@ -186,6 +186,7 @@ commits** — a stray call never silently advances the game.
     league match tick <id> --apply         # force-resolve (timeouts)
     league match score <id> --json         # outcome + cooperation + tempo
     league match score <id> --substrate blue=cloud  # substrate-fair tempo
+    league match probe <id> --json         # span-of-control: subagents, realization, guidance
     league match brief <id> [--team blue]  # markdown briefing (the agents' face)
     league match replay <id> > match.html  # self-contained human replay
     league match tui <id> --frame N [--team blue] [--no-color]  # terminal view
@@ -235,6 +236,23 @@ event from the turn just resolved (`{team_id, unit_id, reason}`), so a caller
 can see *why* an order failed without scraping the whole log. The harness
 folds this into each agent's next briefing (spec c8/h5) — a seat that never
 learns the reason otherwise repeats the mistake for the whole match.
+
+`probe` (`league.engine.probe`, plan task t7) measures span of control from the
+log alone: how many subagents a team's mind actually fielded (`span` — a real,
+harness-recorded, per-seat call or a real declared action tied to that seat's
+OWN voice; a message merely NAMING a subagent counts for nothing), how well
+each subagent's orders landed (`realization_rate` — per seat, `1 -
+rejected/declared`), and whether guidance messages actually steered behavior
+(`guidance_linkage` — reusing cooperation v1's referent-matching idea: a
+commanding message counts only if a subsequent team action realizes something
+it named). `seat_latency` evidence, when the team has any, is authoritative
+over message content (a single whole-team driver call narrating several named
+personas is still span 0/1, never one seat per persona); absent it (pre
+seat_latency logs), the probe falls back to a stricter dual-evidence check —
+own-voice message AND a real declared action on that seat's own unit. The
+payload mirrors `score`'s style: `{score, signals, components, version}` per
+team, plus a per-turn `degradation_curve` bucketed by how many seats acted
+concurrently, so "commands 3 well, 1 badly" is visible from one match alone.
 
 `--team <id>` scopes `legal_actions`/`last_turn_rejections` to that team.
 Add `--fog` (requires `--team`) for that team's fog-of-war projection (plan
@@ -364,6 +382,7 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("match", "act"): _MATCH,
     ("match", "tick"): _MATCH,
     ("match", "score"): _MATCH,
+    ("match", "probe"): _MATCH,
     ("match", "brief"): _MATCH,
     ("match", "replay"): _MATCH,
     ("match", "tui"): _MATCH,

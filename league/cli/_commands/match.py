@@ -23,6 +23,7 @@ from league.cli._output import emit_result
 from league.engine.events import MatchLog
 from league.engine.knowledge import KnowledgeFrame, knowledge_by_turn, latest_knowledge
 from league.engine.legal import legal_actions
+from league.engine.probe import probe_match
 from league.engine.scenario import Scenario, get_scenario, instantiate
 from league.engine.scoring import score_match
 from league.engine.state import MatchState
@@ -217,6 +218,8 @@ def cmd_match_overview(args: argparse.Namespace) -> int:
             "tick": "force-resolve the turn with whatever is staged (dry-run; --apply)",
             "score": "outcome + cooperation + tempo scores from the log "
             "(--substrate <team>=<name> to convert tempo)",
+            "probe": "span-of-control probe: subagents fielded, per-seat realization, "
+            "guidance linkage, from the log alone",
             "brief": "markdown briefing from the faces registry (--team for the fogged view)",
             "replay": "self-contained HTML replay on stdout",
             "tui": "replay-stepping terminal view: ground truth or --team fog "
@@ -689,6 +692,32 @@ def cmd_match_score(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_match_probe(args: argparse.Namespace) -> int:
+    """Span-of-control: how many subagents a team's mind actually fielded, how
+    well their orders landed, and whether guidance steered behavior — computed
+    from the log alone (``league.engine.probe``, plan task t7). See ``league
+    explain match probe`` for the evidence hierarchy and formula.
+    """
+    json_mode = bool(getattr(args, "json", False))
+    log = _load(Store(), args.match_id)
+    report = probe_match(log)
+    if json_mode:
+        emit_result(report, json_mode=True)
+        return 0
+    lines = [f"{report['match_id']}: span-of-control probe ({report['version']})"]
+    for team_id, team in report["teams"].items():
+        commanders = f", commanders {', '.join(team['commanders'])}" if team["commanders"] else ""
+        lines.append(
+            f"  {team_id}: span {team['span']}/{team['roster_size']} ({team['evidence']} evidence)"
+            f"{commanders}, score {team['score']}/100 "
+            f"(span_coverage {team['signals']['span_coverage']}, "
+            f"realization {team['signals']['realization_rate']}, "
+            f"guidance {team['signals']['guidance_linkage']})"
+        )
+    emit_result("\n".join(lines), json_mode=False)
+    return 0
+
+
 def cmd_match_brief(args: argparse.Namespace) -> int:
     """The agents' face: markdown (or facts JSON) served from the faces registry.
 
@@ -977,6 +1006,13 @@ def register(sub: argparse._SubParsersAction) -> None:
         "and its own limits.",
     )
     score.set_defaults(func=cmd_match_score)
+
+    probe = noun_sub.add_parser(
+        "probe", help="Span-of-control probe: subagents fielded + command quality from the log."
+    )
+    probe.add_argument("match_id", help="Match id.")
+    probe.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    probe.set_defaults(func=cmd_match_probe)
 
     brief = noun_sub.add_parser(
         "brief", help="Markdown briefing of the match — the agents' face (--team for fog)."
