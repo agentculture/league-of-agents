@@ -14,11 +14,19 @@ with EXACTLY the dict ``league match show --json`` returns — see
 ``show_json`` input, ``decide`` always returns the same output, and every
 tie (equal-distance control points, equal-distance legal moves) is broken by
 sorting on id/coordinates so two runs of the same seed rush identically.
+
+Roster tier (plan task t4, spec c12/h11): ``silver`` — the roster's declared
+middle tier, sitting between ``bots/shambler.py`` (bronze, legal-but-poor)
+and ``bots/vanguard.py`` (gold, which runs the delivery economy rusher
+ignores and splits control points rusher's units may duplicate). See
+``bots/README.md`` for the full roster table.
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+TIER = "silver"
 
 
 def _manhattan(a: list[int], b: list[int]) -> int:
