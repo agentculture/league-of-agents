@@ -22,6 +22,7 @@ import pytest
 import bots.rusher as rusher
 import league.harness as harness
 from league.cli import main
+from league.engine.events import MatchLog
 from league.engine.state import state_hash
 from league.harness import build_driver, driver_kind, run_match
 from league.store import Store
@@ -38,6 +39,14 @@ _BANNED_MODULES = {"random", "time", "datetime", "secrets", "uuid"}
 def arena(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     return tmp_path
+
+
+def _game_events(log: MatchLog) -> list[dict]:
+    """Every logged event except ``seat_latency`` (plan t1, spec c10/h9): real
+    wall-clock instrumentation the harness appends per turn, excluded here
+    because it varies run to run by construction even when game logic does
+    not — it is a fold no-op, never part of state-hash determinism."""
+    return [e.to_dict() for e in log.events if e.kind != "seat_latency"]
 
 
 def _register(team: str, model: str = "bot-file:rusher") -> list[str]:
@@ -289,8 +298,13 @@ def test_rusher_matches_are_deterministic_given_the_seed(tmp_path, monkeypatch, 
     capsys.readouterr()
     log2 = Store().load_match("m-rusher-det")
 
-    # Same config, same seed, played twice: byte-identical logs...
-    assert [e.to_dict() for e in log1.events] == [e.to_dict() for e in log2.events]
+    # Same config, same seed, played twice: byte-identical logs, MODULO
+    # `seat_latency` events (plan t1, spec c10/h9) — real wall-clock
+    # instrumentation the harness appends per turn, which by construction
+    # varies run to run even when everything the engine resolves does not.
+    # It is a fold no-op (league/engine/events.py OBSERVATION_KINDS), so it
+    # never touches game-logic determinism — see the exclusion below.
+    assert _game_events(log1) == _game_events(log2)
     # ...and therefore identical final-state hashes (the same fingerprint the
     # determinism CI gate compares — tests/test_determinism_gate.py).
     assert state_hash(log1.final_state()) == state_hash(log2.final_state())

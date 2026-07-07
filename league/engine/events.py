@@ -27,6 +27,18 @@ orchestrator mode's default). All three fields are pure metadata about the
 harness, never game state — none of them touch ``MatchState``/``state_hash`` or
 the fold, and each defaults to ``{}`` so logs written before it existed still
 parse.
+
+``seat_latency`` (plan task t1, spec c10/h9) is an OBSERVATION event, not a
+header field: per-seat/per-team wall-clock duration for one turn's driver
+call, appended by ``league.harness`` straight to the store (never through the
+CLI's orders contract — it is harness instrumentation, not a declared move).
+Its ``data`` carries ``team_id``, ``agent_id``/``unit_id`` (``None`` when the
+driver commands the whole team in one call, e.g. ``bot``/``bot-file``/a
+non-per-seat ``command``), and ``elapsed_ms`` (an int). Like every other
+OBSERVATION kind, folding it is a no-op — MatchState/state_hash are exactly as
+if it were never written. The measurement itself (``time.perf_counter``)
+lives ONLY in ``league/harness.py``: ``league/engine`` never imports ``time``
+(the determinism import ban, enforced package-wide).
 """
 
 from __future__ import annotations
@@ -60,6 +72,7 @@ OBSERVATION_KINDS = (
     "message_sent",
     "plan_declared",
     "turn_resolved",
+    "seat_latency",
 )
 EVENT_KINDS = TRANSITION_KINDS + OBSERVATION_KINDS
 

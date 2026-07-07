@@ -40,6 +40,26 @@ driver is ``"stateless"`` (fresh subprocess per turn, today's default) unless
 its spec sets ``"residency": "resident"``. ``run_match`` records this per team
 in the match log header so teams stay comparable by more than final score.
 
+Latency metadata (plan task t1, spec c10/h9) — every driver kind is timed the
+same way: ``run_match`` threads a fresh, per-team, per-turn mutable list into
+the ``context`` mapping every driver already receives
+(``context["_latency_sink"]``), and each driver factory below appends one
+``{"agent_id", "unit_id", "elapsed_ms"}`` record per actual driver call — a
+subprocess run, a resident ``session.send``, or, for ``bot``/``bot-file``/a
+non-per-seat ``command`` (which command a whole team in one call), that whole
+call, with both ids ``None``. This is additive, never a new field on what a
+driver *returns*: a driver exercised directly with no sink in ``context``
+(every pre-existing harness test) behaves exactly as before. ``run_match``
+appends the turn's records to the on-disk log as ``seat_latency``
+OBSERVATION events (``league.engine.events``) straight through ``Store`` —
+harness instrumentation, not a driver's declared move, so it has no reason to
+detour through the CLI's orders contract, the same way resident session
+transcripts already bypass it. Wall-clock capture (``time.perf_counter``)
+lives ONLY in this module: the determinism import ban
+(``tests/test_engine_state.py::test_engine_never_imports_time_or_random``)
+covers ``league/engine/`` package-wide, and ``seat_latency`` is a fold no-op
+there — MatchState/state_hash are exactly as if it were never written.
+
 Config shape (JSON)::
 
     {"match": {"scenario": "skirmish-1", "mode": "competitive", "seed": 7,
@@ -114,11 +134,13 @@ import re
 # Command drivers run operator-configured argv without a shell.
 import subprocess  # nosec B404
 import sys
+import time
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from league.cli import main as cli_main
+from league.engine.events import Event
 from league.store import Store, validate_id
 
 Driver = Callable[[dict[str, Any], str, int, Mapping[str, Any] | None], dict[str, Any]]
@@ -132,6 +154,35 @@ def _cli_json(argv: list[str]) -> Any:
     if rc != 0:
         raise RuntimeError(f"league {' '.join(argv)} failed with exit {rc}")
     return json.loads(buf.getvalue())
+
+
+# -- latency: wall-clock timing, harness-side only (plan t1, spec c10/h9) ---
+#
+# Capture lives HERE, never in league/engine: the determinism import ban
+# (tests/test_engine_state.py::test_engine_never_imports_time_or_random) bans
+# time/random/datetime/secrets/uuid imports package-wide over league/engine/,
+# and seat_latency events fold as a no-op there regardless (an OBSERVATION
+# kind, league/engine/events.py) — the ban is enforced by construction, not
+# just discipline. Every driver kind is measured the SAME way: perf_counter()
+# around its own actual driver call (a subprocess run, a resident
+# session.send, or — bot/bot-file/a non-per-seat command, which command a
+# whole team in one call — that whole call). The sink is threaded through the
+# EXISTING ``context`` mapping every driver already receives, never a new
+# field on what a driver *returns*: a driver exercised with no sink in
+# ``context`` (every pre-existing harness test) behaves exactly as before.
+
+
+def _elapsed_ms(started: float) -> int:
+    """Whole milliseconds since a ``time.perf_counter()`` reading. Monotonic,
+    so a wall-clock adjustment mid-match can never skew or negate a reading."""
+    return int(round((time.perf_counter() - started) * 1000))
+
+
+def _latency_sink(context: Mapping[str, Any] | None) -> list[dict[str, Any]] | None:
+    """The mutable per-team-per-turn list ``run_match`` threads in via
+    ``context["_latency_sink"]`` — ``None`` outside ``run_match`` (a driver
+    exercised directly, e.g. in a unit test, simply records nothing)."""
+    return (context or {}).get("_latency_sink")
 
 
 # -- the deterministic greedy bot ------------------------------------------
@@ -177,6 +228,7 @@ def make_bot_driver(scenario: dict[str, Any]) -> Driver:
         turn: int,
         context: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        t0 = time.perf_counter()
         my_units = [u for u in state["units"] if u["team_id"] == team_id and u["alive"]]
         deliver = next((m for m in state["missions"] if m["kind"] == "deliver"), None)
         nodes = [n for n in state["resource_nodes"] if n["remaining"] > 0]
@@ -236,6 +288,11 @@ def make_bot_driver(scenario: dict[str, Any]) -> Driver:
             )
         if messages:
             result["messages"] = messages
+        sink = _latency_sink(context)
+        if sink is not None:
+            # No per-unit granularity: one greedy call commands the whole
+            # team's roster at once (a "seat" of one, team-wide).
+            sink.append({"agent_id": None, "unit_id": None, "elapsed_ms": _elapsed_ms(t0)})
         return result
 
     return orders
@@ -279,12 +336,14 @@ def _load_bot_strategy(name: str) -> Callable[[dict[str, Any], str], dict[str, A
 def make_bot_file_driver(spec: Mapping[str, Any]) -> Driver:
     """A coded strategy played through the public JSON surface only.
 
-    The returned ``orders`` closure ignores the ``state``/``context`` the
-    run loop hands every driver and instead calls ``match show --json``
-    itself (the same ``_cli_json`` path every other driver uses) — exactly
-    what a subprocess bot would have to do — then passes ONLY that parsed
-    dict (plus ``team_id``) to the strategy's ``decide``. No scenario, no
-    engine dataclass, ever crosses into strategy code.
+    The returned ``orders`` closure ignores the ``state``/``context`` the run
+    loop hands every driver AS INPUT TO THE STRATEGY — it calls ``match show
+    --json`` itself (the same ``_cli_json`` path every other driver uses,
+    exactly what a subprocess bot would have to do) and passes ONLY that
+    parsed dict (plus ``team_id``) to ``decide``. No scenario, no engine
+    dataclass, ever crosses into strategy code. ``context`` is still read for
+    harness-internal bookkeeping (the latency sink, plan t1) — never handed
+    to the strategy.
 
     NOTE — fog asymmetry (plan t5, spec c5/h4): this driver calls the plain
     ``match show --json`` (never ``--team --fog``), so a bot-file strategy is
@@ -302,9 +361,16 @@ def make_bot_file_driver(spec: Mapping[str, Any]) -> Driver:
         turn: int,
         context: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        t0 = time.perf_counter()
         match_id = str(state.get("match_id") or "")
         show_json = _cli_json(["match", "show", match_id])
-        return decide(show_json, team_id)
+        result = decide(show_json, team_id)
+        sink = _latency_sink(context)
+        if sink is not None:
+            # One call decides for the whole roster — same team-wide "seat
+            # of one" as make_bot_driver above.
+            sink.append({"agent_id": None, "unit_id": None, "elapsed_ms": _elapsed_ms(t0)})
+        return result
 
     return orders
 
@@ -598,11 +664,21 @@ def make_command_driver(
             legal_actions=_format_legal_actions(context.get("legal_actions", {}), my_unit_ids),
             state=json.dumps(briefing_state, sort_keys=True),
         )
+        sink = _latency_sink(context)
+        t0 = time.perf_counter()
         try:
             result = _run_command(argv, prompt, timeout, team_id)
         except RuntimeError as err:
             print(f"[harness] {team_id} commander idles this turn: {err}", file=sys.stderr)
+            if sink is not None:
+                # A failed/timed-out call still burned wall-clock time —
+                # real tempo data, not something to drop on the idle path.
+                sink.append({"agent_id": None, "unit_id": None, "elapsed_ms": _elapsed_ms(t0)})
             return {"actions": []}
+        if sink is not None:
+            # One commander mind for the whole team, whether or not `solo`
+            # is set — team-wide "seat of one", same as bot/bot-file.
+            sink.append({"agent_id": None, "unit_id": None, "elapsed_ms": _elapsed_ms(t0)})
         actions = _as_list(result.get("actions"))
         result["actions"] = actions[:1] if solo else actions  # solo: handicap enforced, not asked
         if "messages" in result:
@@ -689,6 +765,7 @@ def make_per_seat_driver(
         context: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         context = context or {}
+        sink = _latency_sink(context)
         legal_actions = context.get("legal_actions", {})
         rejections = context.get("rejections", [])
         my_units = {
@@ -714,6 +791,7 @@ def make_per_seat_driver(
                 state=json.dumps(master_state, sort_keys=True),
                 comms_note=_comms_note,
             )
+            t0 = time.perf_counter()
             try:
                 result = _run_command(master_argv, master_prompt, master_timeout, master_id)
             except RuntimeError as err:
@@ -724,6 +802,10 @@ def make_per_seat_driver(
                         combined["messages"].append(
                             {"from": master_id, "text": str(message["text"])}
                         )
+            if sink is not None:
+                # The master commands no unit (its only tool is guidance
+                # messages) — no unit_id, but its own agent identity.
+                sink.append({"agent_id": master_id, "unit_id": None, "elapsed_ms": _elapsed_ms(t0)})
 
         for agent in agents:
             unit = my_units.get(agent["id"])
@@ -748,11 +830,24 @@ def make_per_seat_driver(
                 state=json.dumps(state, sort_keys=True),
                 team_messages=json.dumps(visible_messages, sort_keys=True) or "[]",
             )
+            t0 = time.perf_counter()
             try:
                 result = _run_command(argv, prompt, timeout, agent["id"])
             except RuntimeError as err:
                 print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
+                if sink is not None:
+                    sink.append(
+                        {
+                            "agent_id": agent["id"],
+                            "unit_id": unit["id"],
+                            "elapsed_ms": _elapsed_ms(t0),
+                        }
+                    )
                 continue
+            if sink is not None:
+                sink.append(
+                    {"agent_id": agent["id"], "unit_id": unit["id"], "elapsed_ms": _elapsed_ms(t0)}
+                )
             _fold_seat_reply(combined, result, unit["id"], agent["id"])
         if not combined["messages"]:
             combined.pop("messages")
@@ -1047,6 +1142,7 @@ def make_resident_driver(
         context: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         context = context or {}
+        sink = _latency_sink(context)
         legal_actions = context.get("legal_actions", {})
         rejections = context.get("rejections", [])
         match_id = str(state.get("match_id") or "")
@@ -1110,6 +1206,7 @@ def make_resident_driver(
                 "transport": session.transport,
                 "sent": prompt,
             }
+            t0 = time.perf_counter()
             try:
                 reply = session.send(prompt, timeout=timeout)
             except RuntimeError as err:
@@ -1118,7 +1215,19 @@ def make_resident_driver(
                         match_id, agent["id"], {**record, "error": str(err)}
                     )
                 print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
+                if sink is not None:
+                    sink.append(
+                        {
+                            "agent_id": agent["id"],
+                            "unit_id": unit["id"],
+                            "elapsed_ms": _elapsed_ms(t0),
+                        }
+                    )
                 continue
+            if sink is not None:
+                sink.append(
+                    {"agent_id": agent["id"], "unit_id": unit["id"], "elapsed_ms": _elapsed_ms(t0)}
+                )
             if match_id:
                 store.append_session_record(match_id, agent["id"], {**record, "received": reply})
             briefed.add(agent["id"])
@@ -1214,6 +1323,41 @@ def driver_kind(spec: Mapping[str, Any]) -> str:
 # -- the run loop -----------------------------------------------------------
 
 
+def _append_seat_latency(match_id: str, records: list[dict[str, Any]]) -> None:
+    """Append one turn's per-seat/per-team wall-clock timings as
+    ``seat_latency`` OBSERVATION events (``league.engine.events`` — a fold
+    no-op by construction, so MatchState/state_hash are exactly as if they
+    were never written; spec c10/h9).
+
+    Appended straight to the store, never through the CLI's ``--orders-json``
+    contract: this is harness-owned instrumentation, not a driver's declared
+    move, the same reasoning that already lets the resident driver append
+    session transcripts directly (``Store.append_session_record``). ``seq``
+    continues from the log's current length so it never collides with the
+    seq range the tick just assigned this same turn's real events.
+    """
+    if not records:
+        return
+    store = Store()
+    log = store.load_match(match_id)
+    seq = len(log.events)
+    events = tuple(
+        Event(
+            turn=int(record["turn"]),
+            seq=seq + i,
+            kind="seat_latency",
+            data={
+                "team_id": record["team_id"],
+                "agent_id": record.get("agent_id"),
+                "unit_id": record.get("unit_id"),
+                "elapsed_ms": int(record["elapsed_ms"]),
+            },
+        )
+        for i, record in enumerate(records)
+    )
+    store.append_events(match_id, events)
+
+
 def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | None = None) -> dict:
     """Register teams, create the match, and drive it to completion via the CLI.
 
@@ -1294,6 +1438,13 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
             "legal_actions": shown.get("legal_actions", {}),
             "rejections": shown.get("last_turn_rejections", []),
         }
+        # Latency metadata (plan t1, spec c10/h9): a fresh sink per team this
+        # turn, threaded in via `context["_latency_sink"]` — never a new
+        # field on what a driver returns (see the "latency" section above
+        # make_bot_driver). Appended to the on-disk log below, once this
+        # turn's real events are already written, so seq numbers never
+        # collide with the tick's own.
+        turn_latency: list[dict[str, Any]] = []
         for team in config["teams"]:
             team_id = team["id"]
             # Fog boundary (spec c5/h4): a command/resident seat is fed that
@@ -1309,7 +1460,9 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
                     "rejections": team_shown.get("last_turn_rejections", []),
                 }
             else:
-                team_state, team_context = state, context
+                team_state, team_context = state, dict(context)
+            latency_sink: list[dict[str, Any]] = []
+            team_context["_latency_sink"] = latency_sink
             orders = drivers[team_id](team_state, team_id, turn, team_context)
             acted = _cli_json(
                 [
@@ -1323,8 +1476,12 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
                     "--apply",
                 ]
             )
+            for record in latency_sink:
+                turn_latency.append({"team_id": team_id, "turn": turn, **record})
             if acted.get("resolution") and on_turn is not None:
                 on_turn(acted["resolution"])
+        if turn_latency:
+            _append_seat_latency(match_id, turn_latency)
 
     final = _cli_json(["match", "show", match_id])["state"]
     score = _cli_json(["match", "score", match_id])
