@@ -184,12 +184,32 @@ def scenario_ids() -> tuple[str, ...]:
 
 
 def get_scenario(scenario_id: str) -> Scenario:
+    """Resolve a scenario id to its definition.
+
+    Hand-authored scenarios (``skirmish-1``/``-2``) come from the bundled
+    registry; a ``gen-<seed>-<token>`` id is re-derived on the fly by the
+    seeded generator (``league.engine.genscenario``), whose id fully encodes
+    seed+params — so the whole CLI/harness/replay stack resolves a generated
+    board from its id (and hence from a match log) with no other change. A
+    generated id whose params are out of range raises the generator's own
+    precise ``ValueError`` (e.g. "grid_width must be odd"), not the generic
+    unknown-scenario error.
+    """
     try:
         return _SCENARIOS[scenario_id]
     except KeyError:
-        raise ValueError(
-            f"unknown scenario {scenario_id!r}; known: {', '.join(scenario_ids())}"
-        ) from None
+        pass
+    # Lazy import breaks the scenario <-> genscenario module cycle (genscenario
+    # imports Scenario/RoleStats from here at load time).
+    from league.engine import genscenario
+
+    parsed = genscenario.parse_generated_id(scenario_id)
+    if parsed is not None:
+        seed, params = parsed
+        return genscenario.generate(seed, params)
+    raise ValueError(
+        f"unknown scenario {scenario_id!r}; known: {', '.join(scenario_ids())}"
+    ) from None
 
 
 def instantiate(
