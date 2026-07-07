@@ -108,16 +108,20 @@ def _pick(menu, kind):
 # Criterion 1 — THE scripted race
 # --------------------------------------------------------------------------- #
 def _race_state():
-    """A slow harvester (take_post_duration 10) camps the post; a fast scout
-    (take_post_duration 5) must travel 1 unit in, so it starts its take LATER but
-    finishes FIRST."""
+    """A slow harvester (take_post_duration 10) camps the post; a fast defender
+    (take_post_duration 6) must travel 1 unit in, so it starts its take LATER
+    but finishes FIRST. (Scout would have been the classic pick here before the
+    human-reviewed amendment, cycle 7 pre-publish, forbade it from taking posts
+    at all — "scouts should not be able to take posts — only be the 'eyes'" —
+    so the faster racer is now the defender, the quicker of the two remaining
+    post-takers.)"""
     return _state(
         teams=(
-            _team("blue", "Blue", (_slot("blue-scout", "scout"),)),
+            _team("blue", "Blue", (_slot("blue-defender", "defender"),)),
             _team("red", "Red", (_slot("red-harv", "harvester"),)),
         ),
         units=(
-            _unit("blue-scout", "blue", "scout", from_units(2, 3)),  # 1 unit from the post
+            _unit("blue-defender", "blue", "defender", from_units(2, 3)),  # 1 unit from the post
             _unit("red-harv", "red", "harvester", from_units(3, 3)),  # already on the post
         ),
         control_points=(CControlPoint(id="cp", pos=from_units(3, 3)),),
@@ -125,7 +129,7 @@ def _race_state():
 
 
 def _race_decider(uid, state, menu):
-    if uid == "blue-scout":
+    if uid == "blue-defender":
         return _pick(menu, "take_post") or _pick(menu, "move")
     if uid == "red-harv":
         cp = next(c for c in state.control_points if c.id == "cp")
@@ -138,20 +142,20 @@ def test_scripted_race_event_sequence_is_exact() -> None:
     sequence = [(e.game_time, e.kind) for e in res.log.events]
     assert sequence == [
         (0, "match_started"),
-        (0, "decision_point"),  # blue-scout (canonical order: blue before red)
-        (0, "action_started"),  # blue-scout begins moving toward the post
+        (0, "decision_point"),  # blue-defender (canonical order: blue before red)
+        (0, "action_started"),  # blue-defender begins moving toward the post
         (0, "decision_point"),  # red-harv
         (0, "action_started"),  # red-harv begins its take FIRST (completion t=10)
-        (2, "unit_moved"),  # blue-scout arrives at the post
+        (2, "unit_moved"),  # blue-defender arrives at the post
         (2, "action_completed"),
         (2, "decision_point"),
-        (2, "action_started"),  # blue-scout begins its take LATER (completion t=7)
-        (7, "post_taken"),  # the faster scout finishes FIRST and takes the post
-        (7, "action_completed"),
-        (7, "action_failed"),  # the slower harvester's attempt fails mid-take
-        (7, "decision_point"),  # both freed units get a decision point
-        (7, "decision_point"),
-        (7, "match_finished"),
+        (2, "action_started"),  # blue-defender begins its take LATER (completion t=8)
+        (8, "post_taken"),  # the faster defender finishes FIRST and takes the post
+        (8, "action_completed"),
+        (8, "action_failed"),  # the slower harvester's attempt fails mid-take
+        (8, "decision_point"),  # both freed units get a decision point
+        (8, "decision_point"),
+        (8, "match_finished"),
     ]
 
 
@@ -161,12 +165,12 @@ def test_scripted_race_winner_and_loser_are_both_on_the_record() -> None:
 
     taken = [e for e in events if e.kind == "post_taken"]
     assert len(taken) == 1
-    assert taken[0].data == {"cp_id": "cp", "team_id": "blue", "unit_id": "blue-scout"}
+    assert taken[0].data == {"cp_id": "cp", "team_id": "blue", "unit_id": "blue-defender"}
 
     failed = [e for e in events if e.kind == "action_failed"]
     assert len(failed) == 1
     assert failed[0].data == {"unit_id": "red-harv", "reason": "post taken by a faster agent"}
-    assert failed[0].game_time == 7  # the loser fails at the winner's completion instant
+    assert failed[0].game_time == 8  # the loser fails at the winner's completion instant
 
     # Contest case (a): the loser's attempt does NOT continue against the new
     # owner — it is withdrawn, the unit is idle, and it never becomes owner.
@@ -182,11 +186,12 @@ def test_scripted_race_is_representable_mid_take() -> None:
     """Fold the log up to the moment both units are mid-take: the post carries
     BOTH attempts at once (the race is in state, not implied)."""
     res = resolve_match(_race_state(), ROLE_TABLE, _race_decider)
-    # events[8] is blue-scout's take_post action_started (the second taker joins).
+    # events[8] is blue-defender's take_post action_started (the second taker
+    # joins).
     mid = fold_events(res.log.initial_state, res.log.events[: 8 + 1])
     cp = next(c for c in mid.control_points if c.id == "cp")
     keys = {(t.unit_id, t.team_id, t.completion_time) for t in cp.takers}
-    assert keys == {("blue-scout", "blue", 7), ("red-harv", "red", 10)}
+    assert keys == {("blue-defender", "blue", 8), ("red-harv", "red", 10)}
     assert cp.owner is None  # nobody has finished yet
 
 
@@ -203,10 +208,10 @@ def test_case_c_two_same_team_attempts_first_wins_second_benign_fails() -> None:
     first to complete wins, the second is cleared as a benign action_failed."""
     state = _state(
         teams=(
-            _team("blue", "Blue", (_slot("blue-scout", "scout"), _slot("blue-harv", "harvester"))),
+            _team("blue", "Blue", (_slot("blue-def", "defender"), _slot("blue-harv", "harvester"))),
         ),
         units=(
-            _unit("blue-scout", "blue", "scout", from_units(3, 3)),  # take_dur 5 -> wins
+            _unit("blue-def", "blue", "defender", from_units(3, 3)),  # take_dur 6 -> wins
             _unit("blue-harv", "blue", "harvester", from_units(3, 3)),  # take_dur 10 -> loses
         ),
         control_points=(CControlPoint(id="cp", pos=from_units(3, 3)),),
@@ -223,10 +228,10 @@ def test_case_c_two_same_team_attempts_first_wins_second_benign_fails() -> None:
     # both action_started at t=0).
     mid = fold_events(res.log.initial_state, res.log.events[:5])
     cp_mid = next(c for c in mid.control_points if c.id == "cp")
-    assert {t.unit_id for t in cp_mid.takers} == {"blue-scout", "blue-harv"}
+    assert {t.unit_id for t in cp_mid.takers} == {"blue-def", "blue-harv"}
 
     taken = [e for e in res.log.events if e.kind == "post_taken"]
-    assert len(taken) == 1 and taken[0].data["unit_id"] == "blue-scout"
+    assert len(taken) == 1 and taken[0].data["unit_id"] == "blue-def"
     failed = [e for e in res.log.events if e.kind == "action_failed"]
     assert len(failed) == 1
     assert failed[0].data == {"unit_id": "blue-harv", "reason": "post already held by a teammate"}
@@ -237,10 +242,13 @@ def test_case_c_two_same_team_attempts_first_wins_second_benign_fails() -> None:
 
 def test_case_d_taking_your_own_post_is_refused_by_the_resolver() -> None:
     """Illegal never resolves: a take on a post the unit's team already owns is
-    refused (mirrors the menu, which never offers it)."""
+    refused (mirrors the menu, which never offers it). "defender", not
+    "scout": scout can never take a post at all now, which would refuse this
+    order for the wrong reason and mask the ownership-refusal path (contest
+    case d) this test is actually pinning."""
     state = _state(
-        teams=(_team("blue", "Blue", (_slot("blue-scout", "scout"),)),),
-        units=(_unit("blue-scout", "blue", "scout", from_units(3, 3)),),
+        teams=(_team("blue", "Blue", (_slot("blue-def", "defender"),)),),
+        units=(_unit("blue-def", "blue", "defender", from_units(3, 3)),),
         control_points=(CControlPoint(id="cp", pos=from_units(3, 3), owner="blue"),),
         mode="cooperative",
     )
@@ -255,10 +263,11 @@ def test_case_d_taking_your_own_post_is_refused_by_the_resolver() -> None:
 def test_case_b_fail_action_cancels_replaces_pending_order() -> None:
     """The interruption primitive: cancel a pending order (Timeline.cancel) and
     emit action_failed, withdrawing the take attempt and idling the unit, so a
-    fresh order may replace it."""
+    fresh order may replace it. "defender", not "scout": the unit must actually
+    be able to START a take_post for there to be anything to interrupt."""
     state = _state(
-        teams=(_team("blue", "Blue", (_slot("u", "scout"),)),),
-        units=(_unit("u", "blue", "scout", from_units(3, 3)),),
+        teams=(_team("blue", "Blue", (_slot("u", "defender"),)),),
+        units=(_unit("u", "blue", "defender", from_units(3, 3)),),
         control_points=(CControlPoint(id="cp", pos=from_units(3, 3)),),
         mode="cooperative",
     )
@@ -284,16 +293,23 @@ def test_case_b_fail_action_cancels_replaces_pending_order() -> None:
 
 def test_case_a_owner_change_fails_every_other_live_attempt() -> None:
     """A three-way contest: whoever completes first takes the post; every OTHER
-    live attempt fails immediately and does not continue against the new owner."""
+    live attempt fails immediately and does not continue against the new owner.
+
+    Only two roles can take a post at all now that scout is disqualified
+    (human-reviewed amendment, cycle 7 pre-publish), so the winner is the
+    defender (the faster of the two) and BOTH other teams field a harvester —
+    which still proves the rule: the cascade cancels every other live attempt
+    the instant the winner completes, regardless of how far off (or identical)
+    each loser's own completion was."""
     state = _state(
         teams=(
-            _team("blue", "Blue", (_slot("blue-scout", "scout"),)),
-            _team("red", "Red", (_slot("red-def", "defender"),)),
+            _team("blue", "Blue", (_slot("blue-def", "defender"),)),
+            _team("red", "Red", (_slot("red-harv", "harvester"),)),
             _team("green", "Green", (_slot("green-harv", "harvester"),)),
         ),
         units=(
-            _unit("blue-scout", "blue", "scout", from_units(3, 3)),  # take_dur 5 -> wins
-            _unit("red-def", "red", "defender", from_units(3, 3)),  # take_dur 6 -> loses
+            _unit("blue-def", "blue", "defender", from_units(3, 3)),  # take_dur 6 -> wins
+            _unit("red-harv", "red", "harvester", from_units(3, 3)),  # take_dur 10 -> loses
             _unit("green-harv", "green", "harvester", from_units(3, 3)),  # take_dur 10 -> loses
         ),
         control_points=(CControlPoint(id="cp", pos=from_units(3, 3)),),
@@ -308,7 +324,7 @@ def test_case_a_owner_change_fails_every_other_live_attempt() -> None:
         e.data["unit_id"]: e.data["reason"] for e in res.log.events if e.kind == "action_failed"
     }
     assert failed == {
-        "red-def": "post taken by a faster agent",
+        "red-harv": "post taken by a faster agent",
         "green-harv": "post taken by a faster agent",
     }
     cp = next(c for c in res.final_state.control_points if c.id == "cp")

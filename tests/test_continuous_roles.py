@@ -12,6 +12,12 @@ before the implementation (TDD), they pin the two acceptance criteria:
    is strictly fastest and widest-sighted and cannot gather or take posts;
    planner is strictly slowest and coordination-only; scout/harvester/defender
    are executor-class, in between, with harvester the only high-carry role.
+   Scout is the exception within the executor class (human-reviewed amendment,
+   cycle 7 pre-publish: "scouts should not be able to take posts — only be the
+   'eyes'"): it keeps its full gather/carry/deliver contract and its
+   widest-among-executors vision, but ``can_take_post`` is pinned ``False`` —
+   leaving harvester and defender as the only two roles that can take/hold a
+   control point.
 2. Role data is scenario-declared and hash-covered: :class:`CRoleStats` is a
    frozen dataclass, :data:`DEFAULT_CROLE_STATS` is the default table, and
    :func:`build_role_table` is a validated override mechanism a scenario (t6)
@@ -155,18 +161,46 @@ def test_harvester_is_the_only_high_carry_role() -> None:
     assert all(harvester.carry > o.carry for o in others)
 
 
-def test_executor_class_roles_can_act_and_have_positive_durations() -> None:
+def test_executor_class_roles_can_gather_and_deliver() -> None:
+    """All three executor-class roles keep the shared gather/carry/deliver
+    contract — including scout, whose ONLY withdrawn capability is taking a
+    post (see :func:`test_scout_is_the_eyes_forbidden_from_taking_posts`)."""
     for role in ("scout", "harvester", "defender"):
         stats = stats_for(DEFAULT_CROLE_STATS, role)
         assert stats.can_gather is True
-        assert stats.can_take_post is True
         assert stats.gather_duration > 0
-        assert stats.take_post_duration > 0
         assert stats.deliver_duration > 0
         assert stats.carry > 0
         # executor class sits strictly between explorer and planner in speed.
         assert stats_for(DEFAULT_CROLE_STATS, "planner").move_rate_mu < stats.move_rate_mu
         assert stats.move_rate_mu < stats_for(DEFAULT_CROLE_STATS, "explorer").move_rate_mu
+
+
+def test_only_harvester_and_defender_can_take_a_post() -> None:
+    """Scout's disqualification (human-reviewed amendment, cycle 7 pre-publish:
+    "scouts should not be able to take posts — only be the 'eyes'") leaves
+    harvester and defender as the only two roles able to take/hold a control
+    point in the continuous lane."""
+    for role in ("harvester", "defender"):
+        stats = stats_for(DEFAULT_CROLE_STATS, role)
+        assert stats.can_take_post is True
+        assert stats.take_post_duration > 0
+
+
+def test_scout_is_the_eyes_forbidden_from_taking_posts() -> None:
+    """Scout sees widest among the executor class and keeps its full
+    gather/carry/deliver contract, but ``can_take_post`` is pinned False — the
+    fog-reducing 'eyes' role itself arrives with the continuous fog work, a
+    later cycle; this amendment only withdraws post-taking."""
+    scout = stats_for(DEFAULT_CROLE_STATS, "scout")
+    others = [stats_for(DEFAULT_CROLE_STATS, name) for name in ("harvester", "defender")]
+    assert scout.can_take_post is False
+    assert scout.take_post_duration == 0
+    assert scout.can_gather is True
+    assert scout.gather_duration > 0
+    assert scout.carry > 0
+    assert scout.deliver_duration > 0
+    assert all(scout.vision_mu > o.vision_mu for o in others)
 
 
 # --------------------------------------------------------------------------- #

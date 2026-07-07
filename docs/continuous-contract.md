@@ -42,18 +42,18 @@ At each decision point the harness builds a **briefing**: the JSON a mind sees.
 {
   "game_time": 7,
   "you": {
-    "unit_id": "blue-scout", "agent_id": "blue-scout", "team_id": "blue",
-    "role": "scout", "pos": {"x": 3000, "y": 3000}, "carrying": 0,
+    "unit_id": "blue-def", "agent_id": "blue-def", "team_id": "blue",
+    "role": "defender", "pos": {"x": 3000, "y": 3000}, "carrying": 0,
     "action": null
   },
   "menu": [
     {"kind": "take_post", "target": "cp", "target_id": "cp",
-     "duration": 5, "completion_time": 12},
+     "duration": 6, "completion_time": 13},
     {"kind": "move", "target": "n1", "target_ref": "n1",
      "target_pos": {"x": 9000, "y": 9000}, "duration": 8, "completion_time": 15}
   ],
   "outlook": [
-    {"unit_id": "red-def", "team_id": "red", "completion_time": 13}
+    {"unit_id": "red-def", "team_id": "red", "completion_time": 15}
   ],
   "board": { "clock": 7, "units": [ ... ], "control_points": [ ... ], "...": "..." },
   "messages": [
@@ -88,7 +88,12 @@ Field by field:
   hold-ownership-window markers the timeline also carries are resolver-internal
   scheduling, not decision points, so they never appear in a mind's outlook. This
   is how a team reasons about races: *"the enemy defender finishes its take at
-  t=13; my scout can finish first at t=12."*
+  t=15; my defender can finish first at t=13."* (Scout never enters this kind
+  of reasoning at all — it is forbidden from `take_post` in the continuous
+  lane, a human-reviewed amendment, cycle 7 pre-publish: "scouts should not be
+  able to take posts — only be the 'eyes'". Its menu simply never offers
+  `take_post`; see [`docs/roles.md`](roles.md) for how this splits from the
+  grid lane, where scout is unchanged.)
 - **`board`** — a full-information (fogless) projection of the whole state:
   teams, units, control points (with their concurrent `takers`), missions, and
   resource nodes. Continuous fog is a later cycle's concern; this contract is

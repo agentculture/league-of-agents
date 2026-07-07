@@ -40,7 +40,7 @@ def _slot(uid: str, role: str, model: str = "colleague/qwen") -> CAgentSlot:
 
 def _roster(team: str, model: str = "colleague/qwen") -> tuple[CAgentSlot, ...]:
     return (
-        _slot(f"{team}-scout", "scout", model),
+        _slot(f"{team}-defender", "defender", model),
         _slot(f"{team}-harvester", "harvester", model),
     )
 
@@ -56,7 +56,7 @@ def test_c_skirmish_1_loads_by_id_with_required_furniture() -> None:
     assert len(scenario.missions) >= 2
     assert len(scenario.resource_nodes) >= 1
     assert set(scenario.modes) == {"cooperative", "competitive"}
-    assert sorted(scenario.unit_roles) == ["harvester", "scout"]
+    assert sorted(scenario.unit_roles) == ["defender", "harvester"]
 
 
 def test_unknown_scenario_is_a_loud_error() -> None:
@@ -160,23 +160,25 @@ def test_team_count_and_roster_validation() -> None:
 # Criterion 1 — coordination pressure proven by arithmetic (grid-scenario style)
 # --------------------------------------------------------------------------- #
 def _solo_lower_bound(scenario: CScenario) -> int:
-    """A conservative floor on in-game time for ONE unit (the scout — the
-    faster role) to win the race THEN run the economy, entirely serially:
-    move to the post, take it, travel to the resource node, gather, deliver.
-    Ignores return travel and contention entirely — the real solo run is
-    strictly slower, so ``bound > time_limit`` proves impossibility. Computed
-    from the scenario's own spawns/positions/role data, never hard-coded.
+    """A conservative floor on in-game time for ONE unit (the defender — the
+    role this scenario's race is staged around, now that scout is forbidden
+    from taking posts at all) to win the race THEN run the economy, entirely
+    serially: move to the post, take it, travel to the resource node, gather,
+    deliver. Ignores return travel and contention entirely — the real solo run
+    is strictly slower, so ``bound > time_limit`` proves impossibility.
+    Computed from the scenario's own spawns/positions/role data, never
+    hard-coded.
     """
-    scout = scenario.stats_for("scout")
+    defender = scenario.stats_for("defender")
     cp = scenario.control_points[0]
     node = scenario.resource_nodes[0]
-    blue_scout_spawn = scenario.spawns[0][scenario.unit_roles.index("scout")]
+    blue_defender_spawn = scenario.spawns[0][scenario.unit_roles.index("defender")]
 
-    move_to_post = move_duration(dist_sq(blue_scout_spawn, cp.pos), scout.move_rate_mu)
-    take = scout.take_post_duration
-    move_to_node = move_duration(dist_sq(cp.pos, node.pos), scout.move_rate_mu)
-    gather = scout.gather_duration
-    deliver = scout.deliver_duration
+    move_to_post = move_duration(dist_sq(blue_defender_spawn, cp.pos), defender.move_rate_mu)
+    take = defender.take_post_duration
+    move_to_node = move_duration(dist_sq(cp.pos, node.pos), defender.move_rate_mu)
+    gather = defender.gather_duration
+    deliver = defender.deliver_duration
     return move_to_post + take + move_to_node + gather + deliver
 
 
