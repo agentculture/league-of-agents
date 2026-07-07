@@ -38,6 +38,7 @@ import json
 
 # Command drivers run operator-configured argv without a shell.
 import subprocess  # nosec B404
+import sys
 from typing import Any, Callable, Mapping
 
 from league.cli import main as cli_main
@@ -213,21 +214,32 @@ def _extract_json(text: str) -> dict[str, Any]:
 
 
 def _run_command(argv: list[str], prompt: str, timeout: float, who: str) -> dict[str, Any]:
-    # Operator-configured argv, shell=False, bounded by timeout.
-    proc = subprocess.run(  # nosec B603
-        argv,
-        input=prompt,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(
-            f"driver {argv[0]} for {who} failed (exit {proc.returncode}): "
-            f"{proc.stderr.strip()[:300]}"
-        )
-    return _extract_json(proc.stdout)
+    """One driver call, retried once — live seats flake; matches must not die.
+
+    A second consecutive failure raises; the caller decides whether that seat
+    simply idles this turn (per-seat/commander loops) or the run aborts.
+    """
+    last_error: Exception | None = None
+    for _ in range(2):
+        try:
+            # Operator-configured argv, shell=False, bounded by timeout.
+            proc = subprocess.run(  # nosec B603
+                argv,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    f"driver {argv[0]} for {who} failed (exit {proc.returncode}): "
+                    f"{proc.stderr.strip()[:300]}"
+                )
+            return _extract_json(proc.stdout)
+        except (RuntimeError, ValueError, subprocess.TimeoutExpired) as err:
+            last_error = err
+    raise RuntimeError(f"driver for {who} failed twice: {last_error}")
 
 
 def make_command_driver(spec: Mapping[str, Any], scenario: dict[str, Any]) -> Driver:
@@ -245,7 +257,11 @@ def make_command_driver(spec: Mapping[str, Any], scenario: dict[str, Any]) -> Dr
             scenario=json.dumps(scenario, sort_keys=True),
             state=json.dumps(state, sort_keys=True),
         )
-        result = _run_command(argv, prompt, timeout, team_id)
+        try:
+            result = _run_command(argv, prompt, timeout, team_id)
+        except RuntimeError as err:
+            print(f"[harness] {team_id} commander idles this turn: {err}", file=sys.stderr)
+            return {"actions": []}
         if solo:
             actions = result.get("actions") or []
             result["actions"] = actions[:1]  # the handicap is enforced, not just asked
@@ -290,7 +306,11 @@ def make_per_seat_driver(
                 state=json.dumps(state, sort_keys=True),
                 team_messages=json.dumps(combined["messages"], sort_keys=True) or "[]",
             )
-            result = _run_command(argv, prompt, timeout, agent["id"])
+            try:
+                result = _run_command(argv, prompt, timeout, agent["id"])
+            except RuntimeError as err:
+                print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
+                continue
             action = result.get("action")
             if isinstance(action, dict):
                 action["unit_id"] = unit["id"]  # a seat commands its own unit, only
