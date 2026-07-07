@@ -30,11 +30,21 @@ rationale, palette values, and the ``validate_palette.js`` results):
 from __future__ import annotations
 
 import json
-from typing import Any
+import math
+from typing import Any, Callable
 
 from league.engine.events import MatchLog, fold_events
-from league.engine.scoring import score_match
+from league.engine.probe import probe_match
+from league.engine.scenario import Scenario, get_scenario
+from league.engine.scoring import (
+    CORRELATION_WINDOW,
+    PLAN_WINDOW,
+    _build_action_index,
+    _utterance_useful,
+    score_match,
+)
 from league.engine.state import MatchState
+from league.engine.tick import CP_POINTS
 
 
 def _snapshot(state: MatchState) -> dict[str, Any]:
@@ -110,7 +120,580 @@ def build_replay_data(log: MatchLog) -> dict[str, Any]:
         "frames": frames,
         "events_by_turn": {str(k): v for k, v in events_by_turn.items()},
         "scores": score_match(log),
+        "guide": build_assessor_guide(log),
     }
+
+
+# --------------------------------------------------------------------------- #
+# The embedded assessor guide (plan task C6-t5, spec c6/h6). The replay must
+# TEACH a human to judge coordination quality — phase by phase, from THIS
+# match's own facts (real turns, unit ids, mission names), never boilerplate.
+# Every fact below is computed here in Python, at render time, from the log
+# and the scenario — so the guide is testable server-side and the client JS
+# only lays out what the fold already decided.
+# --------------------------------------------------------------------------- #
+
+# Stable render order when several key moments share a turn.
+_MOMENT_ORDER = {
+    "first_capture": 0,
+    "mission_completed": 1,
+    "delivery_streak": 2,
+    "rejection": 3,
+    "idle": 4,
+}
+
+
+def build_assessor_guide(log: MatchLog) -> dict[str, Any]:
+    """A per-match judge's guide, derived from the scenario and the log alone.
+
+    Four sections a human evaluator reads to score coordination quality:
+    ``scenario`` (objectives + the coordination pressure the map creates),
+    ``key_moments`` (log-computed inflection points, each a ``#tN`` deep link),
+    ``judging`` (the cooperation-v1 signals explained with this match's real
+    numbers), and ``checklist`` (how to review: opening/midgame/endgame, real
+    delegation vs pseudo-coordination, where dead time and collisions show).
+    """
+    initial = log.initial_state
+    final = log.final_state()
+
+    frame_turns = sorted({initial.turn} | {e.turn for e in log.events})
+    frame_set = set(frame_turns)
+
+    def snap(turn: int) -> int:
+        """Snap any turn onto the nearest existing frame, so a deep link that
+        points at (say) an idle turn with no events still resolves on click."""
+        if turn in frame_set:
+            return turn
+        below = [t for t in frame_turns if t <= turn]
+        return below[-1] if below else frame_turns[0]
+
+    try:
+        scenario: Scenario | None = get_scenario(initial.scenario_id)
+    except Exception:  # noqa: BLE001 - a generated/unknown id just loses the prose extras
+        scenario = None
+
+    guide: dict[str, Any] = {
+        "scenario": _scenario_facts(initial, scenario),
+        "phases": _phases(initial, frame_turns),
+        "key_moments": _key_moments(log, final, snap),
+        "judging": _judging(log),
+    }
+    guide["checklist"] = _checklist(log, guide, snap)
+
+    turns: set[int] = {m["turn"] for m in guide["key_moments"]}
+    for jt in guide["judging"].values():
+        example_turn = jt["message_utility"]["example_turn"]
+        if example_turn is not None:
+            turns.add(snap(int(example_turn)))
+    for item in guide["checklist"]:
+        turns.update(item["turns"])
+    guide["deep_link_turns"] = sorted(turns)
+    return guide
+
+
+def _scenario_facts(initial: MatchState, scenario: Scenario | None) -> dict[str, Any]:
+    """Section (a): what the scenario asks for and why it forces coordination."""
+    objectives = []
+    for m in initial.missions:
+        pos = tuple(m.pos)
+        if m.kind == "deliver":
+            text = (
+                f"{m.id}: deliver {m.amount} resources to the drop at {pos} — worth {m.reward} pts"
+            )
+        elif m.kind == "hold":
+            text = f"{m.id}: hold the point at {pos} for {m.amount} turns — worth {m.reward} pts"
+        else:
+            text = f"{m.id}: {m.kind} {m.amount} at {pos} — worth {m.reward} pts"
+        objectives.append(
+            {
+                "id": m.id,
+                "kind": m.kind,
+                "pos": list(m.pos),
+                "amount": m.amount,
+                "reward": m.reward,
+                "text": text,
+            }
+        )
+
+    roles = _roles_facts(initial, scenario)
+    if initial.mode == "cooperative":
+        win = (
+            f"One team versus the clock: complete every mission before turn "
+            f"{initial.turn_limit}. There is no opponent — the pressure is the turn budget "
+            f"and the map, and the only score that separates runs is cooperation quality."
+        )
+    else:
+        win = (
+            f"Two teams; the winner is the higher outcome total at turn {initial.turn_limit} "
+            f"(or an earlier decisive lead). Outcome = mission rewards + {CP_POINTS} per control "
+            f"point held at the end + delivered resources."
+        )
+
+    return {
+        "id": initial.scenario_id,
+        "name": scenario.name if scenario else initial.scenario_id,
+        "description": scenario.description if scenario else "",
+        "mode": initial.mode,
+        "turn_limit": initial.turn_limit,
+        "grid": {"width": initial.grid_width, "height": initial.grid_height},
+        "teams": [
+            {"id": t.id, "name": t.name, "roles": [a.role for a in t.agents]} for t in initial.teams
+        ],
+        "objectives": objectives,
+        "control_points": [{"id": c.id, "pos": list(c.pos)} for c in initial.control_points],
+        "resource_nodes": [
+            {"id": r.id, "pos": list(r.pos), "remaining": r.remaining}
+            for r in initial.resource_nodes
+        ],
+        "roles": roles,
+        "win_condition": win,
+        "coordination_pressure": _coordination_pressure(initial, roles),
+    }
+
+
+def _roles_facts(initial: MatchState, scenario: Scenario | None) -> list[dict[str, Any]]:
+    order: list[str] = list(scenario.unit_roles) if scenario else []
+    if not order:
+        for u in initial.units:
+            if u.role not in order:
+                order.append(u.role)
+    out: list[dict[str, Any]] = []
+    for role in order:
+        entry: dict[str, Any] = {"role": role}
+        if scenario is not None:
+            try:
+                stats = scenario.stats_for(role)
+            except ValueError:
+                stats = None
+            if stats is not None:
+                entry.update(
+                    {
+                        "move": stats.move,
+                        "carry": stats.carry,
+                        "vision": stats.vision,
+                        "can_gather": stats.can_gather,
+                        "can_capture": stats.can_capture,
+                        "analog": stats.analog,
+                    }
+                )
+        out.append(entry)
+    return out
+
+
+def _coordination_pressure(initial: MatchState, roles: list[dict[str, Any]]) -> list[str]:
+    lines = [
+        f"{len(initial.missions)} missions and {len(initial.control_points)} control points "
+        f"must be handled in parallel inside a {initial.turn_limit}-turn budget — one seat "
+        f"cannot be everywhere, so the team has to split the board.",
+    ]
+    stat_roles = [r for r in roles if "move" in r]
+    if stat_roles:
+        fastest = max(stat_roles, key=lambda r: r["move"])
+        haulier = max(stat_roles, key=lambda r: r["carry"])
+        if fastest["role"] != haulier["role"]:
+            lines.append(
+                f"Roles are lopsided by design: {fastest['role']} moves {fastest['move']} but "
+                f"carries only {fastest['carry']}; {haulier['role']} carries {haulier['carry']} "
+                f"but crawls at move {haulier['move']}. No unit can scout, haul, and hold at once."
+            )
+        noecon = [
+            r
+            for r in stat_roles
+            if not r.get("can_gather", True) and not r.get("can_capture", True)
+        ]
+        if noecon:
+            names = ", ".join(r["role"] for r in noecon)
+            lines.append(
+                f"{names} cannot gather or capture at all (engine-enforced) — they only pay off "
+                f"by turning vision and messages into a teammate's action. A team that ignores "
+                f"them wastes a seat."
+            )
+    return lines
+
+
+def _phase_chunks(
+    initial: MatchState, frame_turns: list[int]
+) -> tuple[list[int], list[int], list[int]]:
+    playable = [t for t in frame_turns if t > initial.turn]
+    if not playable:
+        return [initial.turn], [initial.turn], [initial.turn]
+    k = max(1, math.ceil(len(playable) / 3))
+    opening, midgame, endgame = playable[:k], playable[k : 2 * k], playable[2 * k :]
+    if not midgame:
+        midgame = [opening[-1]]
+    if not endgame:
+        endgame = [midgame[-1]]
+    return opening, midgame, endgame
+
+
+def _phases(initial: MatchState, frame_turns: list[int]) -> dict[str, list[int]]:
+    opening, midgame, endgame = _phase_chunks(initial, frame_turns)
+    return {
+        "opening": [opening[0], opening[-1]],
+        "midgame": [midgame[0], midgame[-1]],
+        "endgame": [endgame[0], endgame[-1]],
+    }
+
+
+def _longest_run(sorted_turns: list[int]) -> list[int]:
+    best = [sorted_turns[0]]
+    cur = [sorted_turns[0]]
+    for t in sorted_turns[1:]:
+        if t == cur[-1] + 1:
+            cur.append(t)
+        else:
+            if len(cur) > len(best):
+                best = cur
+            cur = [t]
+    return cur if len(cur) > len(best) else best
+
+
+def _longest_idle(acting: list[int], lo: int, hi: int) -> tuple[int, int] | None:
+    if lo > hi:
+        return None
+    acting_set = set(acting)
+    idle_turns = [t for t in range(lo, hi + 1) if t not in acting_set]
+    if not idle_turns:
+        return None
+    run = _longest_run(idle_turns)
+    return (run[0], run[-1])
+
+
+def _key_moments(
+    log: MatchLog, final: MatchState, snap: Callable[[int], int]
+) -> list[dict[str, Any]]:
+    """Section (b): the inflection points a reviewer should scrub to, computed
+    from the log — first capture, mission completions, rejection clusters,
+    delivery streaks, and the longest idle span per team."""
+    initial = log.initial_state
+    events = log.events
+    team_ids = [t.id for t in initial.teams]
+    moments: list[dict[str, Any]] = []
+
+    caps = sorted(
+        (e for e in events if e.kind == "control_point_captured"), key=lambda e: (e.turn, e.seq)
+    )
+    if caps:
+        e = caps[0]
+        moments.append(
+            {
+                "turn": e.turn,
+                "kind": "first_capture",
+                "team": e.data.get("team_id"),
+                "title": f"{e.data.get('team_id')} captures {e.data.get('cp_id')}",
+                "detail": (
+                    "First control point taken. Step back a turn or two: did a teammate call this "
+                    "target before the capture (delegation), or did a lone unit wander onto it "
+                    "(parallel play)?"
+                ),
+            }
+        )
+
+    completions: dict[str, dict[str, Any]] = {}
+    for e in events:
+        if e.kind == "mission_completed":
+            info = completions.setdefault(e.data["mission_id"], {"turn": e.turn, "teams": []})
+            info["teams"].append(e.data["team_id"])
+    for mid, info in sorted(completions.items(), key=lambda kv: (kv[1]["turn"], kv[0])):
+        teams = sorted(set(info["teams"]))
+        moments.append(
+            {
+                "turn": info["turn"],
+                "kind": "mission_completed",
+                "team": teams[0] if len(teams) == 1 else None,
+                "title": f"{' + '.join(teams)} complete {mid}",
+                "detail": (
+                    "A mission pays off. Scrub back and reconstruct the setup chain that earned "
+                    "it — a coordinated team's completion is the visible consequence of earlier "
+                    "moves, not a lucky turn."
+                ),
+            }
+        )
+
+    rejections = sorted(e.turn for e in events if e.kind == "action_rejected")
+    if rejections:
+        run = _longest_run(rejections)
+        count = sum(1 for t in rejections if run[0] <= t <= run[-1])
+        span = f"turn {run[0]}" if run[0] == run[-1] else f"turns {run[0]}–{run[-1]}"
+        moments.append(
+            {
+                "turn": run[0],
+                "kind": "rejection",
+                "team": None,
+                "title": f"{count} rejected order{'s' if count != 1 else ''} at {span}",
+                "detail": (
+                    "A rejected order is wasted delegation — an out-of-range or illegal move that "
+                    "burns a seat's turn. Check whether the team recovered next turn or kept "
+                    "throwing bad orders."
+                ),
+            }
+        )
+
+    for tid in team_ids:
+        deliveries = sorted(
+            {
+                e.turn
+                for e in events
+                if e.kind == "resource_delivered" and e.data.get("team_id") == tid
+            }
+        )
+        if deliveries:
+            run = _longest_run(deliveries)
+            if len(run) >= 2:
+                moments.append(
+                    {
+                        "turn": run[0],
+                        "kind": "delivery_streak",
+                        "team": tid,
+                        "title": f"{tid} delivery streak, turns {run[0]}–{run[-1]}",
+                        "detail": (
+                            "A sustained gather→deliver loop. Watch the handoff cadence — a "
+                            "clean relay keeps the harvester fed and the drop flowing without "
+                            "collisions."
+                        ),
+                    }
+                )
+        acting = sorted(
+            {e.turn for e in events if e.kind == "action_declared" and e.data.get("team_id") == tid}
+        )
+        gap = _longest_idle(acting, initial.turn + 1, final.turn)
+        if gap and (gap[1] - gap[0] + 1) >= 2:
+            moments.append(
+                {
+                    "turn": snap(gap[0]),
+                    "kind": "idle",
+                    "team": tid,
+                    "title": f"{tid} quiet, turns {gap[0]}–{gap[1]}",
+                    "detail": (
+                        "This team declared no action across this stretch. Dead time is the "
+                        "clearest sign of missing coordination — scrub here and decide: a "
+                        "deliberate hold, or a stall?"
+                    ),
+                }
+            )
+
+    moments.sort(key=lambda m: (m["turn"], _MOMENT_ORDER.get(m["kind"], 9), m["title"]))
+    for m in moments:
+        m["anchor"] = f"#t{m['turn']}"
+    return moments
+
+
+def _first_useful_message(log: MatchLog, team_id: str, index: Any) -> tuple[int, str] | None:
+    """The first team message whose named referent a teammate then realized —
+    the 'click here to see one' example for message-utility (reuses cooperation
+    v1's own correlation machinery, exactly as the span probe does)."""
+    messages = sorted(
+        (
+            (e.turn, e.seq, str(e.data.get("text", "")))
+            for e in log.events
+            if e.kind == "message_sent" and e.data.get("team_id") == team_id
+        ),
+        key=lambda x: (x[0], x[1]),
+    )
+    for turn, _seq, text in messages:
+        if _utterance_useful(index, team_id, turn, text, CORRELATION_WINDOW):
+            return (turn, text)
+    return None
+
+
+def _judging(log: MatchLog) -> dict[str, Any]:
+    """Section (c): the cooperation-v1 signals explained with this match's real
+    numbers, plus the span-of-control read that separates real delegation from a
+    single mind narrating personas it never fielded."""
+    initial = log.initial_state
+    cooperation = score_match(log, version="v1")["cooperation"]
+    probe = probe_match(log)["teams"]
+    index = _build_action_index(log)
+
+    out: dict[str, Any] = {}
+    for team in initial.teams:
+        tid = team.id
+        coop = cooperation[tid]
+        comps = coop["components"]
+        ds, mu = comps["delegation_spread"], comps["message_utility"]
+        pf, dis = comps["plan_fidelity"], comps["discipline"]
+        example = _first_useful_message(log, tid, index)
+        pr = probe.get(tid, {})
+        out[tid] = {
+            "team_name": team.name,
+            "cooperation_score": coop["score"],
+            "signals": coop["signals"],
+            "delegation_spread": {
+                **ds,
+                "plain": (
+                    f"{ds['base_spread']:.0%} of the roster acted per active turn, minus a "
+                    f"{ds['penalty']:.0%} tax for a {ds['rejection_rate']:.0%} rejection rate "
+                    f"→ {ds['value']:.2f}. One hero doing everything scores low."
+                ),
+            },
+            "message_utility": {
+                "messages": mu["messages"],
+                "useful": mu["useful"],
+                "value": mu["value"],
+                "example_turn": example[0] if example else None,
+                "example_text": example[1] if example else None,
+                "example_anchor": f"#t{example[0]}" if example else None,
+                "plain": (
+                    f"{mu['useful']} of {mu['messages']} team messages named something a teammate "
+                    f"then did within {CORRELATION_WINDOW} turns → {mu['value']:.2f}. "
+                    f"Referent-free chatter never scores."
+                ),
+            },
+            "plan_fidelity": {
+                **pf,
+                "plain": (
+                    f"{pf['useful']} of {pf['plans']} declared plans were followed through within "
+                    f"{PLAN_WINDOW} turns → {pf['value']:.2f}."
+                ),
+            },
+            "discipline": {
+                **dis,
+                "plain": (
+                    f"{dis['declared'] - dis['rejected']} of {dis['declared']} declared orders "
+                    f"were legal ({dis['rejected']} rejected) → {dis['value']:.2f}."
+                ),
+            },
+            "span": {
+                "span": pr.get("span"),
+                "roster_size": pr.get("roster_size"),
+                "evidence": pr.get("evidence"),
+                "plain": (
+                    f"{pr.get('span')} of {pr.get('roster_size')} seats show real acting evidence "
+                    f"({pr.get('evidence')} mode). A team that only names subagents with no log "
+                    f"evidence fields zero — that is pseudo-coordination, not delegation."
+                ),
+            },
+        }
+    return out
+
+
+def _mu_sentence(judging: dict[str, Any]) -> str:
+    parts = []
+    for tid, jt in judging.items():
+        mu = jt["message_utility"]
+        piece = f"{tid}: {mu['useful']}/{mu['messages']} messages realized"
+        if mu["example_anchor"]:
+            piece += f" (click {mu['example_anchor']} for one)"
+        parts.append(piece)
+    return "This match — " + "; ".join(parts) + "."
+
+
+def _span_sentence(judging: dict[str, Any]) -> str:
+    parts = [
+        f"{tid}: span {jt['span']['span']}/{jt['span']['roster_size']}"
+        for tid, jt in judging.items()
+    ]
+    return "This match — " + "; ".join(parts) + "."
+
+
+def _checklist(
+    log: MatchLog, guide: dict[str, Any], snap: Callable[[int], int]
+) -> list[dict[str, Any]]:
+    """Section (d): the 'how to review' checklist — opening/midgame/endgame,
+    real delegation vs pseudo-coordination, and where dead time/collisions show.
+    Every item points at concrete #tN turns to scrub to."""
+    initial = log.initial_state
+    frame_turns = sorted({initial.turn} | {e.turn for e in log.events})
+    opening, midgame, endgame = _phase_chunks(initial, frame_turns)
+    moments = guide["key_moments"]
+    judging = guide["judging"]
+
+    plan_turns = sorted(e.turn for e in log.events if e.kind == "plan_declared")
+    opening_turns = sorted(set([opening[0]] + plan_turns[:1]))
+
+    mid_events = sorted(
+        {
+            m["turn"]
+            for m in moments
+            if m["kind"] in ("first_capture", "mission_completed")
+            and midgame[0] <= m["turn"] <= midgame[-1]
+        }
+    )
+    example_turns = sorted(
+        {
+            jt["message_utility"]["example_turn"]
+            for jt in judging.values()
+            if jt["message_utility"]["example_turn"] is not None
+        }
+    )
+    midgame_turns = mid_events or example_turns or [midgame[0]]
+
+    endgame_missions = sorted(
+        {
+            m["turn"]
+            for m in moments
+            if m["kind"] == "mission_completed" and endgame[0] <= m["turn"] <= endgame[-1]
+        }
+    )
+    endgame_turns = endgame_missions or [endgame[-1]]
+
+    rejection_turns = sorted({m["turn"] for m in moments if m["kind"] == "rejection"})
+    idle_turns = sorted({m["turn"] for m in moments if m["kind"] == "idle"})
+
+    endgame_labels = ", ".join(f"t{t}" for t in endgame_turns)
+    rejection_note = f" (see turn {rejection_turns[0]})" if rejection_turns else ""
+    idle_note = f" is around turn {idle_turns[0]}" if idle_turns else " is short in this match"
+
+    checklist = [
+        {
+            "phase": "opening",
+            "title": "Opening — did the team break the board up?",
+            "turns": opening_turns,
+            "check": (
+                f"Open the feed at turn {opening[0]}. Read the declared plan and the first "
+                f"messages. A coordinating team starts with a plan on record and every seat "
+                f"heading to a different objective; units clustered on one cell with no plan is "
+                f"not coordination."
+            ),
+        },
+        {
+            "phase": "midgame",
+            "title": "Midgame — real delegation or narration?",
+            "turns": midgame_turns,
+            "check": (
+                "For each message that names a target (a control point, node, cell, or teammate), "
+                "scrub forward one or two turns and check a teammate actually went there. Messages "
+                "a teammate then realizes are delegation; chatter nobody acts on is "
+                "pseudo-coordination. " + _mu_sentence(judging)
+            ),
+        },
+        {
+            "phase": "endgame",
+            "title": "Endgame — did earlier moves compound?",
+            "turns": endgame_turns,
+            "check": (
+                f"Watch the missions close ({endgame_labels}). A coordinated endgame is the "
+                f"payoff of setup you already watched happen; a scramble of last-turn deliveries "
+                f"with idle seats before it is not."
+            ),
+        },
+        {
+            "phase": "pseudo-vs-real",
+            "title": "Pseudo-coordination vs real delegation",
+            "turns": rejection_turns or midgame_turns,
+            "check": (
+                "Pseudo-coordination looks like: many messages with low message-utility; a "
+                "rejection cluster of wasted orders" + rejection_note + "; a span below the roster "
+                "size — one mind narrating several personas it never actually fielded. Real "
+                "delegation: each seat evidenced acting, and its span equals the roster. "
+                + _span_sentence(judging)
+            ),
+        },
+        {
+            "phase": "dead-time",
+            "title": "Dead time and collisions",
+            "turns": idle_turns or [endgame[-1]],
+            "check": (
+                "The longest stretch a team declared nothing" + idle_note + " — scrub there and "
+                "decide deliberate hold vs stall. Also watch for units stacked on one cell and "
+                "not moving (a screen is deliberate; a pile-up that blocks the drop is a "
+                "collision) and any unit that never leaves spawn."
+            ),
+        },
+    ]
+    for item in checklist:
+        item["turns"] = sorted({snap(int(t)) for t in item["turns"] if t is not None})
+    return checklist
 
 
 def render_html(log: MatchLog) -> str:
@@ -356,6 +939,60 @@ footer kbd {
   font-family: var(--font); background: var(--chip); border: 1px solid var(--ring);
   border-radius: 5px; padding: 1px 6px; font-size: 11px; color: var(--ink-2);
 }
+/* Assessor guide — a collapsible panel in the wave-0 card system. Text wears
+   ink tokens; deep links wear the team-0 hue (an interactive affordance, not a
+   team identity). No new palette entries. */
+.guide { margin-top: 18px; }
+.guide > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+}
+.guide > summary::-webkit-details-marker { display: none; }
+.guide > summary h2 { margin-bottom: 0; }
+.guide > summary::after {
+  content: "\\25B8"; color: var(--muted); margin-left: auto; transition: transform .2s ease;
+}
+.guide[open] > summary::after { transform: rotate(90deg); }
+#guide-body { margin-top: 16px; display: grid; gap: 22px; }
+.guide-h {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); margin-bottom: 9px;
+}
+.guide-p { color: var(--ink-2); margin-bottom: 6px; }
+.guide-p.muted-p { color: var(--muted); font-size: 13px; }
+.guide-list { margin: 4px 0 8px 18px; color: var(--ink-2); }
+.guide-list li { margin-bottom: 3px; }
+.guide-link {
+  color: var(--team-0); text-decoration: none; font-variant-numeric: tabular-nums;
+  border-bottom: 1px dotted var(--team-0); white-space: nowrap;
+}
+.guide-link:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.guide-moment {
+  display: flex; gap: 11px; align-items: baseline; padding: 8px 0;
+  border-top: 1px solid var(--grid);
+}
+.guide-moment:first-of-type { border-top: none; }
+.guide-moment-title { color: var(--ink); font-weight: 600; }
+.guide-moment-detail { color: var(--ink-2); font-size: 13px; margin-top: 1px; }
+.guide-jteam {
+  background: var(--chip); border: 1px solid var(--ring); border-radius: var(--r-md);
+  padding: 12px 13px; margin-bottom: 10px;
+}
+.guide-jhead { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.guide-jname { font-weight: 640; color: var(--ink); }
+.guide-sig { display: flex; gap: 12px; margin-bottom: 5px; }
+.guide-sig-l {
+  flex: 0 0 118px; color: var(--muted); font-size: 11.5px; text-transform: uppercase;
+  letter-spacing: .04em; padding-top: 1px;
+}
+.guide-sig-v { color: var(--ink-2); font-size: 13px; min-width: 0; }
+.guide-example { margin-top: 7px; font-size: 12.5px; color: var(--ink-2); }
+.guide-quote { color: var(--ink); font-style: italic; }
+.guide-check { padding: 8px 0; border-top: 1px solid var(--grid); }
+.guide-check:first-of-type { border-top: none; }
+.guide-check-title { color: var(--ink); font-weight: 600; margin-bottom: 2px; }
+.guide-check-body { color: var(--ink-2); font-size: 13px; }
+.guide-check-links { margin-top: 5px; font-size: 12.5px; color: var(--muted); }
+@media (max-width: 560px) { .guide-sig { flex-direction: column; gap: 2px; } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     transition-duration: 1ms !important; animation-duration: 1ms !important;
@@ -404,8 +1041,13 @@ footer kbd {
       <div class="card"><h2>Final score</h2><div id="scores"></div></div>
     </div>
   </div>
+  <details class="card guide" id="guide" open>
+    <summary><h2>Assessor guide &mdash; how to judge this match</h2></summary>
+    <div id="guide-body"></div>
+  </details>
   <footer>Replay rendered from the match log &mdash; the same record agents read as JSON.
-    <kbd>&larr;</kbd> <kbd>&rarr;</kbd> step turns, <kbd>space</kbd> plays.</footer>
+    <kbd>&larr;</kbd> <kbd>&rarr;</kbd> step turns, <kbd>space</kbd> plays; the guide's
+    <span class="guide-link">t&#8202;N</span> links scrub to the turn.</footer>
 </div>
 <script id="match-data" type="application/json">__MATCH_DATA__</script>
 <script>
@@ -708,6 +1350,114 @@ function updateWinner() {
   }
 }
 
+// The embedded assessor guide. Every fact is computed server-side (M.guide);
+// this only lays it out. User-derived strings ride textContent, never innerHTML,
+// so the panel is XSS-safe by construction — no escaping dance.
+function gEl(tag, cls, text) {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (text != null) el.textContent = text;
+  return el;
+}
+function gLink(turn) {
+  const a = gEl('a', 'guide-link', 't' + turn);
+  a.href = '#t' + turn;
+  // Scrub in-page on click (works even re-clicking the current turn), and keep
+  // the #tN in the URL so the deep link stays shareable.
+  a.addEventListener('click', ev => { ev.preventDefault(); scrubToTurn(turn, true); });
+  return a;
+}
+function gSection(title) {
+  const s = gEl('div', 'guide-section');
+  s.appendChild(gEl('h3', 'guide-h', title));
+  return s;
+}
+function renderGuide() {
+  const G = M.guide;
+  if (!G) return;
+  const body = $('guide-body');
+  body.textContent = '';
+
+  // (a) This scenario — objectives, win condition, coordination pressure.
+  const sc = G.scenario;
+  const s1 = gSection('This scenario \\u2014 ' + sc.name);
+  s1.appendChild(gEl('p', 'guide-p', sc.win_condition));
+  const ul = gEl('ul', 'guide-list');
+  sc.objectives.forEach(o => ul.appendChild(gEl('li', null, o.text)));
+  s1.appendChild(ul);
+  sc.coordination_pressure.forEach(t => s1.appendChild(gEl('p', 'guide-p muted-p', t)));
+  body.appendChild(s1);
+
+  // (b) This match's key moments — each a clickable #tN deep link.
+  const s2 = gSection("This match's key moments");
+  if (!G.key_moments.length) {
+    s2.appendChild(gEl('p', 'guide-p', 'No standout events \\u2014 a quiet match.'));
+  }
+  G.key_moments.forEach(m => {
+    const row = gEl('div', 'guide-moment');
+    row.appendChild(gLink(m.turn));
+    const wrap = gEl('div', 'guide-moment-txt');
+    wrap.appendChild(gEl('div', 'guide-moment-title', m.title));
+    wrap.appendChild(gEl('div', 'guide-moment-detail', m.detail));
+    row.appendChild(wrap);
+    s2.appendChild(row);
+  });
+  body.appendChild(s2);
+
+  // (c) Judging coordination — the v1 signals in this match's own numbers.
+  const s3 = gSection('Judging coordination (cooperation v1)');
+  Object.keys(G.judging).forEach(tid => {
+    const jt = G.judging[tid];
+    const card = gEl('div', 'guide-jteam');
+    const head = gEl('div', 'guide-jhead');
+    const sw = gEl('span', 'swatch');
+    sw.style.background = teamColor(tid);
+    head.appendChild(sw);
+    head.appendChild(gEl('span', 'guide-jname',
+      jt.team_name + ' \\u2014 cooperation ' + jt.cooperation_score + '/100'));
+    card.appendChild(head);
+    [['delegation spread', jt.delegation_spread.plain],
+     ['message utility', jt.message_utility.plain],
+     ['plan fidelity', jt.plan_fidelity.plain],
+     ['discipline', jt.discipline.plain],
+     ['span of control', jt.span.plain]].forEach(pair => {
+      const r = gEl('div', 'guide-sig');
+      r.appendChild(gEl('span', 'guide-sig-l', pair[0]));
+      r.appendChild(gEl('span', 'guide-sig-v', pair[1]));
+      card.appendChild(r);
+    });
+    if (jt.message_utility.example_turn != null) {
+      const ex = gEl('div', 'guide-example');
+      ex.appendChild(document.createTextNode('a message that landed: '));
+      ex.appendChild(gLink(jt.message_utility.example_turn));
+      ex.appendChild(gEl('span', 'guide-quote',
+        ' \\u201C' + jt.message_utility.example_text + '\\u201D'));
+      card.appendChild(ex);
+    }
+    s3.appendChild(card);
+  });
+  body.appendChild(s3);
+
+  // (d) How to review — the checklist, each item pointing at scrub turns.
+  const s4 = gSection('How to review this match');
+  G.checklist.forEach(c => {
+    const item = gEl('div', 'guide-check');
+    item.appendChild(gEl('div', 'guide-check-title', c.title));
+    item.appendChild(gEl('div', 'guide-check-body', c.check));
+    if (c.turns && c.turns.length) {
+      const links = gEl('div', 'guide-check-links');
+      links.appendChild(document.createTextNode('scrub to '));
+      c.turns.forEach((tn, i) => {
+        if (i) links.appendChild(document.createTextNode(' \\u00B7 '));
+        links.appendChild(gLink(tn));
+      });
+      item.appendChild(links);
+    }
+    s4.appendChild(item);
+  });
+  body.appendChild(s4);
+}
+
 function render(forward) {
   const f = M.frames[frame];
   const flooded = (forward && !reduce) ? capturesOf(frame) : new Set();
@@ -763,6 +1513,21 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowRight') go(frame + 1);
   else if (e.key === ' ') { e.preventDefault(); toggle(); }
 });
+// The guide's #tN links scrub in-page to the turn a moment or checklist item
+// points at, and bring the board into view. Shared by the link click handler
+// and the hashchange listener (so a pasted #tN in the address bar works too).
+function scrubToTurn(turn, updateHash) {
+  const idx = M.frames.findIndex(f => f.turn === +turn);
+  if (idx < 0) return;
+  // replaceState updates the URL without firing hashchange (no double-scrub).
+  if (updateHash && history.replaceState) history.replaceState(null, '', '#t' + turn);
+  stop(); go(idx);
+  $('board-box').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+}
+window.addEventListener('hashchange', () => {
+  const t = (location.hash.match(/^#t(\\d+)$/) || [])[1];
+  if (t != null) scrubToTurn(t, false);
+});
 $('theme-toggle').onclick = () => {
   const root = document.documentElement;
   const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -787,6 +1552,7 @@ if (hashTurn != null) {
   if (idx >= 0) frame = idx;
 }
 drawScores();
+renderGuide();
 render(false);
 // Let the first paint land at rest, then arm the movement transitions.
 requestAnimationFrame(() => document.body.classList.remove('booting'));

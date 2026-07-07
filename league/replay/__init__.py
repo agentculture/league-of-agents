@@ -8,7 +8,13 @@ consumers read); ``render_html`` wraps it in a single self-contained page;
 terminal face — see :mod:`league.replay.tui`.
 """
 
-from league.replay.html import build_replay_data, render_html
+from league.replay.html import build_assessor_guide, build_replay_data, render_html
 from league.replay.tui import render_frame, run_interactive_shell
 
-__all__ = ["build_replay_data", "render_html", "render_frame", "run_interactive_shell"]
+__all__ = [
+    "build_assessor_guide",
+    "build_replay_data",
+    "render_html",
+    "render_frame",
+    "run_interactive_shell",
+]
