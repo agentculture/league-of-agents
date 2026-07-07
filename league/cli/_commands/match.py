@@ -233,11 +233,28 @@ def cmd_match_show(args: argparse.Namespace) -> int:
         living_actions = {
             unit.id: legal_actions(state, scenario, unit.id) for unit in state.units if unit.alive
         }
+        # The rejections from the most recently resolved turn — the harness's
+        # rejection-feedback loop (spec c8/h5): a seat that never learns why an
+        # order was rejected repeats it for the whole match (season-0
+        # coordination playtest: 19 of 53 orders). ``event.turn`` on an
+        # ``action_rejected`` is the turn it was rejected in; that equals
+        # ``state.turn`` right after the fold, so this is exactly "last turn",
+        # never a history dump.
+        last_turn_rejections = [
+            {
+                "team_id": event.data.get("team_id"),
+                "unit_id": event.data.get("unit_id"),
+                "reason": event.data.get("reason"),
+            }
+            for event in log.events
+            if event.kind == "action_rejected" and event.turn == state.turn
+        ]
         emit_result(
             {
                 "state": state.to_dict(),
                 "staged_teams": pending,
                 "legal_actions": living_actions,
+                "last_turn_rejections": last_turn_rejections,
                 "driver_kinds": log.driver_kinds,
             },
             json_mode=True,
