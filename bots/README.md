@@ -75,6 +75,7 @@ one unambiguous meaning across the whole roster:
 | ------ | ------------------ | ----------------------------------------------------------------------------------- |
 | bronze | `shambler.py`       | Holds every turn, forever — legal every time, never plays for anything.             |
 | silver | `rusher.py`         | Every unit rushes its own nearest control point, then holds; no economy.            |
+| silver | `lampbearer.py`     | Rusher's rush, played fog-fair: explores toward never-seen cells until a control point is known, then rushes it (see the fog-aware section below).                           |
 | gold   | `vanguard.py`       | Harvester runs the deliver/gather economy off `legal_actions`; scout and defender claim *distinct* control points instead of duplicating coverage the way rusher's units do. |
 
 Recorded proof that the ordering holds — gold beating silver, and silver

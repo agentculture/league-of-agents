@@ -54,6 +54,10 @@ from __future__ import annotations
 
 from typing import Any
 
+# Same rush strategy as rusher.py, played from the fogged view — the roster
+# tier measures the strategy's strength, not its information diet.
+TIER = "silver"
+
 
 def _manhattan(a: list[int], b: list[int]) -> int:
     return abs(a[0] - b[0]) + abs(a[1] - b[1])

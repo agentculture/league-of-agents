@@ -20,6 +20,7 @@ from typing import Any
 
 import pytest
 
+import bots.lampbearer as lampbearer
 import bots.rusher as rusher
 import bots.shambler as shambler
 import bots.vanguard as vanguard
@@ -423,7 +424,7 @@ def test_build_driver_rejects_unknown_type_mentions_bot_file() -> None:
 
 
 def test_every_roster_bot_declares_a_tier_from_the_ordered_vocabulary() -> None:
-    for module in (shambler, rusher, vanguard):
+    for module in (shambler, rusher, vanguard, lampbearer):
         tier = getattr(module, "TIER", None)
         assert (
             tier in TIER_ORDER
