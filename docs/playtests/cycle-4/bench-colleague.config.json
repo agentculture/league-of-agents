@@ -1,0 +1,67 @@
+{
+ "match": {
+  "scenario": "skirmish-1",
+  "mode": "competitive",
+  "seed": 20260710,
+  "id": "m-bench-colleague-solo"
+ },
+ "teams": [
+  {
+   "id": "solo",
+   "name": "Solo Agent",
+   "driver": {
+    "type": "command",
+    "solo": true,
+    "argv": [
+     "python3",
+     "scripts/colleague_driver.py",
+     "--model",
+     "sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP"
+    ],
+    "timeout": 420
+   },
+   "agents": [
+    {
+     "id": "solo-1",
+     "model": "colleague-agent/qwen3.6-27b",
+     "role": "scout"
+    },
+    {
+     "id": "solo-2",
+     "model": "colleague-agent/qwen3.6-27b",
+     "role": "harvester"
+    },
+    {
+     "id": "solo-3",
+     "model": "colleague-agent/qwen3.6-27b",
+     "role": "defender"
+    }
+   ]
+  },
+  {
+   "id": "house",
+   "name": "House Rusher (silver)",
+   "driver": {
+    "type": "bot-file",
+    "strategy": "rusher"
+   },
+   "agents": [
+    {
+     "id": "house-1",
+     "model": "bot-file:rusher",
+     "role": "scout"
+    },
+    {
+     "id": "house-2",
+     "model": "bot-file:rusher",
+     "role": "harvester"
+    },
+    {
+     "id": "house-3",
+     "model": "bot-file:rusher",
+     "role": "defender"
+    }
+   ]
+  }
+ ]
+}

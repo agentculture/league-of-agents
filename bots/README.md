@@ -64,6 +64,31 @@ def decide(show_json: dict, team_id: str) -> dict:
   module-level constants, but should treat every `decide` call as if it
   could be the first — the harness may re-load the module at any time.
 
+## House-bot roster: declared difficulty tiers
+
+(plan task t4, spec c12/h11) Every strategy in this directory declares a
+module-level `TIER` constant from one small, ordered vocabulary —
+**bronze < silver < gold** — so "a higher tier should beat a lower tier" has
+one unambiguous meaning across the whole roster:
+
+| Tier   | Bot                | Strategy, one line                                                                 |
+| ------ | ------------------ | ----------------------------------------------------------------------------------- |
+| bronze | `shambler.py`       | Holds every turn, forever — legal every time, never plays for anything.             |
+| silver | `rusher.py`         | Every unit rushes its own nearest control point, then holds; no economy.            |
+| silver | `lampbearer.py`     | Rusher's rush, played fog-fair: explores toward never-seen cells until a control point is known, then rushes it (see the fog-aware section below).                           |
+| gold   | `vanguard.py`       | Harvester runs the deliver/gather economy off `legal_actions`; scout and defender claim *distinct* control points instead of duplicating coverage the way rusher's units do. |
+
+Recorded proof that the ordering holds — gold beating silver, and silver
+beating bronze, over two seeds each (matches are deterministic; the `seed`
+carries no RNG, so re-running reproduces the same result) — lives under
+[`docs/playtests/house-tiers/`](../docs/playtests/house-tiers/); see that
+directory's [`house-tiers.report.md`](../docs/playtests/house-tiers/house-tiers.report.md)
+for the final scores and what each match's log shows actually happened on
+the board. `tests/test_bots.py` also re-runs the
+same two match-ups directly (`test_vanguard_gold_beats_rusher_silver`,
+`test_rusher_silver_beats_shambler_bronze`) as a fast, cheap regression
+check that the ordering keeps holding as the bots evolve.
+
 ## Reference strategy: `rusher.py`
 
 `rusher.py` is deliberately simple: every live unit on the team heads for
@@ -73,7 +98,40 @@ moving as far as its `legal_actions` entry allows toward that point each
 turn, and holding once it arrives. No economy play, no defense — a fixed,
 readable reference opponent, distinct from the harness's own in-process
 greedy bot (`league.harness.make_bot_driver`, which also runs the harvester
-economy and splits control points by role).
+economy and splits control points by role). It anchors the roster's middle
+(`silver`) tier — `shambler.py` (`bronze`) and `vanguard.py` (`gold`) are
+built as a deliberately weaker and a deliberately stronger strategy around
+it, per the roster table above.
+
+## Fog-aware strategy: `lampbearer.py`
+
+`lampbearer.py` is the fog-aware counterpart to `rusher.py` (plan task t3,
+spec c8/h4): it is written against the **fogged** public surface —
+`league match show --team <id> --fog --json` — never the full board. Every
+living unit heads for the nearest control point the team's knowledge fold
+has already seen or been told about (rusher's own rush, applied to what fog
+allows); once no control point is known yet, it falls back to an
+explore-toward-unknown baseline, heading each unit toward the nearest grid
+cell the team has never seen (`state["cells_seen"]`), so a fogged
+bot-vs-agent match gets an opponent that plays the same information game
+instead of cheating past the fog.
+
+Wire it up with the `bot-file` driver's opt-in `"fogged"` flag —
+`league.harness.make_bot_file_driver` then calls `match show --team <id>
+--fog` instead of the plain view. Without the flag, a `bot-file` strategy
+still gets the full board (today's default, unchanged for `rusher.py` or
+any strategy that doesn't declare itself fog-aware):
+
+```json
+{"type": "bot-file", "strategy": "lampbearer", "fogged": true}
+```
+
+A match that pairs a `"fogged": true` bot-file team against a fogged agent
+team needs no omniscience caveat in its report — the standing asymmetry
+warning (`league/harness.py`'s module docstring) applies only when a
+bot-file team's spec omits `"fogged"` (or when the in-harness `bot` driver,
+`league.harness.make_bot_driver`, is used at all — that policy stays
+full-information regardless, unchanged by this task).
 
 ## Wiring a bot into a match
 
@@ -103,8 +161,14 @@ agent-residency question.
    starting with a letter or digit — the same rule `league.store.validate_id`
    applies to every other id in this repo) — the loader validates it before
    ever touching the filesystem.
-3. Wire it up with `{"type": "bot-file", "strategy": "<name>"}` in a harness
+3. Declare a module-level `TIER` constant — one of `"bronze"`, `"silver"`,
+   `"gold"` (the roster's ordered vocabulary above) — and add a row to the
+   roster table describing the idea in one line.
+4. Wire it up with `{"type": "bot-file", "strategy": "<name>"}` in a harness
    match config.
-4. Add tests under `tests/test_bots.py` (or your own) proving it is
+5. Add tests under `tests/test_bots.py` (or your own) proving it is
    deterministic and stays inside the public surface — follow the existing
-   tests for `rusher.py` as a template.
+   tests for `rusher.py`/`shambler.py`/`vanguard.py` as a template. If your
+   new bot claims a place in the tier ordering, record a match proving it
+   (see `docs/playtests/house-tiers/generate_matches.py` for the pattern) and
+   update its report.

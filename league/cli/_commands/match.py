@@ -26,6 +26,7 @@ from league.engine.legal import legal_actions
 from league.engine.scenario import Scenario, get_scenario, instantiate
 from league.engine.scoring import score_match
 from league.engine.state import MatchState
+from league.engine.tempo import score_tempo
 from league.engine.tick import resolve_turn, start_match
 from league.faces import faces_app, render_brief_markdown
 from league.replay import build_replay_data, render_frame, render_html, run_interactive_shell
@@ -214,7 +215,8 @@ def cmd_match_overview(args: argparse.Namespace) -> int:
             "act": "stage a team's orders; resolves when all teams have staged "
             "(dry-run; --apply)",
             "tick": "force-resolve the turn with whatever is staged (dry-run; --apply)",
-            "score": "outcome + cooperation scores from the log",
+            "score": "outcome + cooperation + tempo scores from the log "
+            "(--substrate <team>=<name> to convert tempo)",
             "brief": "markdown briefing from the faces registry (--team for the fogged view)",
             "replay": "self-contained HTML replay on stdout",
             "tui": "replay-stepping terminal view: ground truth or --team fog "
@@ -612,10 +614,65 @@ def cmd_match_tick(args: argparse.Namespace) -> int:
     return 0
 
 
+# Tempo: the third scored axis (plan task t5, spec c4/h4). Substrate is
+# CALLER-DECLARED (a config/CLI flag), never guessed from timing —
+# ``--substrate <team>=<name>`` maps a team to a calibration substrate so the
+# read-time conversion (league.engine.tempo.score_tempo) can normalize its raw
+# wall-clock against that substrate's baseline. Omit it and a team's tempo falls
+# back to an identity conversion with a loud caveat — never a silent claim.
+
+
+def _substrates_from_args(args: argparse.Namespace, team_ids: list[str]) -> dict[str, str]:
+    substrates: dict[str, str] = {}
+    for spec in getattr(args, "substrate", None) or ():
+        team_id, sep, name = spec.partition("=")
+        if not sep or not team_id or not name:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"bad --substrate {spec!r}",
+                remediation="use --substrate <team-id>=<substrate-name> (e.g. blue=cloud)",
+            )
+        if team_id not in team_ids:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"--substrate references team {team_id!r}, not one of this match's teams",
+                remediation=f"teams here: {', '.join(team_ids) or 'none'}",
+            )
+        substrates[team_id] = name
+    return substrates
+
+
+def _tempo_line(payload: dict[str, Any]) -> str:
+    """One team's tempo, RAW ALWAYS BESIDE CONVERTED (the h4 honesty condition).
+
+    A converted tempo score is never printed without the raw median next to it;
+    a team with no latency data says so instead of inventing a number.
+    """
+    raw = payload.get("raw")
+    if raw is None:
+        return "tempo — (no latency data)"
+    converted = payload["converted"]
+    raw_str = f"median {raw['median_ms']}ms, p95 {raw['p95_ms']}ms"
+    if converted["substrate_known"]:
+        return (
+            f"tempo {converted['tempo_score']} "
+            f"[{raw_str}; {converted['substrate']} baseline "
+            f"{converted['baseline_ms']}ms, ratio {converted['ratio']}]"
+        )
+    return (
+        f"tempo {converted['tempo_score']} "
+        f"[unnormalized — {raw_str}; substrate undeclared/unknown, not substrate-fair]"
+    )
+
+
 def cmd_match_score(args: argparse.Namespace) -> int:
     json_mode = bool(getattr(args, "json", False))
     log = _load(Store(), args.match_id)
-    report = score_match(log)
+    report = score_match(log, version=getattr(args, "cooperation_version", "v0"))
+    # Tempo is a THIRD axis, computed at read time and published BESIDE outcome
+    # and cooperation — never merged into either (spec c4/h4).
+    substrates = _substrates_from_args(args, list(report["outcome"]))
+    report["tempo"] = score_tempo(log, substrates=substrates)
     if json_mode:
         emit_result(report, json_mode=True)
         return 0
@@ -625,7 +682,8 @@ def cmd_match_score(args: argparse.Namespace) -> int:
         lines.append(
             f"  {team_id}: outcome {outcome['total']} "
             f"(missions {outcome['missions']}, control {outcome['control']}, "
-            f"resources {outcome['resources']}), cooperation {coop['score']}/100"
+            f"resources {outcome['resources']}), cooperation {coop['score']}/100, "
+            f"{_tempo_line(report['tempo'][team_id])}"
         )
     emit_result("\n".join(lines), json_mode=False)
     return 0
@@ -898,9 +956,26 @@ def register(sub: argparse._SubParsersAction) -> None:
     tick.add_argument("--json", action="store_true", help="Emit structured JSON.")
     tick.set_defaults(func=cmd_match_tick)
 
-    score = noun_sub.add_parser("score", help="Outcome + cooperation scores from the log.")
+    score = noun_sub.add_parser("score", help="Outcome + cooperation + tempo scores from the log.")
     score.add_argument("match_id", help="Match id.")
     score.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    score.add_argument(
+        "--cooperation-version",
+        choices=("v0", "v1"),
+        default="v0",
+        help="Cooperation metric: v0 (cadence, default) or v1 (content-aware).",
+    )
+    score.add_argument(
+        "--substrate",
+        action="append",
+        metavar="TEAM=NAME",
+        help="Declare a team's substrate for tempo conversion — e.g. --substrate "
+        "blue=cloud (known: cloud/local/bot; unknown/undeclared falls back to an "
+        "identity conversion, raw latency shown, not substrate-normalized; "
+        "repeatable). Raw latency is ALWAYS printed beside the converted score. "
+        "See docs/tempo-methodology.md for the calibration/conversion methodology "
+        "and its own limits.",
+    )
     score.set_defaults(func=cmd_match_score)
 
     brief = noun_sub.add_parser(

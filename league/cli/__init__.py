@@ -70,6 +70,7 @@ def _build_parser() -> argparse.ArgumentParser:
     from league.cli._commands import learn as _learn_cmd
     from league.cli._commands import match as _match_group
     from league.cli._commands import overview as _overview_cmd
+    from league.cli._commands import play as _play_group
     from league.cli._commands import standings as _standings_cmd
     from league.cli._commands import team as _team_group
     from league.cli._commands import whoami as _whoami_cmd
@@ -99,6 +100,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _match_group.register(sub)
     _standings_cmd.register(sub)
     _harness_group.register(sub)
+    _play_group.register(sub)
     # Register your own noun groups here:
     #   from league.cli._commands import my_noun as _my_noun_group
     #   _my_noun_group.register(sub)

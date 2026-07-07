@@ -16,18 +16,29 @@ from __future__ import annotations
 import ast
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
+import bots.lampbearer as lampbearer
 import bots.rusher as rusher
+import bots.shambler as shambler
+import bots.vanguard as vanguard
 import league.harness as harness
 from league.cli import main
+from league.engine.events import MatchLog
 from league.engine.state import state_hash
 from league.harness import build_driver, driver_kind, run_match
 from league.store import Store
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BOTS_DIR = REPO_ROOT / "bots"
+
+# The roster's declared tier vocabulary (plan task t4, spec c12/h11) — a
+# small, ordered set so "higher tier" has one unambiguous meaning across the
+# whole bot lane. bots/README.md carries the human-readable roster table;
+# this is the machine-checked mirror of the same ordering.
+TIER_ORDER = ("bronze", "silver", "gold")
 
 # The same determinism bar the engine itself is held to
 # (tests/test_engine_state.py::test_engine_never_imports_time_or_random).
@@ -38,6 +49,14 @@ _BANNED_MODULES = {"random", "time", "datetime", "secrets", "uuid"}
 def arena(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     return tmp_path
+
+
+def _game_events(log: MatchLog) -> list[dict]:
+    """Every logged event except ``seat_latency`` (plan t1, spec c10/h9): real
+    wall-clock instrumentation the harness appends per turn, excluded here
+    because it varies run to run by construction even when game logic does
+    not — it is a fold no-op, never part of state-hash determinism."""
+    return [e.to_dict() for e in log.events if e.kind != "seat_latency"]
 
 
 def _register(team: str, model: str = "bot-file:rusher") -> list[str]:
@@ -289,8 +308,13 @@ def test_rusher_matches_are_deterministic_given_the_seed(tmp_path, monkeypatch, 
     capsys.readouterr()
     log2 = Store().load_match("m-rusher-det")
 
-    # Same config, same seed, played twice: byte-identical logs...
-    assert [e.to_dict() for e in log1.events] == [e.to_dict() for e in log2.events]
+    # Same config, same seed, played twice: byte-identical logs, MODULO
+    # `seat_latency` events (plan t1, spec c10/h9) — real wall-clock
+    # instrumentation the harness appends per turn, which by construction
+    # varies run to run even when everything the engine resolves does not.
+    # It is a fold no-op (league/engine/events.py OBSERVATION_KINDS), so it
+    # never touches game-logic determinism — see the exclusion below.
+    assert _game_events(log1) == _game_events(log2)
     # ...and therefore identical final-state hashes (the same fingerprint the
     # determinism CI gate compares — tests/test_determinism_gate.py).
     assert state_hash(log1.final_state()) == state_hash(log2.final_state())
@@ -401,3 +425,366 @@ def test_driver_kind_reports_bot_file_as_bot() -> None:
 def test_build_driver_rejects_unknown_type_mentions_bot_file() -> None:
     with pytest.raises(ValueError, match="bot-file"):
         build_driver({"type": "telepathy"}, {})
+
+
+# -- the house-bot roster: named strategies at declared difficulty tiers ----
+# (plan task t4, spec c12/h11) --------------------------------------------
+#
+# Three named strategies, three distinct tiers: bots/shambler.py (bronze,
+# legal-but-purposeless), bots/rusher.py (silver, the existing reference —
+# untouched), bots/vanguard.py (gold, runs the delivery economy AND splits
+# control points instead of letting units duplicate coverage). bots/README.md
+# carries the human roster table; TIER_ORDER above is its machine mirror.
+
+
+def test_every_roster_bot_declares_a_tier_from_the_ordered_vocabulary() -> None:
+    for module in (shambler, rusher, vanguard, lampbearer):
+        tier = getattr(module, "TIER", None)
+        assert (
+            tier in TIER_ORDER
+        ), f"{module.__name__}.TIER must be one of {TIER_ORDER}, got {tier!r}"
+
+
+def test_roster_covers_at_least_three_distinct_tiers() -> None:
+    tiers = {shambler.TIER, rusher.TIER, vanguard.TIER}
+    assert tiers == set(TIER_ORDER), "the roster must cover every declared tier exactly once"
+
+
+# -- criterion 1 (bronze): shambler is committed, readable, legal-but-poor --
+
+
+def test_shambler_strategy_is_committed_readable_source() -> None:
+    path = BOTS_DIR / "shambler.py"
+    assert path.is_file(), "bots/shambler.py must be committed source, not generated at runtime"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    top_level = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
+    assert "decide" in top_level, "bots/shambler.py must export a module-level decide(...)"
+
+
+def test_shambler_holds_every_turn_even_when_it_could_legally_move() -> None:
+    """The bronze floor: every declared action is legal (hold is always
+    legal), but the strategy never converts a legal move into progress
+    toward any control point, mission, or resource node — the 'poor
+    decisions' half of the bronze tier's contract."""
+    units = [
+        {
+            "id": "blue-u1",
+            "team_id": "blue",
+            "agent_id": "blue-1",
+            "role": "scout",
+            "pos": [0, 0],
+            "carrying": 0,
+            "alive": True,
+        }
+    ]
+    control_points = [{"id": "cp-near", "pos": [1, 0], "owner": None, "hold": []}]
+    legal_actions = {
+        "blue-u1": {
+            "move": [[0, 1], [1, 0], [1, 1]],
+            "gather": False,
+            "deliver": False,
+            "hold": True,
+        }
+    }
+    orders = shambler.decide(_show_json(units, control_points, legal_actions), "blue")
+
+    assert orders["actions"] == [{"unit_id": "blue-u1", "action": "hold"}]
+    assert orders["plan"].startswith("shambler:")
+
+
+def test_shambler_ignores_a_resource_node_it_is_standing_on() -> None:
+    """Even a 'free' gather right under its feet goes untaken — the bronze
+    tier's whole point is that it never plays for the economy either."""
+    units = [
+        {
+            "id": "blue-u1",
+            "team_id": "blue",
+            "agent_id": "blue-1",
+            "role": "harvester",
+            "pos": [0, 5],
+            "carrying": 0,
+            "alive": True,
+        }
+    ]
+    legal_actions = {
+        "blue-u1": {"move": [[0, 4], [1, 5]], "gather": True, "deliver": False, "hold": True}
+    }
+    show_json = _show_json(units, [], legal_actions)
+    show_json["state"]["turn"] = 3
+
+    orders = shambler.decide(show_json, "blue")
+
+    assert orders["actions"] == [{"unit_id": "blue-u1", "action": "hold"}]
+    assert "plan" not in orders
+
+
+def test_shambler_ignores_dead_units_and_the_other_teams_units() -> None:
+    units = [
+        {
+            "id": "blue-u1",
+            "team_id": "blue",
+            "agent_id": "blue-1",
+            "role": "scout",
+            "pos": [0, 0],
+            "carrying": 0,
+            "alive": False,
+        },
+        {
+            "id": "red-u1",
+            "team_id": "red",
+            "agent_id": "red-1",
+            "role": "scout",
+            "pos": [0, 0],
+            "carrying": 0,
+            "alive": True,
+        },
+    ]
+    orders = shambler.decide(_show_json(units, [], {}), "blue")
+    assert orders["actions"] == []
+
+
+# -- criterion 1 (gold): vanguard runs the economy + splits control points --
+
+
+def test_vanguard_strategy_is_committed_readable_source() -> None:
+    path = BOTS_DIR / "vanguard.py"
+    assert path.is_file(), "bots/vanguard.py must be committed source, not generated at runtime"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    top_level = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
+    assert "decide" in top_level, "bots/vanguard.py must export a module-level decide(...)"
+
+
+def _vanguard_show_json(units: list[dict], **extra: Any) -> dict:
+    state = {
+        "turn": 5,
+        "units": units,
+        "control_points": extra.get("control_points", []),
+        "missions": extra.get("missions", []),
+        "resource_nodes": extra.get("resource_nodes", []),
+    }
+    return {
+        "state": state,
+        "legal_actions": extra.get("legal_actions", {}),
+        "staged_teams": [],
+        "last_turn_rejections": [],
+        "driver_kinds": {},
+    }
+
+
+def test_vanguard_harvester_delivers_when_legal() -> None:
+    units = [
+        {
+            "id": "blue-u2",
+            "team_id": "blue",
+            "agent_id": "blue-2",
+            "role": "harvester",
+            "pos": [6, 5],
+            "carrying": 3,
+            "alive": True,
+        }
+    ]
+    missions = [{"id": "ms-supply", "kind": "deliver", "pos": [6, 5], "amount": 6, "reward": 10}]
+    legal_actions = {
+        "blue-u2": {"move": [[5, 5], [7, 5]], "gather": False, "deliver": True, "hold": True}
+    }
+    show_json = _vanguard_show_json(units, missions=missions, legal_actions=legal_actions)
+
+    orders = vanguard.decide(show_json, "blue")
+
+    assert orders["actions"] == [{"unit_id": "blue-u2", "action": "deliver"}]
+
+
+def test_vanguard_harvester_gathers_when_legal_and_not_yet_full() -> None:
+    units = [
+        {
+            "id": "blue-u2",
+            "team_id": "blue",
+            "agent_id": "blue-2",
+            "role": "harvester",
+            "pos": [0, 5],
+            "carrying": 0,
+            "alive": True,
+        }
+    ]
+    resource_nodes = [{"id": "rn-west", "pos": [0, 5], "remaining": 12}]
+    missions = [{"id": "ms-supply", "kind": "deliver", "pos": [6, 5], "amount": 6, "reward": 10}]
+    legal_actions = {
+        "blue-u2": {"move": [[0, 4], [1, 5]], "gather": True, "deliver": False, "hold": True}
+    }
+    show_json = _vanguard_show_json(
+        units, resource_nodes=resource_nodes, missions=missions, legal_actions=legal_actions
+    )
+
+    orders = vanguard.decide(show_json, "blue")
+
+    assert orders["actions"] == [{"unit_id": "blue-u2", "action": "gather"}]
+
+
+def test_vanguard_harvester_heads_for_delivery_square_once_loaded() -> None:
+    units = [
+        {
+            "id": "blue-u2",
+            "team_id": "blue",
+            "agent_id": "blue-2",
+            "role": "harvester",
+            "pos": [0, 5],
+            "carrying": 3,
+            "alive": True,
+        }
+    ]
+    missions = [{"id": "ms-supply", "kind": "deliver", "pos": [6, 5], "amount": 6, "reward": 10}]
+    legal_actions = {
+        "blue-u2": {
+            "move": [[1, 5], [0, 4], [0, 6]],
+            "gather": False,
+            "deliver": False,
+            "hold": True,
+        }
+    }
+    show_json = _vanguard_show_json(units, missions=missions, legal_actions=legal_actions)
+
+    orders = vanguard.decide(show_json, "blue")
+
+    assert orders["actions"] == [{"unit_id": "blue-u2", "action": "move", "to": [1, 5]}]
+
+
+def test_vanguard_splits_control_points_between_its_own_units() -> None:
+    """Unlike rusher (every unit independently rushes its OWN nearest point),
+    vanguard's non-harvesters claim DISTINCT points this turn — two units
+    equidistant from the same point must not both head for it."""
+    units = [
+        {
+            "id": "blue-u1",
+            "team_id": "blue",
+            "agent_id": "blue-1",
+            "role": "scout",
+            "pos": [5, 5],
+            "carrying": 0,
+            "alive": True,
+        },
+        {
+            "id": "blue-u3",
+            "team_id": "blue",
+            "agent_id": "blue-3",
+            "role": "defender",
+            "pos": [7, 5],
+            "carrying": 0,
+            "alive": True,
+        },
+    ]
+    control_points = [
+        {"id": "cp-a", "pos": [6, 5], "owner": None, "hold": []},
+        {"id": "cp-b", "pos": [6, 6], "owner": None, "hold": []},
+    ]
+    legal_actions = {
+        "blue-u1": {"move": [[6, 5], [6, 4]], "gather": False, "deliver": False, "hold": True},
+        "blue-u3": {"move": [[6, 5], [6, 6]], "gather": False, "deliver": False, "hold": True},
+    }
+    show_json = _vanguard_show_json(
+        units, control_points=control_points, legal_actions=legal_actions
+    )
+
+    orders = vanguard.decide(show_json, "blue")
+
+    moves = {a["unit_id"]: tuple(a["to"]) for a in orders["actions"] if a["action"] == "move"}
+    # blue-u1 (sorted first) claims the nearer/lowest-id point cp-a; blue-u3
+    # must NOT also head for [6, 5] — it claims the remaining point cp-b.
+    assert moves["blue-u1"] == (6, 5)
+    assert moves["blue-u3"] == (6, 6)
+
+
+def test_vanguard_ignores_dead_units_and_the_other_teams_units() -> None:
+    units = [
+        {
+            "id": "blue-u1",
+            "team_id": "blue",
+            "agent_id": "blue-1",
+            "role": "scout",
+            "pos": [0, 0],
+            "carrying": 0,
+            "alive": False,
+        },
+        {
+            "id": "red-u1",
+            "team_id": "red",
+            "agent_id": "red-1",
+            "role": "scout",
+            "pos": [0, 0],
+            "carrying": 0,
+            "alive": True,
+        },
+    ]
+    orders = vanguard.decide(_vanguard_show_json(units), "blue")
+    assert orders["actions"] == []
+
+
+# -- criterion 2 (recorded proof): a higher tier beats a lower tier ---------
+
+
+def _tiered_config(match_id: str, gold_id: str, silver_id: str, seed: int) -> dict:
+    """A gold-tier team vs a silver-tier team on skirmish-1, both bot-file."""
+    return {
+        "match": {"scenario": "skirmish-1", "mode": "competitive", "seed": seed, "id": match_id},
+        "teams": [
+            {
+                "id": "blue",
+                "name": "Blue",
+                "driver": {"type": "bot-file", "strategy": gold_id},
+                "agents": [
+                    {"id": "blue-1", "model": f"bot-file:{gold_id}", "role": "scout"},
+                    {"id": "blue-2", "model": f"bot-file:{gold_id}", "role": "harvester"},
+                    {"id": "blue-3", "model": f"bot-file:{gold_id}", "role": "defender"},
+                ],
+            },
+            {
+                "id": "red",
+                "name": "Red",
+                "driver": {"type": "bot-file", "strategy": silver_id},
+                "agents": [
+                    {"id": "red-1", "model": f"bot-file:{silver_id}", "role": "scout"},
+                    {"id": "red-2", "model": f"bot-file:{silver_id}", "role": "harvester"},
+                    {"id": "red-3", "model": f"bot-file:{silver_id}", "role": "defender"},
+                ],
+            },
+        ],
+        "max_rounds": 32,
+    }
+
+
+@pytest.mark.parametrize("seed", [101, 202])
+def test_vanguard_gold_beats_rusher_silver(tmp_path, monkeypatch, capsys, seed) -> None:
+    """Recorded proof, re-run cheaply here (deterministic — no seed affects
+    resolution, spec c9): gold beats silver over multiple seeds, matching
+    the artifacts committed under docs/playtests/house-tiers/."""
+    run_dir = tmp_path / f"gold-vs-silver-{seed}"
+    run_dir.mkdir()
+    monkeypatch.chdir(run_dir)
+
+    config = _tiered_config(f"m-tier-gold-silver-{seed}", "vanguard", "rusher", seed)
+    result = run_match(config)
+    capsys.readouterr()
+
+    assert result["winner"] == "blue"
+    from league.engine.scoring import score_match
+
+    log = Store().load_match(config["match"]["id"])
+    report = score_match(log)
+    assert report["outcome"]["blue"]["total"] > report["outcome"]["red"]["total"]
+
+
+@pytest.mark.parametrize("seed", [101, 202])
+def test_rusher_silver_beats_shambler_bronze(tmp_path, monkeypatch, capsys, seed) -> None:
+    run_dir = tmp_path / f"silver-vs-bronze-{seed}"
+    run_dir.mkdir()
+    monkeypatch.chdir(run_dir)
+
+    config = _tiered_config(f"m-tier-silver-bronze-{seed}", "rusher", "shambler", seed)
+    result = run_match(config)
+    capsys.readouterr()
+
+    assert result["winner"] == "blue"
+    from league.engine.scoring import score_match
+
+    log = Store().load_match(config["match"]["id"])
+    report = score_match(log)
+    assert report["outcome"]["blue"]["total"] > report["outcome"]["red"]["total"]

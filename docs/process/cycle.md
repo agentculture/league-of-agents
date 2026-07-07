@@ -28,7 +28,10 @@ artifacts are the worked example.
    honest dependency graph; `devague plan waves` emits the file-disjoint
    execution waves. Converged plans export to `docs/plans/`.
 3. **Implement** — waves land as PRs (branch → version bump → `cicd` skill →
-   review → merge), each task gated by its acceptance criteria as tests.
+   review → merge), each task gated by its acceptance criteria as tests. When
+   waves must stack (a PR built on another's unmerged branch), see
+   [`docs/process/release-train.md`](release-train.md) for the restack
+   procedure and the version/CHANGELOG collisions a stacked train invites.
 4. **Live test** — the increment is exercised by **real agent players**
    (colleague backend, Sonnet subagents, or an orchestrator fielding spawned
    subagents). Playtest reports — match log, replay, both scores, and what the

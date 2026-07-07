@@ -1,0 +1,67 @@
+{
+ "match": {
+  "scenario": "skirmish-1",
+  "mode": "competitive",
+  "seed": 20260710,
+  "id": "m-bench-haiku-solo"
+ },
+ "teams": [
+  {
+   "id": "solo",
+   "name": "Solo Agent",
+   "driver": {
+    "type": "command",
+    "solo": true,
+    "argv": [
+     "claude",
+     "-p",
+     "--model",
+     "claude-haiku-4-5-20251001"
+    ],
+    "timeout": 240
+   },
+   "agents": [
+    {
+     "id": "solo-1",
+     "model": "claude-haiku-4-5",
+     "role": "scout"
+    },
+    {
+     "id": "solo-2",
+     "model": "claude-haiku-4-5",
+     "role": "harvester"
+    },
+    {
+     "id": "solo-3",
+     "model": "claude-haiku-4-5",
+     "role": "defender"
+    }
+   ]
+  },
+  {
+   "id": "house",
+   "name": "House Rusher (silver)",
+   "driver": {
+    "type": "bot-file",
+    "strategy": "rusher"
+   },
+   "agents": [
+    {
+     "id": "house-1",
+     "model": "bot-file:rusher",
+     "role": "scout"
+    },
+    {
+     "id": "house-2",
+     "model": "bot-file:rusher",
+     "role": "harvester"
+    },
+    {
+     "id": "house-3",
+     "model": "bot-file:rusher",
+     "role": "defender"
+    }
+   ]
+  }
+ ]
+}

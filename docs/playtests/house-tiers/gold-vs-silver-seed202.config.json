@@ -1,0 +1,61 @@
+{
+  "match": {
+    "scenario": "skirmish-1",
+    "mode": "competitive",
+    "seed": 202,
+    "id": "m-house-gold-vs-silver-seed202"
+  },
+  "teams": [
+    {
+      "id": "blue",
+      "name": "Blue Vanguard",
+      "driver": {
+        "type": "bot-file",
+        "strategy": "vanguard"
+      },
+      "agents": [
+        {
+          "id": "blue-1",
+          "model": "bot-file:vanguard",
+          "role": "scout"
+        },
+        {
+          "id": "blue-2",
+          "model": "bot-file:vanguard",
+          "role": "harvester"
+        },
+        {
+          "id": "blue-3",
+          "model": "bot-file:vanguard",
+          "role": "defender"
+        }
+      ]
+    },
+    {
+      "id": "red",
+      "name": "Red Rusher",
+      "driver": {
+        "type": "bot-file",
+        "strategy": "rusher"
+      },
+      "agents": [
+        {
+          "id": "red-1",
+          "model": "bot-file:rusher",
+          "role": "scout"
+        },
+        {
+          "id": "red-2",
+          "model": "bot-file:rusher",
+          "role": "harvester"
+        },
+        {
+          "id": "red-3",
+          "model": "bot-file:rusher",
+          "role": "defender"
+        }
+      ]
+    }
+  ],
+  "max_rounds": 32
+}

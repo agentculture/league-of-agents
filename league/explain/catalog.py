@@ -184,10 +184,16 @@ commits** — a stray call never silently advances the game.
         --action blue-u1:move:3,1 --action blue-u2:gather \\
         --message blue-1:"east is open" --apply
     league match tick <id> --apply         # force-resolve (timeouts)
-    league match score <id> --json         # outcome + cooperation
+    league match score <id> --json         # outcome + cooperation + tempo
+    league match score <id> --substrate blue=cloud  # substrate-fair tempo
     league match brief <id> [--team blue]  # markdown briefing (the agents' face)
     league match replay <id> > match.html  # self-contained human replay
     league match tui <id> --frame N [--team blue] [--no-color]  # terminal view
+
+`score`'s tempo axis — the per-substrate calibration table, the t0 conversion
+formula, and its own published limits — is documented in
+`docs/tempo-methodology.md`; read it before trusting a converted number
+across two declared substrates.
 
 `brief` is the markdown face for agents, served from the agentfront faces
 registry (`league/faces/`): `--json` returns the SAME facts the markdown
@@ -295,6 +301,37 @@ on for every driver or none.
 """
 
 
+_PLAY = """\
+# league play
+
+One-command launch of a bundled preset game mode (`league/presets.py`, plan
+task t2). Every documented mode — `solo-vs-bot`, `team-vs-bot`,
+`team-vs-team`, `orchestrator-vs-bot`, `resident-vs-bot` — runs end to end
+from a single `league play start <preset> --apply` call: no hand-authored
+`team register` / `match new` / `harness run` dance required.
+
+`start` is a write verb: **dry-run by default, `--apply` actually plays the
+match** (the same safe-by-default contract `match new`/`team
+register`/`harness run` follow). `--seed`/`--id` override the preset's own
+declared defaults — handy for running the same mode more than once without a
+match-id collision — without ever editing the bundled registry.
+
+## Usage
+
+    league play list [--json]                    # every bundled preset
+    league play show team-vs-team [--json]        # the resolved harness config
+    league play start team-vs-team --apply        # bot-file vs bot-file, offline
+    league play start solo-vs-bot --seed 99 --id my-solo-run --apply
+
+`solo-vs-bot`, `team-vs-bot`, `orchestrator-vs-bot` and `resident-vs-bot`
+drive a live agent process (`command`/`resident` drivers) — `--apply` on
+those spawns whatever `argv` the preset declares (see `play show <preset>`).
+`team-vs-team` is the one mode that never spawns anything: two committed
+`bots/rusher.py` strategies play each other, fully deterministic given the
+seed.
+"""
+
+
 ENTRIES: dict[tuple[str, ...], str] = {
     (): _ROOT,
     # Both the console command (`league`) and the distribution/display name
@@ -336,4 +373,9 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("harness",): _HARNESS,
     ("harness", "overview"): _HARNESS,
     ("harness", "run"): _HARNESS,
+    ("play",): _PLAY,
+    ("play", "overview"): _PLAY,
+    ("play", "list"): _PLAY,
+    ("play", "show"): _PLAY,
+    ("play", "start"): _PLAY,
 }
