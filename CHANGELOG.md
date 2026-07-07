@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-07
+
+### Added
+
+- Cycle 2 (resident minds): legal-actions surface in match show --json; rejection reasons + legal actions in every next-turn briefing; resident driver (one session per seat, delta briefings, per-seat audit transcripts; claude-cli + colleague-direct transports); residency recorded as a declared fairness axis (--driver, log header); cultureagent session spike note
+- Cycle 3 (fog + faces): per-role vision engine (scout sees farther); per-team knowledge fold (seen vs told, derived from the log); skirmish-2 Fogbound Crossing with coordination-necessity re-proven by arithmetic; fog-aware briefings (out-of-vision facts arrive only via logged messages); coded-strategy bot lane (bots/, public-JSON-only, rusher reference); TUI face (match tui, truth/knowledge toggle); agentfront runtime adoption + markdown face (match brief, face-agreement tests); orchestrator declared map-read capability + unit-comms fairness flag
+
+### Changed
+
+- Dead-heats are dual award (user decision c15): simultaneous mission completion pays both teams in full; the lexicographic tiebreak is deleted and outcomes are team-id-swap invariant by test (determinism fixture regenerated once, deliberately)
+- First runtime dependency: agentfront>=0.20 (user decision c17) — faces layer only; an AST test keeps the engine stdlib-pure
+
 ## [0.7.2] - 2026-07-07
 
 ### Changed
