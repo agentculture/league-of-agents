@@ -58,6 +58,53 @@ Race and contest rules (explicit engine rules, each with a test)
   and refused by :func:`_Resolver._start_action` (via
   :func:`~league.engine.continuous.legal.plan_action`).
 
+Delivery contention (spec c12/h3, plan c8-t3) — deny, don't delay
+------------------------------------------------------------------
+A delivery completing at a site an **enemy** unit currently occupies is
+**DENIED**, not delayed: :func:`_Resolver._delivery_contested` checks, at the
+delivery's completion instant, whether any *other-team* unit is
+:func:`~league.engine.continuous.space.arrived` at the delivering unit's own
+position (the delivery necessarily happens where the unit stands, since
+reaching a deliver mission's site is already a precondition of the menu
+offering ``deliver`` at all — see ``legal.py``'s ``_plan_deliver``). A contested
+delivery emits the existing ``action_failed`` vocabulary with reason
+``"delivery denied by enemy presence at the site"`` — the carried resources are
+**not** banked (mirroring "nothing to deliver"), and the unit goes idle with a
+fresh decision point, exactly like every other denied/interrupted action in
+this module. No new event kind is needed: contention is a reason, not a new
+fact shape.
+
+**Why DENY, not DELAY.** Both were on the table (plan c8-t3's design note).
+Delay would need to re-schedule the pending completion to a later instant —
+a second timeline entry, a new "how much later" number to invent and justify,
+and a window during which the delivery could be re-contested again, silently
+compounding. Deny is atomic: it reuses the timeline's existing pop-one-
+completion-at-a-time discipline, needs no new scheduling primitive, and is
+exactly as legible in the replay as the race's own loser-cascade
+(``action_failed`` with a reason, nothing more). It is also strictly additive:
+the rule only ever fires when an enemy unit is actually standing at the site,
+so an uncontested delivery (every committed scenario today) takes the
+identical code path it always did.
+
+**Why "arrived", not a new radius constant.** "At the site" already has one
+meaning everywhere else in this engine — :func:`~league.engine.continuous.
+space.arrived` is how ``take_post`` and ``gather`` decide a unit has reached
+its target. Reusing it for delivery contention keeps "presence" consistent
+lane-wide instead of inventing a second, differently-tuned notion of
+closeness this cycle would have to separately justify.
+
+**Same-team simultaneous deliveries: co-delivery, not contention.** The
+enemy check only ever looks at *other*-team units, so two teammates
+completing a delivery at the identical ``completion_time`` are never
+contenders for each other — each is resolved as its own, independent
+completion. The timeline's existing canonical ``(completion_time, team_id,
+unit_id)`` tie-break (``Timeline.peek``/``advance``) is what orders the two
+pops when the instant ties; both bank their carry and both earn their own
+``resource_delivered`` + ``action_completed`` pair — nothing new to
+implement, since "process one completion at a time, in canonical order" was
+already this resolver's rule for every other simultaneous-completion case
+(the post race included).
+
 Missions and the outcome
 ------------------------
 Deliver mirrors the grid: a completed delivery banks the whole carry into team
@@ -349,12 +396,28 @@ class _Resolver:
             )
         return [unit_id]
 
+    def _delivery_contested(self, unit) -> bool:
+        """True when an enemy unit is present at ``unit``'s position — the
+        delivery site is defended (see the module docstring's "Delivery
+        contention" section for the rule and why DENY, not delay)."""
+        return any(
+            other.alive and other.team_id != unit.team_id and arrived(other.pos, unit.pos)
+            for other in self.state.units
+        )
+
     def _complete_deliver(self, unit_id: str, game_time: int) -> list[str]:
         unit = self._unit(unit_id)
         amount = unit.carrying
         if amount <= 0:
             self.emit(
                 game_time, "action_failed", {"unit_id": unit_id, "reason": "nothing to deliver"}
+            )
+            return [unit_id]
+        if self._delivery_contested(unit):
+            self.emit(
+                game_time,
+                "action_failed",
+                {"unit_id": unit_id, "reason": "delivery denied by enemy presence at the site"},
             )
             return [unit_id]
         team_id = unit.team_id
