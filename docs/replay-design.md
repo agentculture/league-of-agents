@@ -169,27 +169,50 @@ the light ones.
   correctly on each surface. The board is the hero — it carries the strongest
   elevation (`--shadow-hero`).
 
-The GIF inherits the same vision — and the same *composition*.
-`league.replay.video` imports the per-theme tokens from `league.replay.html`
-(`THEMES`) and adds the HTML face's own neutral/chrome steps lifted verbatim
-from its CSS custom properties (page matte `--plane`, card surface
-`--surface`, hairline `--grid`, secondary `--ink-2`, chrome `--accent`) — a
-25-slot palette per theme, selected by
-`league match record --theme light|dark` (default light). Every frame kind is
-composed like the HTML face:
+The GIF inherits the same vision — and, after a direct side-by-side human
+comparison of the two faces ("the menu on HTML is FAR better — I want the play
+from THAT as the GIF"), its play frames mirror the HTML page's **board card**
+itself rather than a parallel composition. `league.replay.video` imports the
+per-theme tokens from `league.replay.html` (`THEMES`) and adds the HTML face's
+own neutral/chrome steps lifted verbatim from its CSS custom properties (page
+matte `--plane`, card surface `--surface`, hairline `--grid`, secondary
+`--ink-2`, chrome `--accent`, chip `--chip`) plus two derived steps that
+rasterize its alpha effects (`--ring` = ink at 10% over the surface; the
+depleted-node tint = the resource hue at 28% over the plane) — a 28-slot
+palette per theme, selected by `league match record --theme light|dark`
+(default light). No new hues: every added slot is a token or an alpha-blend of
+two tokens, so the validated categorical/status system is untouched. Every
+frame kind is composed like the HTML face:
 
 - The **title card** is a centered lockup — the title over a thin accent
   rule, the match id, a scenario · mode · seed metadata line, then one
   swatch-chipped row per team with its roster — framed by hairline corner
   marks on the page matte.
-- **Turn frames** make the board the hero: a hairline low-contrast grid on a
-  subtly distinct board panel, shape-coded furniture (diamond resource nodes,
-  mission rings, control-point discs with owner tint + ring), unit discs
-  wearing a surface-colored ring (the raster cousin of
-  `.u-body { stroke: var(--surface) }`), a muted caption above, and a
-  surface-toned footer strip below carrying the turn counter and per-team
-  scores in aligned, swatch-labelled columns. Tween frames share this chrome
-  exactly and interpolate only the units.
+- **Turn frames are the HTML board card, raster-exact.** Every geometry value
+  is one of `html.py`'s own CSS/SVG pixel numbers scaled by `cell_px / 46`
+  (46 = the HTML board's SVG cell): the rounded card surface (18px corners,
+  1px `--ring` border, 14px padding) floats on the page matte; inside it a
+  header row — the brand mark (the 135° clay→violet gradient as a two-tone
+  raster) and title, the turn readout right-aligned (the HTML's
+  `turn N / limit`), then one pill chip per team (swatch · name · live
+  RES/MSN numerals in fixed columns) with the match id · scenario line
+  right-aligned; then the board frame (12px corners, 1px border, the
+  `--board-top`→`--board-bot` gradient rendered flat at its midpoint — the
+  `THEMES` plane token is that midpoint by design) stretched to the card's
+  width with the grid letterboxed centered, exactly as the HTML SVG behaves.
+  Marks are the HTML board's own: unit discs r 12/46 of a cell with the 2.4px
+  surface stroke and bold white role glyph (r 9/46 + `STACK_OFFSETS`' exact
+  fan-out when stacked), control-point discs r 15/46 (surface fill + line
+  ring unowned; owner tint at `fill-opacity` .24 + team ring owned, hold
+  counter in secondary ink), deliver-mission rings r 18/46 (muted pending,
+  completer-hued done, secondary ink shared), resource diamonds (11√2/46
+  half-diagonal) with the white remaining count (resource tint when
+  exhausted), and the carry badge at the unit's shoulder. Interactive-only
+  chrome (transport, slider, tab deck) is deliberately absent — the GIF is
+  the board card, not the page — and the board's fine-print id labels
+  (`cp-id`/`m-label`) are the one omission: they sit below the 5×7 bitmap
+  font's legibility floor. Tween frames share this chrome pixel-for-pixel and
+  interpolate only the units.
 - The **closing card** leads with big score numerals over swatch-labelled
   team rows and names the winner beneath its team chip (or `DRAW` /
   `NO WINNER`), centered like the title card.
@@ -253,9 +276,9 @@ The GIF adds the same smoothness with **interpolated tween frames** between
 turns: `--tween N` (default 4, bounded 0–12) inserts `N` linearly interpolated
 frames between each adjacent pair of turns, so a unit glides from exactly where
 it stood to exactly where it lands instead of teleporting. A tween frame holds
-the *starting* turn's board furniture (grid, nodes, missions, control points,
-header, footer — all discrete state) and moves only the units; captures,
-resource counts, and the turn number land crisply on the turn frames. Frame
+the *starting* turn's card chrome (grid, nodes, missions, control points, the
+card header — all discrete state) and moves only the units; captures, resource
+counts, and the turn readout land crisply on the turn frames. Frame
 count follows `turns + (turns - 1) * tween + 2` (title + turns + interpolated
 frames + closing). Interpolation rounds to whole pixels, so the byte-determinism
 gate holds; a turn's total screen time is preserved by splitting it across its

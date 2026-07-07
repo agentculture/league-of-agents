@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.4] - 2026-07-08
+
+### Changed
+
+- GIF turn/tween frames now mirror the HTML replay's play view: the board card raster — card surface with header row (title, team chips with live scores, turn readout) and HTML-parity mark geometry — replacing the PR #20 board-panel layout, per direct user comparison feedback
+
 ## [0.10.3] - 2026-07-08
 
 ### Changed

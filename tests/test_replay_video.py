@@ -397,20 +397,26 @@ def test_unknown_theme_is_rejected() -> None:
 
 def test_palette_carries_the_html_face_neutral_steps() -> None:
     """The raster face composes with the HTML face's own neutral/chrome steps
-    (page matte, card surface, hairline grid, secondary ink, chrome accent) —
-    slots 20..24, lifted verbatim from html.py's CSS custom properties. The
-    validated team/status hues (slots 0..19) are untouched."""
+    (page matte, card surface, hairline grid, secondary ink, chrome accent,
+    chip tone) — slots 20..25 lifted verbatim from html.py's CSS custom
+    properties — plus two derived steps that rasterize its alpha effects
+    (slots 26..27): the ``--ring`` hairline (ink at 10% over the surface) and
+    the depleted-node tint (the resource hue at 28% over the plane). No new
+    hues. The validated team/status hues (slots 0..19) are untouched."""
     from league.replay.video import _hex_to_rgb, build_palette
 
     light = build_palette("light")
     dark = build_palette("dark")
-    assert len(light) == len(dark) == 25
+    assert len(light) == len(dark) == 28
     expected = {
         20: ("#f0eee5", "#0c1210"),  # page matte (--plane)
         21: ("#faf8f1", "#111a16"),  # card surface / unit ring (--surface)
         22: ("#ded9c9", "#1e2a24"),  # hairline grid (--grid)
         23: ("#5a5546", "#aebcb2"),  # secondary ink (--ink-2)
         24: ("#1e7a4d", "#46c79e"),  # chrome accent (--accent)
+        25: ("#ece8dd", "#152019"),  # chip tone (--chip)
+        26: ("#e5e2db", "#27302b"),  # --ring: ink @ 10% over the surface
+        27: ("#b1d7c1", "#113c2d"),  # depleted node: resource @ 28% over plane
     }
     for slot, (light_hex, dark_hex) in expected.items():
         assert light[slot] == _hex_to_rgb(light_hex)
@@ -448,31 +454,94 @@ def test_title_card_is_a_centered_lockup_with_generous_margins() -> None:
     assert abs(xs[0] - (width - 1 - xs[-1])) <= 2  # extents mirror
 
 
-def test_turn_frames_carry_the_board_panel_and_score_footer() -> None:
-    """Board frames are composed, not a bare grid: the board sits on a distinct
-    panel tone with a hairline grid, and a surface-toned footer strip carries
-    the turn counter and per-team scores. Tween frames share the same chrome
-    (they interpolate only the units)."""
+def test_turn_frames_mirror_the_html_board_card() -> None:
+    """A play frame reads as the HTML replay's board card mid-playback: a
+    rounded card surface floating on the page matte, the header INSIDE the
+    card above the board plane, the board plane wrapped in a distinct
+    card-surface band, and nothing below the card (PR #20's full-width footer
+    strip is gone). Tween frames share the chrome pixel-for-pixel."""
     from league.replay.html import build_replay_data
-    from league.replay.video import _BG, _GRID, _INK, _MATTE, _MUTED, _SURFACE
+    from league.replay.video import _BG, _CHIP, _GRID, _INK, _INK2, _MATTE, _RING, _SURFACE
 
     data = build_replay_data(_coop_log())
     video = build_frames(data, tween=1)
     width, height = video.width, video.height
-    for frame in (video.frames[1], video.frames[2]):  # a turn frame, then a tween
-        pixels = frame.indices
-        present = set(pixels)
-        # page matte + board panel plane + hairline grid + footer card + inks
-        assert {_MATTE, _BG, _GRID, _SURFACE, _INK, _MUTED} <= present
-        # The footer strip is a real region in the lower third, not stray pixels.
-        lower = pixels[(2 * height // 3) * width :]
-        assert lower.count(_SURFACE) > width
+    turn = video.frames[1].indices
+    rows = [turn[y * width : (y + 1) * width] for y in range(height)]
+
+    # The canvas edge is pure page matte on all four sides — the card floats.
+    assert set(rows[0]) == {_MATTE} and set(rows[-1]) == {_MATTE}
+    assert {row[0] for row in rows} == {_MATTE} and {row[-1] for row in rows} == {_MATTE}
+
+    # The card is one contiguous block with ROUNDED corners: its topmost
+    # border row is narrower than a mid-card row, and nothing else sits on
+    # the matte below it (no footer strip).
+    content_rows = [y for y, row in enumerate(rows) if set(row) != {_MATTE}]
+    assert content_rows == list(range(content_rows[0], content_rows[-1] + 1))
+    surface_rows = [y for y, row in enumerate(rows) if _SURFACE in row]
+    card_top, card_bot = surface_rows[0], surface_rows[-1]
+    assert content_rows[-1] <= card_bot + 2  # only the card's own border below
+
+    def extent(row: bytes) -> tuple[int, int]:
+        xs = [x for x, v in enumerate(row) if v != _MATTE]
+        return xs[0], xs[-1]
+
+    top_l, top_r = extent(rows[content_rows[0]])
+    mid_l, mid_r = extent(rows[(card_top + card_bot) // 2])
+    assert top_l > mid_l and top_r < mid_r  # rounded corners
+
+    # The board plane sits INSIDE the card behind a card-surface band: on the
+    # row through the middle of the board, walking inward from the left we
+    # cross matte, then card surface, and only then the plane.
+    plane_rows = [y for y, row in enumerate(rows) if _BG in row]
+    assert plane_rows
+    board_row = rows[(plane_rows[0] + plane_rows[-1]) // 2]
+    first_plane = board_row.index(_BG)
+    prefix = board_row[:first_plane]
+    assert _MATTE in prefix and _SURFACE in prefix
+    last_matte = max(i for i, v in enumerate(prefix) if v == _MATTE)
+    first_surface = min(i for i, v in enumerate(prefix) if v == _SURFACE)
+    assert last_matte < first_surface  # matte outside, surface inside
+
+    # The header lives inside the card ABOVE the board plane: title ink, the
+    # secondary-ink turn readout, the chip tone, and the ring hairline all
+    # appear there; the hairline grid appears on the plane below.
+    header = b"".join(rows[card_top : plane_rows[0]])
+    for slot in (_INK, _INK2, _CHIP, _RING):
+        assert slot in header
+    assert _GRID in b"".join(rows[plane_rows[0] :])
+
+    # A tween frame (only units move) shares every pixel above the board.
+    tween = video.frames[2].indices
+    split = plane_rows[0] * width
+    assert tween[:split] == turn[:split]
+
+
+def test_turn_frame_header_shows_brand_chips_and_turn_readout() -> None:
+    """The header row inside the card carries the HTML play view's identifying
+    chrome: the two-tone brand mark (team hues 0 + 1), a live-score chip per
+    team (chip tone + swatch), and the turn readout in secondary ink — and no
+    fake interactive chrome (the chrome accent never appears on play frames)."""
+    from league.replay.html import build_replay_data
+    from league.replay.video import _ACCENT, _BG, _CHIP, _INK2, _TEAM0
+
+    data = build_replay_data(_coop_log())
+    video = build_frames(data, tween=0)
+    width = video.width
+    turn = video.frames[1].indices
+    rows = [turn[y * width : (y + 1) * width] for y in range(video.height)]
+    plane_top = min(y for y, row in enumerate(rows) if _BG in row)
+    header = b"".join(rows[:plane_top])
+    assert _TEAM0 in header and (_TEAM0 + 1) in header  # brand mark + swatch
+    assert _CHIP in header  # the team chips' pill tone
+    assert _INK2 in header  # the turn readout
+    assert _ACCENT not in turn  # accent is card chrome, never board chrome
 
 
 def test_closing_card_shows_big_score_numerals() -> None:
     """The closing card leads with big score numerals (the scaled glyph
-    hierarchy): it must paint markedly more ink than a turn frame's footer
-    text alone, centered like the title card."""
+    hierarchy) over swatch-labelled team rows, centered like the title card
+    under its accent rule."""
     from league.replay.html import build_replay_data
     from league.replay.video import _ACCENT, _MATTE
 
