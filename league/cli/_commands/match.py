@@ -615,7 +615,7 @@ def cmd_match_tick(args: argparse.Namespace) -> int:
 def cmd_match_score(args: argparse.Namespace) -> int:
     json_mode = bool(getattr(args, "json", False))
     log = _load(Store(), args.match_id)
-    report = score_match(log)
+    report = score_match(log, version=getattr(args, "cooperation_version", "v0"))
     if json_mode:
         emit_result(report, json_mode=True)
         return 0
@@ -901,6 +901,12 @@ def register(sub: argparse._SubParsersAction) -> None:
     score = noun_sub.add_parser("score", help="Outcome + cooperation scores from the log.")
     score.add_argument("match_id", help="Match id.")
     score.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    score.add_argument(
+        "--cooperation-version",
+        choices=("v0", "v1"),
+        default="v0",
+        help="Cooperation metric: v0 (cadence, default) or v1 (content-aware).",
+    )
     score.set_defaults(func=cmd_match_score)
 
     brief = noun_sub.add_parser(
