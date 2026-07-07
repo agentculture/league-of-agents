@@ -71,3 +71,9 @@ which is a visible multi-turn consequence, not a rendering error.
 3. The orchestrator mode's fairness constraints (spawn budgets, model mixing)
    remain parked (frame v3) — this demo used equal seat counts by
    construction.
+
+The dead-heat fix seeded **cycle 2 — resident minds**
+([PR #6](https://github.com/agentculture/league-of-agents/pull/6)); the
+dual-award rule is a cycle-2 plan task (user decision c15), and orchestrator
+mode becomes a real game mode with fog in cycle 3
+([PR #7](https://github.com/agentculture/league-of-agents/pull/7)).

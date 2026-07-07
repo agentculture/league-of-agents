@@ -328,9 +328,20 @@ function drawBoard() {
     byCell.get(key).push(u);
   }
   for (const stack of byCell.values()) {
-    const offs = STACK_OFFSETS[Math.min(stack.length, STACK_OFFSETS.length) - 1];
+    const n = stack.length;
+    // Predefined aesthetic patterns cover 1-4; beyond that, place units evenly
+    // on a circle so no two ever land on the same offset (nothing is occluded
+    // no matter how many units share a cell — e.g. the deliver square doubling
+    // as a control point can stack a full 6-unit match there).
+    const offs = n <= STACK_OFFSETS.length ? STACK_OFFSETS[n - 1] : Array.from(
+      { length: n },
+      (_, i) => {
+        const angle = (2 * Math.PI * i) / n - Math.PI / 2;
+        return [Math.round(13 * Math.cos(angle)), Math.round(13 * Math.sin(angle))];
+      },
+    );
     stack.forEach((u, i) => {
-      const [dx, dy] = offs[i % offs.length];
+      const [dx, dy] = offs[i];
       const r = stack.length > 1 ? 9 : 12;
       const g = svgEl('g',
         { transform: `translate(${cx(u.pos[0]) + dx},${cy(u.pos[1]) + dy})` });

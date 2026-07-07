@@ -87,3 +87,8 @@ which is exactly how the swarm burned 19 orders.
    and feed each seat its own previous-turn rejections *with the engine's
    reason text* so weaker models stop repeating the same geometry mistakes
    and the game measures strategy, not arithmetic.
+
+These findings seeded **cycle 2 — resident minds**
+([PR #6](https://github.com/agentculture/league-of-agents/pull/6)): both
+fixes above are cycle-2 plan tasks, and the h9 retest under fog is a cycle-3
+task ([PR #7](https://github.com/agentculture/league-of-agents/pull/7)).

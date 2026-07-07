@@ -503,6 +503,14 @@ def _knowledge_delta(
     }
 
 
+def _as_list(value: Any) -> list[Any]:
+    """A driver's JSON is untrusted input: a field declared as a list in the
+    protocol may come back as a dict, string, or number. Coerce to an empty
+    list rather than let a type mismatch raise downstream — malformed driver
+    output should idle the team, not crash the match loop."""
+    return value if isinstance(value, list) else []
+
+
 def _extract_json(text: str) -> dict[str, Any]:
     decoder = json.JSONDecoder()
     for start in range(len(text)):
@@ -595,9 +603,10 @@ def make_command_driver(
         except RuntimeError as err:
             print(f"[harness] {team_id} commander idles this turn: {err}", file=sys.stderr)
             return {"actions": []}
-        if solo:
-            actions = result.get("actions") or []
-            result["actions"] = actions[:1]  # the handicap is enforced, not just asked
+        actions = _as_list(result.get("actions"))
+        result["actions"] = actions[:1] if solo else actions  # solo: handicap enforced, not asked
+        if "messages" in result:
+            result["messages"] = _as_list(result["messages"])
         return result
 
     return orders
@@ -613,7 +622,7 @@ def _fold_seat_reply(
     if isinstance(action, dict):
         action["unit_id"] = unit_id  # a seat commands its own unit, only
         combined["actions"].append(action)
-    for message in result.get("messages", []) or []:
+    for message in _as_list(result.get("messages")):
         if isinstance(message, dict) and message.get("text"):
             combined["messages"].append({"from": agent_id, "text": str(message["text"])})
     if result.get("plan") and "plan" not in combined:
@@ -710,7 +719,7 @@ def make_per_seat_driver(
             except RuntimeError as err:
                 print(f"[harness] master {master_id} idles this turn: {err}", file=sys.stderr)
             else:
-                for message in result.get("messages", []) or []:
+                for message in _as_list(result.get("messages")):
                     if isinstance(message, dict) and message.get("text"):
                         combined["messages"].append(
                             {"from": master_id, "text": str(message["text"])}
