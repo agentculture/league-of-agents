@@ -6,6 +6,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <<<<<<< HEAD
+## [0.11.2] - 2026-07-08
+
+### Added
+
+- Cycle-8 converged spec + plan (devague): per-unit role-purpose scorecards naming MVP/LVP beside untouched team axes, continuous fog mode with scout-as-eyes (grid scout goes eyes-only too, by user decision), deterministic delivery-contention rules, harness contract parity (charness bakes the seat contract), generative ambient audio for the HTML replay and MP4 exports (GIF stays silent by format truth), cycle-6 artifact refresh, and the graded fogged live match with its closing ledger
+
 ## [0.11.1] - 2026-07-08
 
 ### Changed
