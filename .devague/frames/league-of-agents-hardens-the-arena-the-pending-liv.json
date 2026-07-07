@@ -1,0 +1,225 @@
+{
+  "slug": "league-of-agents-hardens-the-arena-the-pending-liv",
+  "title": "League of Agents hardens the arena: the pending live matches land on the record, cooperation is scored for real, fog is fair for every player, and the release train learns its lessons",
+  "schema_version": 1,
+  "status": "exported",
+  "created": "2026-07-07T10:35:11Z",
+  "updated": "2026-07-07T13:18:26Z",
+  "claims": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "League of Agents hardens the arena: the pending live matches land on the record, cooperation is scored for real, fog is fair for every player, and the release train learns its lessons",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h7",
+          "text": "No thread of the announcement ships silently: each of the five hardening threads lands as a recorded artifact (report, score table, process doc, or filed upstream issue) \u2014 nothing is claimed done without its artifact",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "Operators and researchers comparing agent teams fairly, the maintainers running the recursive dev cycle, and (cross-repo) the devague upstream",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h8",
+          "text": "The named audiences are real consumers: every shipped cycle-5 artifact (report, scoring change, doc, issue) states which audience it serves and how they'd use it.",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c3",
+      "kind": "after_state",
+      "text": "Cycles 2/3 close their loop: resident-vs-stateless, fogged-orchestrator, and h9-retest matches are recorded and reported; cooperation v1 distinguishes real delegation from pseudo-coordination and prices discipline; a fog-aware bot lane makes fogged bot-vs-agent matches fair by construction; the stacked-train release workflow is documented with a single-bump rule; the devague resolve-verb gap is filed upstream",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h9",
+          "text": "The after-state is claimed only when each of its five threads has a committed artifact on main \u2014 live-match reports, v1 scoring code plus the re-score, the fog-aware bot lane, the train doc, and the filed devague issue link.",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c4",
+      "kind": "before_state",
+      "text": "Cycles 2/3 code is merged but unproven live; v0 cooperation rewarded cadence over content (losers out-cooperated winners in all three season-0 matches); bots are omniscient under fog (a documented asymmetry); the merge train minted duplicate 0.7.1 CHANGELOG entries and needed a restack merge per PR; parked blocking vagueness was resolved by hand-editing frame JSON",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h10",
+          "text": "Every before-state deficiency cites existing evidence: the season-0 score JSONs for the cadence finding, bots/rusher.py reading full state, the duplicate-0.7.1 resolution in git history, and the hand-edited frame commit.",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c5",
+      "kind": "why_it_matters",
+      "text": "Issue #1 demands teams be compared fairly and scores be inspectable \u2014 a cooperation score that rewards chatter, an omniscient bot behind fog, and unrecorded live behavior all undermine the question the arena exists to answer",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h11",
+          "text": "The why traces to issue #1's own requirements (fair comparison, inspectable scoring) \u2014 quoted, not paraphrased into something stronger.",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "The pending cycle-2/3 live tests run through the real agent harnesses (field agents, not raw APIs) and land as recorded reports: the resident-vs-stateless rematch on the same scenario+seed publishing rejections, latency, and token use both ways; a fogged orchestrator match on skirmish-2; the h9 coordination-necessity retest under fog; and a bot-vs-agent match. Execution stays gated on the user confirming the lobes substrate is settled",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h1",
+          "text": "The seats run through their real agent harnesses (claude-cli sessions, colleague work loop) and every report reconstructs from the committed log alone",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "Cooperation metric v1: rejected orders penalize delegation_spread, message content utility is scored rather than cadence alone, and one-mind pseudo-coordination is distinguished from real delegation; all season-0 logs are re-scored and published v0-vs-v1 side by side",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h2",
+          "text": "v1 is not fitted to outcomes \u2014 cooperation stays a process axis; if losers still out-cooperate winners under v1, that stands as a finding, not a bug",
+          "status": "confirmed"
+        },
+        {
+          "id": "h3",
+          "text": "Every v0-to-v1 divergence on the season-0 logs traces to a named, documented signal change",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "A fog-aware bot lane: bots can consume the same fogged public surface agent teams get, with an explore-toward-unknown baseline policy, so a fogged bot-vs-agent match is fair by construction; the full-information bot remains for unfogged play and the standing asymmetry warning is retired or per-match declared",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h4",
+          "text": "The fog-aware bot reads only the same fogged JSON surface an agent team gets \u2014 enforced by the same spy-test pattern that already guards the bot lane",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "The stacked-train release workflow is documented in docs/process/: single version bump at the train front, the restack procedure, and CHANGELOG collision avoidance \u2014 recording this train's actual failure modes, not idealized advice",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h5",
+          "text": "The doc records this train's real failure modes (duplicate 0.7.1 CHANGELOG entries, one restack merge per PR) as they actually happened",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "Cross-repo: the devague gap (no CLI verb to resolve parked blocking vagueness) is filed as an issue on agentculture/devague with the hand-edit workaround as evidence; league adopts the verb when it ships and documents the workaround until then",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h6",
+          "text": "The upstream issue links the hand-edit commit as evidence and proposes the verb's contract; league-side adoption is a follow-up, not a blocker",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c11",
+      "kind": "boundary",
+      "text": "No engine tick changes (the determinism hash stays untouched); cooperation v1 lives in scoring (log-derived) and fog-awareness in the bot/harness lane; no new game modes (cycle 4 owns single-player), no live UI, no benchmark methodology (still parked), and the SonarCloud token stays a user-side action",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h12",
+          "text": "tests/fixtures/determinism.hash is byte-identical before and after cycle 5 \u2014 the CI determinism gate proves the no-tick-changes boundary held, not a promise in prose.",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c12",
+      "kind": "success_signal",
+      "text": "A fogged bot-vs-agent match runs with no omniscience caveat in its report; v0 and v1 cooperation scores for every season-0 log are published side by side with each divergence explained by a named signal; the resident-vs-stateless comparison table is on the record",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h13",
+          "text": "Each success signal is verifiable by pointing at a committed artifact (report, side-by-side score table, match log); none rests on unrecorded claims.",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c13",
+      "kind": "decision",
+      "text": "Publish cadence stays per-merge: every merge to main touching pyproject/league/** auto-publishes to PyPI via Trusted Publishing. User decision 2026-07-07 (suggestion 5b resolved) \u2014 continuous releases match the recursive cycle; each version is a green-CI snapshot. No workflow change.",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": []
+    }
+  ],
+  "open_vagueness": [
+    {
+      "id": "v1",
+      "text": "Exact v1 signal weights and the message-utility scoring formula \u2014 plan-level detail the tasks must pin with tests",
+      "kind": "unknown_nonblocking",
+      "claim_id": null
+    }
+  ]
+}
