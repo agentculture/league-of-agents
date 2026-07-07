@@ -478,3 +478,82 @@ def test_assessor_guide_is_byte_deterministic() -> None:
     assert build_assessor_guide(log) == build_assessor_guide(log)
     assert build_replay_data(log)["guide"] == build_assessor_guide(log)
     assert render_html(log) == render_html(log)
+
+
+# --------------------------------------------------------------------------- #
+# C8-t4 — the generative ambient score (spec c17, honesty h10/h12): WebAudio
+# synthesis at play time, seeded from data already in the page, OFF by
+# default. The rendered document stays byte-deterministic and self-contained;
+# enabling the score is runtime behavior only and never changes the bytes.
+# --------------------------------------------------------------------------- #
+
+# The user's mood brief, verbatim — what the next human review rates against.
+_MOOD_TARGET = "content and relaxed, but also curious and intrigued"
+
+
+def test_ambient_audio_toggle_ships_in_transport_off_by_default() -> None:
+    """Acceptance: a visible, accessible toggle in the transport, OFF by
+    default — the off state is in the document's own bytes, and the control
+    wears the transport's existing idiom (a real button, accent on-state)."""
+    html = render_html(_play_match())
+    btn = re.search(r'<button id="btn-audio".*?>', html, re.S)
+    assert btn, "audio toggle button missing"
+    tag = btn.group(0)
+    assert 'aria-pressed="false"' in tag  # OFF by default, in the bytes
+    assert "aria-label=" in tag  # accessible name
+    # It lives in the board card's controls row (the transport bar) and wears
+    # the same accent on-state as the play button — chrome, never a team hue.
+    assert html.index('class="controls"') < btn.start() < html.index('id="match-data"')
+    assert "#btn-play.on, #btn-audio.on" in html
+
+
+def test_ambient_audio_is_synthesized_webaudio_never_an_asset() -> None:
+    """Acceptance: no audio file, no external request — the score is WebAudio
+    synthesis at play time (oscillators, gains, a filter, and a convolver
+    whose impulse response is itself synthesized, never fetched)."""
+    html = render_html(_play_match())
+    for prim in ("createOscillator", "createGain", "createBiquadFilter", "createConvolver"):
+        assert prim in html, f"WebAudio primitive {prim} missing"
+    for banned in ("<audio", "data:audio", ".mp3", ".ogg", ".wav"):
+        assert banned not in html, f"audio-asset marker {banned!r} found in replay"
+
+
+def test_ambient_audio_is_seeded_from_page_data_and_lazy() -> None:
+    """Acceptance: the score is seeded from data already in the page (match id
+    + seed) through a small deterministic PRNG — same match, same music — and
+    the AudioContext is created lazily on the enabling gesture, never at load
+    (browser autoplay policy, and audio must stay off by default)."""
+    html = render_html(_play_match())
+    assert "mulberry32" in html
+    assert "audioSeed" in html
+    assert "M.match_id + '|' + M.seed" in html
+    for banned in ("Math.random(", "Date.now("):
+        assert banned not in html
+    # Exactly one construction site, inside the enable path only.
+    assert html.count("new (window.AudioContext") == 1
+
+
+def test_guide_carries_the_ambient_mood_brief() -> None:
+    """Acceptance: the mood brief is written into the guide as what the
+    reviewer should rate — quoted verbatim — with the seeding provenance
+    naming THIS match, so the determinism claim is checkable in-page."""
+    log = _play_match()
+    listening = build_replay_data(log)["guide"]["listening"]
+    assert listening["mood_target"] == _MOOD_TARGET
+    assert log.initial_state.match_id in listening["how"]
+    assert str(log.initial_state.seed) in listening["how"]
+    html = render_html(log)
+    assert _MOOD_TARGET in html
+    assert "G.listening" in html  # the guide renderer lays the section out
+
+
+def test_ambient_audio_keeps_the_document_deterministic_and_offline() -> None:
+    """Acceptance: the document stays byte-deterministic and self-contained —
+    the score is runtime synthesis, so nothing about it (enabled or not) can
+    change the rendered bytes, and no external reference sneaks in with it."""
+    log = _play_match()
+    a, b = render_html(log), render_html(log)
+    assert a == b
+    body = a.split("</head>", 1)[1].replace("http://www.w3.org/2000/svg", "")
+    for needle in ("http://", "https://", "fetch(", "XMLHttpRequest", "@import", "url("):
+        assert needle not in body, f"external-request marker {needle!r} found in replay body"
