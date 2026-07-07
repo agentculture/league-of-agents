@@ -1,0 +1,85 @@
+{
+ "match": {
+  "scenario": "skirmish-2",
+  "mode": "competitive",
+  "seed": 20260713,
+  "id": "m-span-colleague"
+ },
+ "teams": [
+  {
+   "id": "guild",
+   "name": "Colleague Orchestrated",
+   "driver": {
+    "type": "command",
+    "per_seat": true,
+    "argv": [
+     "python3",
+     "scripts/colleague_driver.py",
+     "--model",
+     "sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP",
+     "--workdir",
+     ".league/span-colleague-seat"
+    ],
+    "timeout": 420,
+    "master": {
+     "argv": [
+      "python3",
+      "scripts/colleague_driver.py",
+      "--model",
+      "sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP",
+      "--workdir",
+      ".league/span-colleague-seat",
+      "--max-steps",
+      "3"
+     ],
+     "timeout": 900,
+     "id": "guild-master"
+    }
+   },
+   "agents": [
+    {
+     "id": "guild-1",
+     "model": "colleague-agent/qwen3.6-27b",
+     "role": "scout"
+    },
+    {
+     "id": "guild-2",
+     "model": "colleague-agent/qwen3.6-27b",
+     "role": "harvester"
+    },
+    {
+     "id": "guild-3",
+     "model": "colleague-agent/qwen3.6-27b",
+     "role": "defender"
+    }
+   ],
+   "map_read": "full",
+   "unit_comms": false
+  },
+  {
+   "id": "house",
+   "name": "House Baseline",
+   "driver": {
+    "type": "bot"
+   },
+   "agents": [
+    {
+     "id": "house-1",
+     "model": "bot:greedy",
+     "role": "scout"
+    },
+    {
+     "id": "house-2",
+     "model": "bot:greedy",
+     "role": "harvester"
+    },
+    {
+     "id": "house-3",
+     "model": "bot:greedy",
+     "role": "defender"
+    }
+   ]
+  }
+ ],
+ "fog": true
+}
