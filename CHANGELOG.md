@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-07
+
+### Added
+
+- Season-0 playtest wave complete: opener (Sonnet 23-10 Qwen, h17/h18 verified), coordination-necessity (h9 not demonstrated, recorded), orchestrator subagent mode (h8 demonstrated, dead-heat finding); resilient live-driver harness (per-seat minds, solo handicap, retry-and-idle); colleague_driver.py fields colleague as an agent; replay legibility fixes from human review (stacked-unit fan-out, mission labels, #tN deep links)
+
+### Fixed
+
+- replay: co-located units no longer occlude each other; mission squares labeled with completion credit; playtests branch rebased to include the PR #5 XSS/traversal fixes
+
 ## [0.6.0] - 2026-07-07
 
 ### Added

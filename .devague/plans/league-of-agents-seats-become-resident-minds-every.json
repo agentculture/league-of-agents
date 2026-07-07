@@ -1,0 +1,339 @@
+{
+  "slug": "league-of-agents-seats-become-resident-minds-every",
+  "title": "League of Agents seats become resident minds: every agent keeps one continuous context for the whole match \u2014 cultureagent anchors Claude and Colleague seats alike \u2014 orders are legal by construction, and no mission is ever decided by the alphabet",
+  "frame_slug": "league-of-agents-seats-become-resident-minds-every",
+  "schema_version": 1,
+  "status": "exported",
+  "created": "2026-07-07T04:28:07Z",
+  "updated": "2026-07-07T04:32:04Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "League of Agents seats become resident minds: every agent keeps one continuous context for the whole match \u2014 cultureagent anchors Claude and Colleague seats alike \u2014 orders are legal by construction, and no mission is ever decided by the alphabet"
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "Every phrase of the announcement is backed by a committed artifact before the next frame opens: resident context (harness transcript), cultureagent anchor (truthful roster routing), legal-by-construction (legal-actions surface + fed-back reasons), no-alphabet (id-neutral rule + its regression test)"
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "Agent teams (Claude, colleague, and any cultureagent-anchored mind), the human reviewer reading replays, and the orchestrator fielding spawned seats"
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "Each named audience actually touches the increment: agent teams play resident in a recorded match, the human reviewer reads its replay (the h15 pattern), and orchestrator mode still runs unchanged (the t14 config replays green)"
+    },
+    {
+      "id": "c3",
+      "kind": "before_state",
+      "text": "Every seat turn is a fresh stateless invocation: full re-briefing each turn (no prompt-cache reuse), no contextual mindset, seats repeat their own mistakes because rejections never reach the next prompt, and the swarm burned 19/53 orders on geometry the engine already knew was illegal; ms-supply's dead-heat was awarded by lexicographic team id"
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "The before-state cites the committed season-0 record (stateless drivers, 19/53 rejections, the lexicographic ms-supply award) \u2014 not an after-the-fact reconstruction"
+    },
+    {
+      "id": "c4",
+      "kind": "after_state",
+      "text": "Each seat is a resident mind for the whole match: one persistent context per agent (turn N gets a delta briefing, not a re-teach), anchored via culture's cultureagent for Claude and Colleague seats alike; the interface makes order legality checkable before declaring and feeds every rejection reason back; simultaneous mission completion resolves fairly; the event log remains the only inter-agent channel and the replay stays the legible source of truth"
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "The after-state is demonstrated end to end in ONE recorded match \u2014 resident seats, delta briefings, legality surface, fed-back rejections, fair dead-heat \u2014 not assembled from disjoint demos"
+    },
+    {
+      "id": "c5",
+      "kind": "why_it_matters",
+      "text": "Continuity is cache-efficiency (persistent context = prefix-cache hits per turn on both Anthropic and vLLM sides) and game psychology (a mind that lives in the match plays in a contextual mindset instead of waking amnesiac 30 times); it also makes the h9 coordination retest meaningful \u2014 a swarm that stops wasting a third of its orders can actually test whether coordination beats solo strength"
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "The efficiency/mindset rationale survives its own test: if the resident-vs-stateless comparison shows no measurable gain, the report says so plainly and the rationale is revisited in the next frame rather than quietly dropped"
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "Seats have cross-turn continuity: one persistent context per agent across the whole match (user directive: efficiency per agent, caching-wise, and a contextual mindset as part of the game)"
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "Persistence is verifiable, not vibes: the resident driver holds ONE session per seat for the entire match, turn N>1 sends a delta briefing (new events + current state), never the full re-teach, and a harness test proves the same session served every turn"
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "The efficiency claim is measured, not asserted: the playtest report compares resident vs stateless on the same scenario+seed \u2014 per-turn input tokens (or latency) and total cost \u2014 and prints the numbers even if they disappoint"
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "Culture's cultureagent anchors the resident seats \u2014 Claude and Colleague minds run through the same anchor (user directive)"
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "Anchoring is real on both minds: a recorded match fields at least one Claude seat AND one Colleague seat through cultureagent sessions (not raw API, not claude -p), and the match log's roster labels state that routing truthfully"
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "Illegal moves must not be silently possible: per-unit legal actions are readable before declaring, and a rejected order's reason text reaches that agent's next briefing (user directive from the h15 review)"
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "Legality is readable before declaring: match show --json exposes per-unit legal actions (move targets in range, gather/deliver/hold applicability) and the seat briefing cites them"
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "Mistakes reach the mind that made them: when a seat's order is rejected, that seat's next briefing contains the engine's reason text \u2014 provable from the recorded harness transcript, and the engine's validation/events stay unchanged (determinism intact)"
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "Dead-heat mission resolution is fair: simultaneous completion of the same mission never resolves by team-id sort order \u2014 the rule must be deterministic yet id-neutral (split, dual-award, or seed-derived)"
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "Id-neutrality is regression-tested: a test reproduces the orchestrator t16 double-delivery and proves the outcome is invariant under swapping team ids; the determinism hash is regenerated once, deliberately, in the PR that changes the rule"
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "Continuity is a declared fairness axis: a team's seat persistence (resident vs stateless) is recorded in the match config and log so cross-team comparisons stay honest, and a resident seat still coordinates with teammates ONLY through in-game messages"
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "Residency is auditable: the match log records each team's driver kind (resident vs stateless), and the only inter-seat channel in a resident match remains in-game messages \u2014 the replay shows everything any seat was told by a teammate"
+    },
+    {
+      "id": "c13",
+      "kind": "boundary",
+      "text": "Not building: persistent memory ACROSS matches (a seat's residency ends when the match ends), out-of-game side channels between seats, or a new agent framework \u2014 cultureagent is used as it exists"
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "The boundary is checkable in review: no code path persists seat context past match end, no channel exists between seats besides in-game messages, and the increment patches nothing inside cultureagent itself (consumes its existing surface only)"
+    },
+    {
+      "id": "c14",
+      "kind": "success_signal",
+      "text": "A recorded live match with resident seats on both teams, plus its stateless-baseline rematch on the same scenario+seed, and a report comparing rejection rates, per-turn latency/token cost, and dual scores \u2014 reviewed by a human from the replay alone"
+    },
+    {
+      "id": "h14",
+      "kind": "honesty",
+      "text": "The comparison is honest: resident match and stateless baseline share scenario+seed (the t10 rematch rule), both logs+replays are committed, and the report publishes the numbers whichever way they point"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Engine+CLI: legal-actions surface \u2014 a pure helper computes each unit's legal actions (move targets in range, gather/deliver/hold applicability) and 'match show --json' exposes it per unit; explain catalog updated",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "match show --json contains legal_actions for every living unit, derived from state+scenario only (deterministic, AST-clean)",
+        "A test asserts a rejected-yesterday order (beyond-range move) is absent from legal_actions"
+      ],
+      "deps": [],
+      "covers": [
+        "c8",
+        "h4"
+      ]
+    },
+    {
+      "id": "t2",
+      "summary": "Harness: rejection feedback \u2014 every seat/commander briefing includes that agent's own prior-turn rejections with the engine's reason text (stateless AND resident paths)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A harness test stages an illegal order and asserts the same seat's next prompt contains the rejection reason verbatim",
+        "Briefings cite the legal_actions surface so legality is checkable before declaring"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c8",
+        "h5"
+      ]
+    },
+    {
+      "id": "t3",
+      "summary": "Spike cultureagent's resident-session surface: one persistent session per seat for BOTH a claude-backed and a colleague-backed mind; send two sequential messages into the same session and prove the second reply remembers the first; record the working invocation + chosen transport in a committed spike note (unparks v1)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A committed spike note shows one session per backend answering a turn-2 question that requires remembering turn 1",
+        "The note names the transport the resident driver will use, with the actual commands/config that worked"
+      ],
+      "deps": [],
+      "covers": [
+        "c7"
+      ]
+    },
+    {
+      "id": "t4",
+      "summary": "Engine: dual-award dead-heat rule \u2014 simultaneous completion of one mission awards BOTH teams the full reward (user decision c15); regenerate the determinism fixture deliberately in the same PR",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A regression test reproduces the orchestrator t16 double-delivery shape and both teams score the mission",
+        "A team-id-swap invariance test proves outcomes are identical under renamed team ids",
+        "tests/fixtures/determinism.hash regenerated once, called out in the PR body"
+      ],
+      "deps": [],
+      "covers": [
+        "c9",
+        "h6"
+      ]
+    },
+    {
+      "id": "t5",
+      "summary": "Harness: resident driver type \u2014 one long-lived cultureagent session per seat for the whole match; turn 1 sends the full briefing, turn N>1 sends only the delta (new events, current state, teammate messages); same one-JSON-action reply contract; per-seat session transcript recorded for audit",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A harness test proves the same session id serves every turn of a match and turn N>1 input contains no rules re-teach",
+        "bot/command drivers still work unchanged (rematch baselines stay possible)"
+      ],
+      "deps": [
+        "t3",
+        "t2"
+      ],
+      "covers": [
+        "c6",
+        "h1"
+      ]
+    },
+    {
+      "id": "t6",
+      "summary": "Store+log: residency is a declared fairness axis \u2014 each team's driver kind (resident vs stateless) is recorded in the match config echo and the match log, readable via match show/standings",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The match log header records driver kind per team; match show --json surfaces it",
+        "A test asserts a resident-vs-stateless match is labeled as such in both projections"
+      ],
+      "deps": [],
+      "covers": [
+        "c10",
+        "h7"
+      ]
+    },
+    {
+      "id": "t7",
+      "summary": "Playtest: the resident match \u2014 a recorded live match where at least one Claude seat AND one Colleague seat play as cultureagent-anchored resident minds, with delta briefings, legal-actions surface, and rejection feedback all active; log + replay + score committed",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The committed log shows resident routing in the roster labels and residency recorded per team",
+        "The t14 orchestrator config still plays green (audience regression)"
+      ],
+      "deps": [
+        "t2",
+        "t4",
+        "t5",
+        "t6"
+      ],
+      "covers": [
+        "c4",
+        "h11",
+        "c7",
+        "h3"
+      ]
+    },
+    {
+      "id": "t8",
+      "summary": "Playtest: the stateless baseline rematch \u2014 same scenario+seed (t10 rule) with fresh-invocation drivers, then the comparison report: rejection rates, per-turn input tokens/latency, dual scores; numbers published whichever way they point",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Both logs+replays committed; the report tables resident vs stateless on the same seed",
+        "If resident shows no measurable gain the report says so plainly (the rationale survives its own test)"
+      ],
+      "deps": [
+        "t7"
+      ],
+      "covers": [
+        "c14",
+        "h14",
+        "h2",
+        "c5",
+        "h12"
+      ]
+    },
+    {
+      "id": "t9",
+      "summary": "Human review of the resident replay (the h15 pattern): the reviewer reconstructs WHY from the replay alone; findings recorded in the report and fed to the next frame",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The report contains a human-review section with the reviewer's reconstruction and any legibility findings"
+      ],
+      "deps": [
+        "t7"
+      ],
+      "covers": [
+        "c2",
+        "h9"
+      ]
+    },
+    {
+      "id": "t10",
+      "summary": "Docs + propagation: before-state cites the committed season-0 reports; a boundary audit confirms no cross-match persistence, no side channels, no cultureagent patches; announcement-to-artifact traceability table; seed the next frame from findings (the cycle continues)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The spec's announcement phrases each map to a committed artifact in a traceability table",
+        "Boundary audit checklist committed with the review",
+        "Next-frame candidates recorded from the resident playtest findings"
+      ],
+      "deps": [
+        "t8",
+        "t9"
+      ],
+      "covers": [
+        "c1",
+        "h8",
+        "c3",
+        "h10",
+        "c13",
+        "h13"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "cultureagent may not expose a clean headless per-seat session surface; the spike may force fallback wiring (e.g. SDK sessions without the mesh) \u2014 the frame's one-session-per-seat requirement still binds",
+      "kind": "unknown_nonblocking",
+      "task_id": "t3"
+    },
+    {
+      "id": "r2",
+      "text": "Resident colleague seats share one vLLM server \u2014 parallel sessions may contend for GPU; turn timeouts need tuning against real latencies",
+      "kind": "unknown_nonblocking",
+      "task_id": "t7"
+    },
+    {
+      "id": "r3",
+      "text": "Prompt-cache economics differ per provider (Anthropic TTL vs vLLM prefix cache); the measured gain may be asymmetric across teams \u2014 report per-team, don't average it away",
+      "kind": "unknown_nonblocking",
+      "task_id": "t8"
+    }
+  ]
+}
