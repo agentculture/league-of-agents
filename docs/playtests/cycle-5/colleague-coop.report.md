@@ -60,6 +60,29 @@ cp-east at t7; defender took cp-center at t8; **ms-outpost fell at t10**, and
 the harvester's gather→deliver loop banked the sixth resource for
 **ms-supply at t16**, ending the match at nearly half the turn limit.
 
+## Methodology limitations (review findings, disclosed)
+
+1. **Shared per-seat scratch workdir.** All three seats ran
+   `colleague_driver.py --workdir .league/colleague-coop-seat` — one scratch
+   git repo. Post-match inspection: the repo's tracked content never changed
+   (single `init` commit, README only — no seat committed anything), but the
+   colleague harness wrote 97 per-work-item trace/result files for all three
+   seats into the same `.colleague/` directory, so a seat *could in principle*
+   have read another's traces. Nothing in the decision traces suggests it
+   happened, and the in-game message evidence (52/52 referent-realized)
+   independently supports genuine in-game coordination — but the
+   "messages-only" isolation claim is weakened to that extent and this match
+   is not rerun to hide it. Fix-forward: per-seat workdirs (harness-level
+   per-seat argv templating), queued with the cycle-5 closure work.
+2. **Replay panel shows cooperation v0.** The embedded score breakdown in
+   [`colleague-coop.replay.html`](colleague-coop.replay.html) is rendered by
+   the replay's built-in scorer, which predates v1 selection — its
+   cooperation signals are the v0 schema. The authoritative cooperation-v1
+   numbers for this match are
+   [`colleague-coop.score.json`](colleague-coop.score.json) (and the table
+   above). A replay-side cooperation-version selector is part of the cycle-6
+   replay overhaul.
+
 ## Cycle-5 thread status
 
 This closes the *bot-independent* half of the c6 live-test thread for the
