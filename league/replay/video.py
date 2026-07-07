@@ -4,7 +4,7 @@
 pure-stdlib animated GIF89a writer — palette-indexed raster frames plus a
 hand-rolled LZW encoder (~a few hundred lines, no dependency). The board is
 flat-color geometry (discs, rings, diamonds, a tiny bitmap font), so a small
-global palette (25 colors — the SAME validated hues :mod:`league.replay.html`
+global palette (28 colors — the SAME validated hues :mod:`league.replay.html`
 uses plus that face's own neutral steps, selected per ``--theme``: light
 Anthropic cream / dark Culture black-green) compresses well and always works,
 on any machine, with nothing to install. This keeps the runtime dependency-free
@@ -29,26 +29,39 @@ pixels, and ``--theme`` changes only the color table (the frame indices are
 theme-independent), so both stay reproducible.
 
 **Frame layout.** The GIF speaks the same design system as the HTML face
-(:mod:`league.replay.html`; rationale in ``docs/replay-design.md``): every
-frame sits on the theme's page matte, composed with generous margins, and only
-the color table differs between themes. One opening **title card** — a centered
+(:mod:`league.replay.html`; rationale in ``docs/replay-design.md``), and its
+play frames mirror that page's **board card during playback**, raster-exact:
+every geometry value is one of the HTML face's own CSS/SVG pixel numbers
+scaled by ``cell_px / 46`` (46 is the HTML board's SVG cell — see ``_HTML_CELL``
+and the metric constants below). One opening **title card** — a centered
 lockup (the title over a thin accent rule, the match id, a scenario/mode/seed
 metadata line, then one swatch-chipped row per team with its roster), framed by
 hairline corner marks. One frame per **turn** actually played (skips the
-pre-turn-0 snapshot the title card covers), where the board is the hero: a
-hairline grid on a subtly distinct board panel, shape-coded furniture (diamond
-resource nodes, mission rings, control-point discs with owner tint + ring),
-team-colored unit discs wearing a surface-colored ring (the raster cousin of
-the HTML face's 2px surface stroke) and a role glyph, fanned out
-deterministically when several share a cell — the same "never occluded" rule
-:mod:`league.replay.html` follows — under a muted caption and over a footer
-strip carrying the turn counter and per-team scores in aligned, swatch-labelled
-columns. ``tween`` linearly interpolated frames between each adjacent pair of
-turns keep movement flowing instead of teleporting; a tween frame holds the
-starting turn's board furniture and glides only the units. One **closing
-card** — big score numerals per team over swatch-labelled rows, the winner
-named beneath — closes the loop. Frame count: ``turns + (turns - 1) * tween +
-2``.
+pre-turn-0 snapshot the title card covers), drawn as the HTML replay's board
+card on the page matte: a rounded card surface (``--r-lg`` 18px corners, a 1px
+``--ring`` border, 14px padding), a header row inside the card — the brand
+mark and title with the turn readout right-aligned (the HTML's
+``turn N / limit``), then one pill chip per team (swatch · name · live RES/MSN
+numerals) with the match id · scenario line right-aligned — and the board
+frame (``--r-md`` 12px corners, 1px border, the board plane at the HTML
+gradient's midpoint) carrying the hairline grid and the HTML board's exact
+mark vocabulary: unit discs (r 12/46 of a cell, a 2.4/46 surface stroke, a
+bold white role glyph; r 9/46 and the HTML's own fan-out offsets when
+stacked), control-point discs (r 15/46 — surface fill + line ring unowned,
+owner tint at ``fill-opacity`` .24 + team ring owned, the hold counter in
+secondary ink), deliver-mission rings (r 18/46 — muted pending, the
+completer's hue when done, secondary ink when shared), resource diamonds
+(11√2/46 half-diagonal, the remaining count in glyph ink, the resource tint
+when exhausted), and the carry badge at the unit's shoulder. Interactive-only
+HTML chrome (transport buttons, slider, tab deck) is deliberately absent — the
+GIF is the board card, not the page — and the board's fine-print id labels
+(``cp-id``/``m-label``) are the one omission: they sit below the 5x7 bitmap
+font's legibility floor. ``tween`` linearly interpolated frames between each
+adjacent pair of turns keep movement flowing instead of teleporting; a tween
+frame holds the starting turn's card chrome and glides only the units. One
+**closing card** — big score numerals per team over swatch-labelled rows, the
+winner named beneath — closes the loop. Frame count: ``turns + (turns - 1) *
+tween + 2``.
 """
 
 from __future__ import annotations
@@ -80,14 +93,65 @@ DEFAULT_THEME = "light"
 _MARGIN = 20  # generous outer margin around every composition
 _GAP = 4  # small intra-line gap (swatch <-> text)
 _DIM_GAP = 10  # gap between a line's primary text and its muted segment
-_PANEL_PAD = 10  # board-panel padding around the grid
-_FOOTER_PAD = 8  # footer-strip inner padding
-_ROW_LEADING = 5  # vertical gap between footer team rows
 _CARD_INSET = 10  # corner-mark inset on the title/closing cards
 _MARK_LEN = 12  # corner-mark arm length
 _RULE_W = 36  # accent rule width
 _RULE_H = 2  # accent rule height
 _CAPTION_TRACK = 1  # extra letter-spacing (px per glyph) for small-caps captions
+
+# --- HTML board-card geometry (the raster mirrors the HTML play view) --------
+#
+# ``league/replay/html.py`` draws its board at ``CELL = 46`` SVG units per grid
+# cell; every card/board metric below is one of that file's own CSS or SVG
+# pixel values (named after its selector), scaled to this render's ``cell_px``
+# through ``_hpx``/``_hoff``/``_hscale`` — so a GIF play frame is a raster crop
+# of the HTML page's board card at any scale, not a lookalike.
+_HTML_CELL = 46  # html.py: const CELL = 46
+
+_U_R = 12  # .u-body solo radius (circle r=12)
+_U_R_STACKED = 9  # stacked unit radius
+_U_STROKE = 2.4  # .u-body { stroke-width: 2.4 } — the surface ring
+_U_GLYPH_PX = 11  # .u-glyph font-size (solo)
+_CARRY_R = 6  # .u-carry-dot radius
+_CARRY_STROKE = 1.5  # .u-carry-dot { stroke-width: 1.5 }
+_CARRY_NUDGE = 2  # carry badge offset: translate(r - 2, 2 - r)
+_CP_R = 15  # .cp-disc radius
+_CP_STROKE = 2.4  # .cp-disc { stroke-width: 2.4 }
+_CP_HOLD_PX = 10  # .cp-hold font-size
+_MISSION_R = 18  # .m-ring radius (deliver missions only)
+_MISSION_STROKE = 1.5  # .m-ring { stroke-width: 1.5 } — pending
+_MISSION_STROKE_DONE = 2.4  # .m-ring.done { stroke-width: 2.4 }
+_NODE_R = 11 * 2**0.5  # the 22x22 node rect rotated 45° — its half-diagonal
+_NODE_NUM_PX = 11  # .node-num font-size
+_SVG_PAD = 14  # html.py: const PAD = 14 (inside the SVG viewBox)
+_FRAME_PAD = 8  # .board-frame { padding: 8px }
+_FRAME_RADIUS = 12  # .board-frame { border-radius: var(--r-md) } = 12px
+_CARD_PAD = 14  # .board-card { padding: 14px } (and #board-box { gap: 14px })
+_CARD_RADIUS = 18  # .card { border-radius: var(--r-lg) } = 18px
+_MARK_SIDE = 22  # .brand .mark { width/height: 22px }
+_MARK_RADIUS = 7  # .brand .mark { border-radius: 7px }
+_BRAND_GAP = 11  # .brand { gap: 11px }
+_H1_PX = 20  # header h1 { font-size: 20px }
+_SMALL_PX = 13  # #turn-label / .team-stats font-size (the 12-14px family)
+_HEADER_ROW_GAP = 10  # header { gap: 10px }
+_HEAD_GAP = 9  # .team-head { gap: 9px } — swatch <-> team name
+_STATS_GAP = 16  # .team-stats { gap: 16px }
+_NUM_GAP = 6  # .agents { gap: 6px } — a stat label <-> its numeral
+_SWATCH = 12  # .swatch { width/height: 12px }
+_SWATCH_RADIUS = 4  # .swatch { border-radius: 4px }
+_CHIP_PAD_X = 11  # .chip { padding: 3px 11px }
+_CHIP_PAD_Y = 3
+_CHIP_GAP = 8  # .meta { gap: 8px } — chip <-> chip
+
+# html.py's STACK_OFFSETS (SVG px at CELL=46), plus its >4-units-per-cell
+# circle-fallback radius — the deterministic "nothing is ever occluded" fan-out.
+_STACK_OFFSETS: tuple[tuple[tuple[int, int], ...], ...] = (
+    ((0, 0),),
+    ((-9, 0), (9, 0)),
+    ((0, -9), (-9, 8), (9, 8)),
+    ((-9, -9), (9, -9), (-9, 9), (9, 9)),
+)
+_STACK_RING = 13
 
 # Typographic hierarchy — integer scales of the 5x7 glyph grid.
 _TEXT_SCALE = 2  # section text (match id, turn counter, winner)
@@ -167,7 +231,26 @@ def _text_height(scale: int) -> int:
     return _FONT_ROWS * scale
 
 
-# --- palette (per-theme, match-independent — the same 25 index SLOTS every
+# --- HTML-pixel scaling (46 SVG units = one cell on the HTML board) ----------
+
+
+def _hpx(v: float, cell_px: int) -> int:
+    """One of the HTML face's pixel values scaled to ``cell_px`` — floored at
+    1px so hairlines, strokes, and paddings survive small scales."""
+    return max(1, round(v * cell_px / _HTML_CELL))
+
+
+def _hoff(v: float, cell_px: int) -> int:
+    """A signed/zero-preserving scaled offset (stack fan-outs, badge nudges)."""
+    return round(v * cell_px / _HTML_CELL)
+
+
+def _hscale(font_px: float, cell_px: int) -> int:
+    """The integer 5x7-glyph scale nearest an HTML font size at this cell."""
+    return max(1, round(font_px * cell_px / _HTML_CELL / _FONT_ROWS))
+
+
+# --- palette (per-theme, match-independent — the same 28 index SLOTS every
 # render; only the RGB behind them changes with the theme, so frame INDICES are
 # theme-independent and it is the GIF's global color table that carries the
 # theme) ------------------------------------------------------------------
@@ -185,7 +268,15 @@ def _blend_hex(bg_hex: str, fg_hex: str, alpha: float) -> str:
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-_OWNED_TINT_ALPHA = 0.28
+# The HTML face's exact ownership tint: ``.cp-disc.owned { fill-opacity: .24 }``
+# — the owner's hue at 24% over the board plane.
+_OWNED_TINT_ALPHA = 0.24
+# ``.node`` fill-opacity for an exhausted resource node (``d.style.fillOpacity
+# = n.remaining ? 0.95 : 0.28``) — the resource hue at 28% over the plane.
+_NODE_DEPLETED_ALPHA = 0.28
+# ``--ring`` is rgba(ink, .10) in both themes — rasterized as ink blended over
+# the card surface it actually borders.
+_RING_ALPHA = 0.10
 
 # Neutral/chrome steps beyond the tokens ``THEMES`` exports — lifted VERBATIM
 # from the HTML face's CSS custom properties (the ``:root`` blocks in
@@ -193,8 +284,9 @@ _OWNED_TINT_ALPHA = 0.28
 # identical, already-designed surface system: the page matte the cards sit on
 # (``--plane``), the card surface (``--surface`` — also the unit-marker ring,
 # the raster cousin of ``.u-body { stroke: var(--surface) }``), the hairline
-# grid (``--grid``), secondary ink (``--ink-2``), and the chrome accent
-# (``--accent`` — chrome only, never a team, per docs/replay-design.md).
+# grid (``--grid``), secondary ink (``--ink-2``), the chrome accent
+# (``--accent`` — chrome only, never a team, per docs/replay-design.md), and
+# the chip tone (``--chip`` — the pill background behind header chips).
 _THEME_EXTRAS: dict[str, dict[str, str]] = {
     "light": {
         "matte": "#f0eee5",
@@ -202,6 +294,7 @@ _THEME_EXTRAS: dict[str, dict[str, str]] = {
         "grid": "#ded9c9",
         "ink2": "#5a5546",
         "accent": "#1e7a4d",
+        "chip": "#ece8dd",
     },
     "dark": {
         "matte": "#0c1210",
@@ -209,16 +302,21 @@ _THEME_EXTRAS: dict[str, dict[str, str]] = {
         "grid": "#1e2a24",
         "ink2": "#aebcb2",
         "accent": "#46c79e",
+        "chip": "#152019",
     },
 }
 
 
 def _theme_palette_hex(name: str, theme: Mapping[str, Any]) -> tuple[str, ...]:
-    """The 25 palette hexes for a theme, in slot order — the SAME validated hues
+    """The 28 palette hexes for a theme, in slot order — the SAME validated hues
     :mod:`league.replay.html` uses for that theme (board plane/line/ink/muted,
     status good/critical, resource, glyph ink, the team hues and their
     ownership tints), then the HTML face's own neutral steps (page matte, card
-    surface, hairline grid, secondary ink, chrome accent)."""
+    surface, hairline grid, secondary ink, chrome accent, chip tone) and two
+    derived steps that rasterize its alpha effects: the ``--ring`` hairline
+    (ink at 10% over the surface) and the depleted-node tint (the resource hue
+    at 28% over the plane). No new hues — every step is a token or an
+    alpha-blend of two tokens, exactly as the HTML face composes them."""
     teams = tuple(theme["teams"])
     extras = _THEME_EXTRAS[name]
     return (
@@ -234,7 +332,16 @@ def _theme_palette_hex(name: str, theme: Mapping[str, Any]) -> tuple[str, ...]:
         )
         + teams
         + tuple(_blend_hex(theme["plane"], c, _OWNED_TINT_ALPHA) for c in teams)
-        + (extras["matte"], extras["surface"], extras["grid"], extras["ink2"], extras["accent"])
+        + (
+            extras["matte"],
+            extras["surface"],
+            extras["grid"],
+            extras["ink2"],
+            extras["accent"],
+            extras["chip"],
+            _blend_hex(extras["surface"], theme["ink"], _RING_ALPHA),
+            _blend_hex(theme["plane"], theme["resource"], _NODE_DEPLETED_ALPHA),
+        )
     )
 
 
@@ -256,14 +363,18 @@ _N_TEAM_SLOTS = len(THEMES[DEFAULT_THEME]["teams"])
 _BG, _LINE, _INK, _MUTED, _GOOD, _CRITICAL, _RESOURCE, _GLYPH = range(8)
 _TEAM0 = 8
 _TINT0 = _TEAM0 + _N_TEAM_SLOTS
-# The HTML face's neutral steps (slots 20..24): page matte, card surface,
-# hairline grid, secondary ink, chrome accent. Slot 0 (_BG) stays the *board*
-# plane — the tone the panel wears; the canvas itself sits on _MATTE.
+# The HTML face's neutral steps (slots 20..27): page matte, card surface,
+# hairline grid, secondary ink, chrome accent, chip tone, the --ring hairline,
+# and the depleted-node resource tint. Slot 0 (_BG) stays the *board* plane —
+# the tone the board frame wears; the canvas itself sits on _MATTE.
 _MATTE = _TINT0 + _N_TEAM_SLOTS
 _SURFACE = _MATTE + 1
 _GRID = _MATTE + 2
 _INK2 = _MATTE + 3
 _ACCENT = _MATTE + 4
+_CHIP = _MATTE + 5
+_RING = _MATTE + 6
+_RESOURCE_TINT = _MATTE + 7
 
 # _GOOD/_CRITICAL are reserved status slots (parity with the HTML replay's
 # fixed status scale) — this raster face doesn't animate event flashes, but
@@ -360,6 +471,25 @@ class _Canvas:
             if span < 0:
                 continue
             self.fill_rect(cx - span, y, 2 * span + 1, 1, color)
+
+    def rounded_rect(self, x: int, y: int, w: int, h: int, r: int, color: int) -> None:
+        """A filled rectangle with quarter-disc corners — the raster cousin of
+        the HTML face's ``border-radius`` cards, chips, and swatches."""
+        if w <= 0 or h <= 0:
+            return
+        r = max(0, min(r, (min(w, h) - 1) // 2))
+        if r == 0:
+            self.fill_rect(x, y, w, h, color)
+            return
+        self.fill_rect(x + r, y, w - 2 * r, h, color)
+        self.fill_rect(x, y + r, w, h - 2 * r, color)
+        for ccx, ccy in (
+            (x + r, y + r),
+            (x + w - 1 - r, y + r),
+            (x + r, y + h - 1 - r),
+            (x + w - 1 - r, y + h - 1 - r),
+        ):
+            self.disc(ccx, ccy, r, color)
 
     def text(self, x: int, y: int, s: str, color: int, scale: int = 1, tracking: int = 0) -> int:
         cursor = x
@@ -562,48 +692,77 @@ def _draw_grid(canvas: _Canvas, x0: int, y0: int, grid_w: int, grid_h: int, cell
 
 
 def _draw_resource_nodes(canvas: _Canvas, x0: int, y0: int, cell_px: int, nodes) -> None:
-    # Diamonds — shape-coded, never a round mark, so a node can never be
-    # mistaken for a unit or a control point even in grayscale.
+    # The HTML board's node verbatim: a diamond (its 22x22 rect rotated 45°,
+    # half-diagonal 11√2) carrying the remaining count in bold glyph ink; an
+    # exhausted node keeps the shape in the resource tint (``fillOpacity .28``)
+    # — shape-coded, never a round mark, so a node can never be mistaken for a
+    # unit or a control point even in grayscale.
+    r = max(3, _hoff(_NODE_R, cell_px))
+    num_scale = _hscale(_NODE_NUM_PX, cell_px)
     for n in nodes:
         cx, cy = _cell_center(x0, y0, cell_px, n["pos"])
-        r = max(3, cell_px // 3)
-        canvas.diamond(cx, cy, r, _RESOURCE if n["remaining"] else _LINE)
+        canvas.diamond(cx, cy, r, _RESOURCE if n["remaining"] else _RESOURCE_TINT)
+        label = str(n["remaining"])
+        canvas.text(
+            cx - _text_width(label, num_scale) // 2,
+            cy - _text_height(num_scale) // 2,
+            label,
+            _GLYPH,
+            num_scale,
+        )
 
 
 def _draw_missions(canvas: _Canvas, x0: int, y0: int, cell_px: int, missions, team_index) -> None:
-    # Open missions: a thin muted ring; completed: a heavier ring in the
-    # completing team's hue (ink when shared) — parity with ``.m-ring.done``.
+    # Parity with the HTML board: only a *deliver* mission wears the r=18 ring
+    # (a hold mission's cell is its control point — the HTML gives it no mark
+    # of its own). Pending: the thin muted ring (``.m-ring``); done: the
+    # heavier ring in the completing team's hue — the neutral secondary ink
+    # when shared, so neither team's color claims it (``.m-ring.done``).
+    r = _hpx(_MISSION_R, cell_px)
     for m in missions:
+        if m["kind"] != "deliver":
+            continue
         cx, cy = _cell_center(x0, y0, cell_px, m["pos"])
-        r = max(4, cell_px // 2 - 2)
         completed = m["status"] == "completed" and m["completed_by"]
         if completed:
             color = (
                 _team_color(team_index[m["completed_by"][0]])
                 if len(m["completed_by"]) == 1
-                else _INK
+                else _INK2
             )
-            canvas.ring(cx, cy, r, 2, color)
+            canvas.ring(cx, cy, r, _hpx(_MISSION_STROKE_DONE, cell_px), color)
         else:
-            canvas.ring(cx, cy, r, 1, _MUTED)
+            canvas.ring(cx, cy, r, _hpx(_MISSION_STROKE, cell_px), _MUTED)
 
 
 def _draw_control_points(
     canvas: _Canvas, x0: int, y0: int, cell_px: int, control_points, team_index
 ) -> None:
-    # Owned: the owner's tint disc under a team-colored ring. Unowned: a quiet
-    # hairline ring with a center dot (the dot keeps it distinct from an open
-    # mission ring by shape, not just weight).
+    # The HTML ``.cp-disc`` verbatim: a FILLED disc under a 2.4px ring —
+    # surface fill + line ring when unowned; the owner's .24 tint + team ring
+    # when owned, with the hold counter (``.cp-hold``) in secondary ink at its
+    # center.
+    r = _hpx(_CP_R, cell_px)
+    stroke = _hpx(_CP_STROKE, cell_px)
+    hold_scale = _hscale(_CP_HOLD_PX, cell_px)
     for c in control_points:
         cx, cy = _cell_center(x0, y0, cell_px, c["pos"])
-        r = max(4, cell_px // 2 - 3)
         if c["owner"] is not None:
             idx = team_index[c["owner"]]
             canvas.disc(cx, cy, r, _team_tint(idx))
-            canvas.ring(cx, cy, r, 2, _team_color(idx))
+            canvas.ring(cx, cy, r, stroke, _team_color(idx))
         else:
-            canvas.ring(cx, cy, r, 1, _LINE)
-            canvas.disc(cx, cy, max(1, r // 4), _LINE)
+            canvas.disc(cx, cy, r, _SURFACE)
+            canvas.ring(cx, cy, r, stroke, _LINE)
+        if c["hold"]:
+            label = str(c["hold"][0][1])
+            canvas.text(
+                cx - _text_width(label, hold_scale) // 2,
+                cy - _text_height(hold_scale) // 2,
+                label,
+                _INK2,
+                hold_scale,
+            )
 
 
 def _unit_positions(units, x0: int, y0: int, cell_px: int) -> dict[str, dict[str, Any]]:
@@ -620,11 +779,18 @@ def _unit_positions(units, x0: int, y0: int, cell_px: int) -> dict[str, dict[str
     for pos, stack in by_cell.items():
         stack.sort(key=lambda u: u["id"])  # canonical order — never submission order
         n = len(stack)
-        spread = max(2, cell_px // 4)
-        base_r = max(3, cell_px // 2 - (3 if n > 1 else 1))
+        # The HTML board's exact sizes and fan-out: solo units keep the full
+        # r=12 disc, stacked ones shrink to r=9 and take STACK_OFFSETS'
+        # patterns (1-4 units) or the radius-13 circle fallback beyond that.
+        base_r = max(2, _hpx(_U_R if n == 1 else _U_R_STACKED, cell_px))
+        if n <= len(_STACK_OFFSETS):
+            offsets = [(_hoff(dx, cell_px), _hoff(dy, cell_px)) for dx, dy in _STACK_OFFSETS[n - 1]]
+        else:
+            spread = max(2, _hoff(_STACK_RING, cell_px))
+            offsets = [_stack_offset(i, n, spread) for i in range(n)]
         cx, cy = _cell_center(x0, y0, cell_px, pos)
         for i, u in enumerate(stack):
-            dx, dy = _stack_offset(i, n, spread)
+            dx, dy = offsets[i]
             out[u["id"]] = {
                 "x": cx + dx,
                 "y": cy + dy,
@@ -636,30 +802,50 @@ def _unit_positions(units, x0: int, y0: int, cell_px: int) -> dict[str, dict[str
     return out
 
 
-def _paint_unit(canvas: _Canvas, p: Mapping[str, Any], team_index) -> None:
+def _paint_unit(canvas: _Canvas, p: Mapping[str, Any], team_index, cell_px: int) -> None:
     ux, uy, base_r = p["x"], p["y"], p["r"]
-    # A surface-colored ring under the team disc — the raster cousin of the
-    # HTML face's ``.u-body { stroke: var(--surface); stroke-width: 2.4 }`` —
+    # A surface-colored ring under the team disc — the raster of the HTML
+    # face's ``.u-body { stroke: var(--surface); stroke-width: 2.4 }`` —
     # separates units from furniture and from each other when stacked.
-    ring_w = 1 if base_r <= 6 else 2
+    ring_w = _hpx(_U_STROKE, cell_px)
     canvas.disc(ux, uy, base_r + ring_w, _SURFACE)
     canvas.disc(ux, uy, base_r, _team_color(team_index[p["team"]]))
     glyph = _ROLE_GLYPH.get(p["role"], (p["role"][:1] or "?").upper())
-    gw = _text_width(glyph, 1)
-    canvas.text(ux - gw // 2, uy - _FONT_ROWS // 2, glyph, _GLYPH, 1)
+    glyph_scale = _hscale(_U_GLYPH_PX, cell_px)
+    canvas.text(
+        ux - _text_width(glyph, glyph_scale) // 2,
+        uy - _text_height(glyph_scale) // 2,
+        glyph,
+        _GLYPH,
+        glyph_scale,
+    )
     if p["carrying"]:
-        dot_r = max(2, base_r // 3)
-        canvas.disc(ux + base_r - 2, uy - base_r + 2, dot_r + 1, _SURFACE)
-        canvas.disc(ux + base_r - 2, uy - base_r + 2, dot_r, _RESOURCE)
+        # ``.u-carry``: the resource dot at the unit's shoulder — offset
+        # translate(r - 2, 2 - r) — with its own thin surface stroke; the
+        # count rides inside only when the dot can actually hold a glyph
+        # (the HTML's 8px number sits below the bitmap font's floor at
+        # small cells).
+        dot_r = max(2, _hoff(_CARRY_R, cell_px))
+        bx = ux + base_r - _hoff(_CARRY_NUDGE, cell_px)
+        by = uy - base_r + _hoff(_CARRY_NUDGE, cell_px)
+        canvas.disc(bx, by, dot_r + _hpx(_CARRY_STROKE, cell_px), _SURFACE)
+        canvas.disc(bx, by, dot_r, _RESOURCE)
+        label = str(p["carrying"])
+        if 2 * dot_r + 1 >= _text_height(1) + 2 and _text_width(label, 1) <= 2 * dot_r:
+            canvas.text(
+                bx - _text_width(label, 1) // 2, by - _text_height(1) // 2, label, _GLYPH, 1
+            )
 
 
-def _paint_units(canvas: _Canvas, positions: Mapping[str, dict[str, Any]], team_index) -> None:
+def _paint_units(
+    canvas: _Canvas, positions: Mapping[str, dict[str, Any]], team_index, cell_px: int
+) -> None:
     for uid in sorted(positions):  # id order — deterministic, stable stacking
-        _paint_unit(canvas, positions[uid], team_index)
+        _paint_unit(canvas, positions[uid], team_index, cell_px)
 
 
 def _draw_units(canvas: _Canvas, x0: int, y0: int, cell_px: int, units, team_index) -> None:
-    _paint_units(canvas, _unit_positions(units, x0, y0, cell_px), team_index)
+    _paint_units(canvas, _unit_positions(units, x0, y0, cell_px), team_index, cell_px)
 
 
 def _tween_positions(
@@ -691,105 +877,167 @@ def _tween_positions(
 
 
 @dataclass(frozen=True)
-class _FooterCols:
-    """Fixed column widths for the footer strip, measured across ALL frames so
-    the columns never shift as scores grow."""
+class _Card:
+    """The HTML board card's geometry scaled to this render's cell size —
+    every field is one of ``html.py``'s CSS/SVG pixel values through
+    ``_hpx``/``_hoff``/``_hscale`` (see the metric constants up top)."""
 
-    turn_w: int  # the turn-counter block (widest "limit/limit" at _TEXT_SCALE)
-    name_w: int  # widest team name, scale 1
-    res_w: int  # widest resource numeral, scale 1
-    msn_w: int  # widest missions numeral, scale 1
+    pad: int  # .board-card padding
+    gap: int  # #board-box gap (header <-> board frame)
+    radius: int  # .card border-radius (--r-lg)
+    frame_radius: int  # .board-frame border-radius (--r-md)
+    board_inset: int  # frame border + .board-frame padding + the SVG's PAD
+    mark: int  # .brand .mark side
+    mark_radius: int
+    brand_gap: int
+    title_scale: int  # header h1
+    small_scale: int  # turn label / chips / team names
+    row_gap: int  # header row 1 <-> row 2
+    head_gap: int  # swatch <-> team name
+    stats_gap: int  # stat group <-> stat group
+    num_gap: int  # stat label <-> numeral
+    swatch: int
+    swatch_radius: int
+    chip_pad_x: int
+    chip_pad_y: int
+    chip_gap: int
+
+
+def _card_metrics(cell_px: int) -> _Card:
+    return _Card(
+        pad=_hpx(_CARD_PAD, cell_px),
+        gap=_hpx(_CARD_PAD, cell_px),
+        radius=_hpx(_CARD_RADIUS, cell_px),
+        frame_radius=_hpx(_FRAME_RADIUS, cell_px),
+        board_inset=1 + _hpx(_FRAME_PAD, cell_px) + _hpx(_SVG_PAD, cell_px),
+        mark=_hpx(_MARK_SIDE, cell_px),
+        mark_radius=_hpx(_MARK_RADIUS, cell_px),
+        brand_gap=_hpx(_BRAND_GAP, cell_px),
+        title_scale=_hscale(_H1_PX, cell_px),
+        small_scale=_hscale(_SMALL_PX, cell_px),
+        row_gap=_hpx(_HEADER_ROW_GAP, cell_px),
+        head_gap=_hpx(_HEAD_GAP, cell_px),
+        stats_gap=_hpx(_STATS_GAP, cell_px),
+        num_gap=_hpx(_NUM_GAP, cell_px),
+        swatch=_hpx(_SWATCH, cell_px),
+        swatch_radius=_hpx(_SWATCH_RADIUS, cell_px),
+        chip_pad_x=_hpx(_CHIP_PAD_X, cell_px),
+        chip_pad_y=_hpx(_CHIP_PAD_Y, cell_px),
+        chip_gap=_hpx(_CHIP_GAP, cell_px),
+    )
+
+
+@dataclass(frozen=True)
+class _HeaderCols:
+    """Fixed header measurements, taken across ALL frames so the chips and the
+    turn readout never shift as scores grow during playback."""
+
+    res_w: int  # widest resource numeral
+    msn_w: int  # widest missions numeral
+    turn_w: int  # widest turn readout ("TURN limit/limit")
+    chip_ws: tuple[int, ...]  # one fixed pill width per team
 
 
 @dataclass(frozen=True)
 class _Layout:
     width: int
     height: int
+    card: tuple[int, int, int, int]  # x, y, w, h — the board card on the matte
+    frame: tuple[int, int, int, int]  # x, y, w, h — the board frame in the card
+    row1_y: int  # header row 1 (brand + title + turn readout)
+    row1_h: int
+    row2_y: int  # header row 2 (team chips + match line)
+    row2_h: int
     board_x: int
     board_y: int
-    caption_y: int
-    panel: tuple[int, int, int, int]  # x, y, w, h — the board's panel plate
-    footer: tuple[int, int, int, int]  # x, y, w, h — the score strip
-    footer_cols: _FooterCols
+    cols: _HeaderCols
+    cm: _Card
 
 
-def _footer_metrics(data: Mapping[str, Any]) -> _FooterCols:
-    board_frames = data["frames"][1:] or data["frames"]
-    limit = data["turn_limit"]
-    turn_w = max(
-        _text_width(f"{limit}/{limit}", _TEXT_SCALE),
-        _text_width("TURN", 1, _CAPTION_TRACK),
-    )
-    name_w = max((_text_width(t["name"], 1) for t in data["teams"]), default=0)
-    max_res = max((t["resources"] for f in board_frames for t in f["teams"]), default=0)
-    res_w = _text_width(str(max_res), 1)
-    msn_w = _text_width(str(len(data["frames"][0]["missions"])), 1)
-    return _FooterCols(turn_w=turn_w, name_w=name_w, res_w=res_w, msn_w=msn_w)
-
-
-def _footer_size(data: Mapping[str, Any], cols: _FooterCols) -> tuple[int, int]:
-    n_teams = len(data["teams"])
-    rows_w = (
-        _swatch_side(1)
-        + _GAP
-        + 2
-        + cols.name_w
-        + 16
-        + _text_width("RES", 1)
-        + 6
-        + cols.res_w
-        + 14
-        + _text_width("MSN", 1)
-        + 6
-        + cols.msn_w
-    )
-    width = _FOOTER_PAD + cols.turn_w + 24 + rows_w + _FOOTER_PAD
-    turn_block_h = _text_height(1) + 3 + _text_height(_TEXT_SCALE)
-    rows_h = n_teams * _text_height(1) + max(0, n_teams - 1) * _ROW_LEADING
-    height = max(turn_block_h, rows_h) + 2 * _FOOTER_PAD
-    return width, height
-
-
-def _caption_text(data: Mapping[str, Any]) -> str:
+def _match_line(data: Mapping[str, Any]) -> str:
     return f"{data['match_id']} {_MDOT} {data['scenario_id']}"
 
 
+def _header_metrics(data: Mapping[str, Any], cm: _Card) -> _HeaderCols:
+    board_frames = data["frames"][1:] or data["frames"]
+    limit = data["turn_limit"]
+    turn_w = _text_width(f"TURN {limit}/{limit}", cm.small_scale)
+    max_res = max((t["resources"] for f in board_frames for t in f["teams"]), default=0)
+    res_w = _text_width(str(max_res), cm.small_scale)
+    msn_w = _text_width(str(len(data["frames"][0]["missions"])), cm.small_scale)
+    chip_ws = tuple(
+        2  # the pill's 1px ring border
+        + 2 * cm.chip_pad_x
+        + cm.swatch
+        + cm.head_gap
+        + _text_width(t["name"], cm.small_scale)
+        + cm.stats_gap
+        + _text_width("RES", cm.small_scale)
+        + cm.num_gap
+        + res_w
+        + cm.stats_gap
+        + _text_width("MSN", cm.small_scale)
+        + cm.num_gap
+        + msn_w
+        for t in data["teams"]
+    )
+    return _HeaderCols(res_w=res_w, msn_w=msn_w, turn_w=turn_w, chip_ws=chip_ws)
+
+
 def _compute_layout(data: Mapping[str, Any], cell_px: int) -> _Layout:
+    cm = _card_metrics(cell_px)
+    cols = _header_metrics(data, cm)
     grid_w = data["grid"]["width"]
     grid_h = data["grid"]["height"]
     board_w, board_h = grid_w * cell_px, grid_h * cell_px
-    panel_w, panel_h = board_w + 2 * _PANEL_PAD, board_h + 2 * _PANEL_PAD
+    frame_min_w = board_w + 2 * cm.board_inset
+    frame_h = board_h + 2 * cm.board_inset
 
-    cols = _footer_metrics(data)
-    footer_min_w, footer_h = _footer_size(data, cols)
-    caption_w = _text_width(_caption_text(data), 1, _CAPTION_TRACK)
+    small_h = _text_height(cm.small_scale)
+    row1_h = max(cm.mark, _text_height(cm.title_scale), small_h)
+    row2_h = 2 + 2 * cm.chip_pad_y + max(cm.swatch, small_h)
+    row1_w = (
+        cm.mark
+        + cm.brand_gap
+        + _text_width("LEAGUE OF AGENTS", cm.title_scale)
+        + cm.stats_gap
+        + cols.turn_w
+    )
+    chips_w = sum(cols.chip_ws) + cm.chip_gap * max(0, len(cols.chip_ws) - 1)
+    row2_w = chips_w + cm.stats_gap + _text_width(_match_line(data), cm.small_scale)
+
+    # The frame stretches to the card's inner width (the HTML's block layout);
+    # a wider header widens the card and the board letterboxes centered.
+    card_inner_w = max(frame_min_w, row1_w, row2_w)
+    card_w = card_inner_w + 2 * (cm.pad + 1)
+    card_h = 2 * (cm.pad + 1) + row1_h + cm.row_gap + row2_h + cm.gap + frame_h
+
     title_w = max(_line_width(line) for line in _title_content(data))
-
-    content_w = max(panel_w, footer_min_w, caption_w, title_w, _closing_width(data))
+    content_w = max(card_w, title_w, _closing_width(data))
     width = content_w + 2 * _MARGIN
-
-    turn_block_h = _text_height(1) + 8 + panel_h + 10 + footer_h
     title_h = _block_height(_title_content(data))
-    closing_h = _closing_block_height(data)
-    height = max(turn_block_h, title_h, closing_h) + 2 * _MARGIN
+    height = max(card_h, title_h, _closing_block_height(data)) + 2 * _MARGIN
 
-    y0 = (height - turn_block_h) // 2  # the board composition is centered too
-    caption_y = y0
-    panel_y = y0 + _text_height(1) + 8
-    board_x = (width - board_w) // 2
-    board_y = panel_y + _PANEL_PAD
-    footer_w = max(footer_min_w, panel_w)
-    footer = ((width - footer_w) // 2, panel_y + panel_h + 10, footer_w, footer_h)
-    panel = (board_x - _PANEL_PAD, panel_y, panel_w, panel_h)
+    card_x = (width - card_w) // 2
+    card_y = (height - card_h) // 2
+    row1_y = card_y + 1 + cm.pad
+    row2_y = row1_y + row1_h + cm.row_gap
+    frame = (card_x + 1 + cm.pad, row2_y + row2_h + cm.gap, card_inner_w, frame_h)
+    board_x = frame[0] + (card_inner_w - board_w) // 2
+    board_y = frame[1] + cm.board_inset
     return _Layout(
         width=width,
         height=height,
+        card=(card_x, card_y, card_w, card_h),
+        frame=frame,
+        row1_y=row1_y,
+        row1_h=row1_h,
+        row2_y=row2_y,
+        row2_h=row2_h,
         board_x=board_x,
         board_y=board_y,
-        caption_y=caption_y,
-        panel=panel,
-        footer=footer,
-        footer_cols=cols,
+        cols=cols,
+        cm=cm,
     )
 
 
@@ -811,50 +1059,96 @@ def _draw_corner_marks(canvas: _Canvas) -> None:
     canvas.vline(w - inset - 1, h - inset - arm, arm, _LINE)
 
 
-def _draw_footer(
+def _draw_surface_card(
+    canvas: _Canvas, x: int, y: int, w: int, h: int, radius: int, fill: int
+) -> None:
+    """A rounded card with the 1px ``--ring`` hairline border the HTML face
+    puts on every card, chip, and board frame."""
+    canvas.rounded_rect(x, y, w, h, radius, _RING)
+    canvas.rounded_rect(x + 1, y + 1, w - 2, h - 2, max(0, radius - 1), fill)
+
+
+def _draw_brand_mark(canvas: _Canvas, x: int, y: int, side: int, radius: int) -> None:
+    """The HTML header's ``.brand .mark`` — its 135° clay→violet gradient
+    rendered as the two-tone raster: team-0 above the counter-diagonal,
+    team-1 below (always palette slots 0 and 1, exactly as the CSS hardcodes
+    ``var(--team-0), var(--team-1)``)."""
+    canvas.rounded_rect(x, y, side, side, radius, _TEAM0)
+    lower = _TEAM0 + 1
+    for iy in range(side):
+        row = (y + iy) * canvas.width
+        for ix in range(side):
+            if ix + iy >= side and canvas.buf[row + x + ix] == _TEAM0:
+                canvas.buf[row + x + ix] = lower
+
+
+def _draw_header(
     canvas: _Canvas,
     layout: _Layout,
     data: Mapping[str, Any],
     frame: Mapping[str, Any],
     team_index: dict,
 ) -> None:
-    """The score strip: a surface-toned card carrying the turn counter and one
-    swatch-chipped row per team with RES/MSN numerals right-aligned in fixed
-    columns (tabular by construction — the font is monospaced)."""
-    fx, fy, fw, fh = layout.footer
-    cols = layout.footer_cols
-    canvas.fill_rect(fx, fy, fw, fh, _SURFACE)
-    canvas.outline_rect(fx, fy, fw, fh, _GRID)
+    """The header inside the board card — the raster arrangement of the HTML
+    play view's identifying chrome. Row 1: the brand mark and title with the
+    turn readout right-aligned (the HTML's ``turn N / limit``). Row 2: one
+    live-score pill chip per team (swatch · name · RES/MSN numerals in fixed
+    columns) with the match id · scenario line right-aligned. Buttons, slider,
+    and tabs are interactive-only HTML chrome and are deliberately not faked."""
+    cm, cols = layout.cm, layout.cols
+    cx0, _, cw, _ = layout.card
+    left = cx0 + 1 + cm.pad
+    right = cx0 + cw - 1 - cm.pad
+    small_h = _text_height(cm.small_scale)
 
-    turn_block_h = _text_height(1) + 3 + _text_height(_TEXT_SCALE)
-    tx = fx + _FOOTER_PAD
-    ty = fy + (fh - turn_block_h) // 2
-    canvas.text(tx, ty, "TURN", _MUTED, 1, _CAPTION_TRACK)
-    counter = f"{frame['turn']}/{data['turn_limit']}"
-    canvas.text(tx, ty + _text_height(1) + 3, counter, _INK, _TEXT_SCALE)
+    y = layout.row1_y
+    _draw_brand_mark(canvas, left, y + (layout.row1_h - cm.mark) // 2, cm.mark, cm.mark_radius)
+    canvas.text(
+        left + cm.mark + cm.brand_gap,
+        y + (layout.row1_h - _text_height(cm.title_scale)) // 2,
+        "LEAGUE OF AGENTS",
+        _INK,
+        cm.title_scale,
+    )
+    counter = f"TURN {frame['turn']}/{data['turn_limit']}"
+    canvas.text(
+        right - _text_width(counter, cm.small_scale),
+        y + (layout.row1_h - small_h) // 2,
+        counter,
+        _INK2,
+        cm.small_scale,
+    )
 
+    y = layout.row2_y
+    text_y = y + (layout.row2_h - small_h) // 2
     resources = {t["id"]: t["resources"] for t in frame["teams"]}
-    n_teams = len(data["teams"])
-    rows_h = n_teams * _text_height(1) + max(0, n_teams - 1) * _ROW_LEADING
-    ry = fy + (fh - rows_h) // 2
-    rx = fx + _FOOTER_PAD + cols.turn_w + 24
-    side = _swatch_side(1)
-    res_label_w = _text_width("RES", 1)
-    msn_label_w = _text_width("MSN", 1)
-    for t in data["teams"]:
-        canvas.fill_rect(rx, ry, side, side, _team_color(team_index[t["id"]]))
-        canvas.text(rx + side + _GAP + 2, ry, t["name"], _INK, 1)
-        x = rx + side + _GAP + 2 + cols.name_w + 16
-        canvas.text(x, ry, "RES", _MUTED, 1)
-        x += res_label_w + 6
-        res_val = str(resources.get(t["id"], 0))
-        canvas.text(x + cols.res_w - _text_width(res_val, 1), ry, res_val, _INK, 1)
-        x += cols.res_w + 14
-        canvas.text(x, ry, "MSN", _MUTED, 1)
-        x += msn_label_w + 6
+    x = left
+    for t, chip_w in zip(data["teams"], cols.chip_ws):
+        _draw_surface_card(canvas, x, y, chip_w, layout.row2_h, layout.row2_h // 2, _CHIP)
+        ix = x + 1 + cm.chip_pad_x
+        sy = y + (layout.row2_h - cm.swatch) // 2
+        canvas.rounded_rect(
+            ix, sy, cm.swatch, cm.swatch, cm.swatch_radius, _team_color(team_index[t["id"]])
+        )
+        ix += cm.swatch + cm.head_gap
+        canvas.text(ix, text_y, t["name"], _INK, cm.small_scale)
+        ix += _text_width(t["name"], cm.small_scale) + cm.stats_gap
+        canvas.text(ix, text_y, "RES", _MUTED, cm.small_scale)
+        ix += _text_width("RES", cm.small_scale) + cm.num_gap
+        val = str(resources.get(t["id"], 0))
+        canvas.text(
+            ix + cols.res_w - _text_width(val, cm.small_scale), text_y, val, _INK, cm.small_scale
+        )
+        ix += cols.res_w + cm.stats_gap
+        canvas.text(ix, text_y, "MSN", _MUTED, cm.small_scale)
+        ix += _text_width("MSN", cm.small_scale) + cm.num_gap
         done = str(sum(1 for m in frame["missions"] if t["id"] in m["completed_by"]))
-        canvas.text(x + cols.msn_w - _text_width(done, 1), ry, done, _INK, 1)
-        ry += _text_height(1) + _ROW_LEADING
+        canvas.text(
+            ix + cols.msn_w - _text_width(done, cm.small_scale), text_y, done, _INK, cm.small_scale
+        )
+        x += chip_w + cm.chip_gap
+    line = _match_line(data)
+    canvas.text(right - _text_width(line, cm.small_scale), text_y, line, _MUTED, cm.small_scale)
 
 
 def _draw_board_chrome(
@@ -865,17 +1159,18 @@ def _draw_board_chrome(
     team_index: dict,
     cell_px: int,
 ) -> None:
-    """Everything on a board frame except the units: the muted caption, the
-    board panel with its hairline grid and furniture, and the footer strip.
-    Turn frames and tween frames share this exactly, so their chrome can never
-    drift apart."""
-    caption = _caption_text(data)
-    caption_w = _text_width(caption, 1, _CAPTION_TRACK)
-    caption_x = (canvas.width - caption_w) // 2
-    canvas.text(caption_x, layout.caption_y, caption, _MUTED, 1, _CAPTION_TRACK)
-    px, py, pw, ph = layout.panel
-    canvas.fill_rect(px, py, pw, ph, _BG)
-    canvas.outline_rect(px, py, pw, ph, _LINE)
+    """Everything on a play frame except the units — the HTML board card
+    itself: the rounded card surface on the page matte, the header rows inside
+    it, and the board frame with its hairline grid and furniture. Turn frames
+    and tween frames share this exactly, so their chrome can never drift
+    apart."""
+    cx0, cy0, cw, ch = layout.card
+    _draw_surface_card(canvas, cx0, cy0, cw, ch, layout.cm.radius, _SURFACE)
+    _draw_header(canvas, layout, data, frame, team_index)
+    fx, fy, fw, fh = layout.frame
+    # The board plane: html.py's board-top→board-bot gradient rendered flat at
+    # its midpoint — THEMES' plane token is that midpoint by design.
+    _draw_surface_card(canvas, fx, fy, fw, fh, layout.cm.frame_radius, _BG)
     grid_w, grid_h = data["grid"]["width"], data["grid"]["height"]
     _draw_grid(canvas, layout.board_x, layout.board_y, grid_w, grid_h, cell_px)
     _draw_resource_nodes(canvas, layout.board_x, layout.board_y, cell_px, frame["resource_nodes"])
@@ -883,7 +1178,6 @@ def _draw_board_chrome(
     _draw_control_points(
         canvas, layout.board_x, layout.board_y, cell_px, frame["control_points"], team_index
     )
-    _draw_footer(canvas, layout, data, frame, team_index)
 
 
 def _draw_turn_frame(
@@ -908,15 +1202,15 @@ def _draw_tween_frame(
     cell_px: int,
     frac: float,
 ) -> None:
-    """An in-between frame: the board furniture (grid, nodes, missions, control
-    points, caption, footer) is the *starting* turn's discrete state; only the
+    """An in-between frame: the card chrome (header, board frame, grid, nodes,
+    missions, control points) is the *starting* turn's discrete state; only the
     units move, linearly interpolated toward the next turn. So resource counts,
-    captures and the turn number land crisply on turn frames while movement
+    captures and the turn readout land crisply on turn frames while movement
     flows continuously between them."""
     _draw_board_chrome(canvas, layout, data, frame_a, team_index, cell_px)
     pa = _unit_positions(frame_a["units"], layout.board_x, layout.board_y, cell_px)
     pb = _unit_positions(frame_b["units"], layout.board_x, layout.board_y, cell_px)
-    _paint_units(canvas, _tween_positions(pa, pb, frac), team_index)
+    _paint_units(canvas, _tween_positions(pa, pb, frac), team_index, cell_px)
 
 
 def _draw_title_frame(canvas: _Canvas, data: Mapping[str, Any], team_index: dict) -> None:
