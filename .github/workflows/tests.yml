@@ -55,16 +55,16 @@ jobs:
       - run: uv sync
 
       - name: black --check
-        run: uv run black --check league tests
+        run: uv run black --check league tests bots
 
       - name: isort --check
-        run: uv run isort --check-only league tests
+        run: uv run isort --check-only league tests bots
 
       - name: flake8
-        run: uv run flake8 league tests
+        run: uv run flake8 league tests bots
 
       - name: bandit
-        run: uv run bandit -c pyproject.toml -r league
+        run: uv run bandit -c pyproject.toml -r league bots
 
       - name: markdownlint-cli2
         run: |

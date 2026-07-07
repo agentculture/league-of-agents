@@ -65,10 +65,10 @@ uv run pytest -n auto --cov=league --cov-report=term # with coverage (gate: fail
 Lint (each is a separate CI gate — all must pass):
 
 ```bash
-uv run black --check league tests          # line length 100
-uv run isort --check-only league tests     # black profile
-uv run flake8 league tests
-uv run bandit -c pyproject.toml -r league
+uv run black --check league tests bots     # line length 100
+uv run isort --check-only league tests bots # black profile
+uv run flake8 league tests bots
+uv run bandit -c pyproject.toml -r league bots
 markdownlint-cli2 "**/*.md" "#node_modules" "#.local" "#.claude/skills" "#.teken"
 uv run teken cli doctor . --strict         # the agent-first rubric gate (7 bundles)
 ```
@@ -115,6 +115,20 @@ tests). Match/team persistence is `league/store.py` (`.league/` in CWD,
 gitignored); trends are `league/track.py`; live play is `league/harness.py`
 (per-seat minds coordinate only through in-game messages; drivers are `bot`
 or any external `command` — model choice is config, not code).
+
+**The coded-strategy bot lane** (`bots/`, plan task t2, spec c3/h2):
+automations with committed, readable strategies play through the public CLI
+surface only, never engine internals. A `bot-file` driver
+(`{"type": "bot-file", "strategy": "<name>"}`) loads `bots/<name>.py` by
+name via `league.harness.make_bot_file_driver` — `validate_id` guards
+against path tricks — and calls its `decide(show_json, team_id)` with
+*exactly* the dict `league match show --json` returns (`state`,
+`legal_actions`, `staged_teams`, …); the strategy never sees `state` or
+`context` directly and never imports `league.engine`/`league.store` (an AST
+test enforces this the same way the engine's own import ban is enforced).
+This is a distinct lane from the in-harness `bot` (`make_bot_driver`, a
+greedy policy living inside `league/harness.py`) — see `bots/README.md` for
+the strategy contract and `bots/rusher.py` for the reference strategy.
 
 ### CLI dispatch and the error contract
 
