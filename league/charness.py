@@ -30,7 +30,7 @@ At each decision point the harness builds a briefing — the JSON a mind receive
              "action": null},          # idle at a decision point, by definition
      "menu": [{"kind", "target", "duration", "completion_time", ...}, ...],
      "outlook": [{"unit_id", "team_id", "completion_time"}, ...],
-     "board": { ...full-information state projection... },
+     "board": { ...state projection, fogged to the acting team when fog is on... },
      "messages": [{"from", "text", "game_time"}, ...],
      "clock_budget_note": "<how to read time budgets>"}
 
@@ -56,6 +56,25 @@ events (fold no-ops) appended after the resolver's transition stream, so
 stripping them leaves the transitions — and the final ``cstate_hash`` —
 untouched. That is the h7 proof shape.
 
+Continuous fog (plan C8-t5, spec c11/h2/c7/c4)
+-----------------------------------------------
+Fog is a **briefing-layer projection only** — the engine ticks and logs
+ground truth exactly as always; ``resolve_match``, the event log, replay and
+scoring never see this code. ``"fog": true`` at the top of the match config
+(mirrors the grid harness's own ``config.get("fog", False)`` idiom in
+``league/harness.py``; default OFF, so every existing config/fixture behaves
+identically) makes :func:`build_briefing` filter its OWN ``board``/``menu``/
+``outlook`` a second time, per acting team, right before handing the briefing
+to a driver. An entity is visible to a team iff it sits within vision radius
+of at least one of that team's own living units — the union of per-role
+``vision_mu`` (:mod:`league.engine.continuous.roles`) — using the exact
+integer ``space.dist_sq`` comparison the rest of the lane uses for "who is
+closer," inclusive at the boundary (see :func:`_team_sees_pos`). The scout's
+widest-among-executors vision (4000 mu vs 2000 for harvester/defender) is
+therefore the concrete fog lever: swapping a scout in for a same-position
+non-scout unit changes what its team's briefings reveal. See the "-- continuous
+fog --" section below for the exact filters and the menu-honesty argument.
+
 Every driver kind gets the loop (the all-backends rule)
 -------------------------------------------------------
 * ``bot`` — an in-harness greedy continuous policy (:func:`make_cbot_chooser`),
@@ -79,7 +98,8 @@ registry land)::
     {"match": {"scenario": "clash-1", "id": "cm-1"},   # or "state": {...}
      "teams": [{"id": "blue", "driver": {"type": "bot"},
                 "agents": [{"id": "blue-1", "role": "scout"}]},
-               {"id": "red", "driver": {"type": "command", "argv": [...]}}]}
+               {"id": "red", "driver": {"type": "command", "argv": [...]}}],
+     "fog": false}
 
 The initial :class:`~league.engine.continuous.state.CMatchState` is taken via a
 clean seam (:func:`_resolve_initial`): an explicit ``initial_state`` (a state or
@@ -105,7 +125,8 @@ from typing import Any, Callable, Mapping
 from league.engine.continuous.events import CEvent, CMatchLog
 from league.engine.continuous.legal import plan_action
 from league.engine.continuous.resolve import outcome_points, resolve_match
-from league.engine.continuous.roles import CRoleStats, build_role_table
+from league.engine.continuous.roles import CRoleStats, build_role_table, stats_for
+from league.engine.continuous.space import Pos, dist_sq
 from league.engine.continuous.state import CMatchState
 from league.harness import ClaudeCliSession, ColleagueDirectSession
 from league.store import validate_id
@@ -196,7 +217,15 @@ def _menu_entries(menu: Mapping[str, Any], game_time: int) -> list[dict[str, Any
 
 def _board_projection(state: CMatchState) -> dict[str, Any]:
     """A full-information (fogless) projection of the board — the state a mind
-    reasons over. Compact but complete; deterministic (mirrors state ordering)."""
+    reasons over. Compact but complete; deterministic (mirrors state ordering).
+
+    This is always the FOGLESS base projection — ground truth, exactly as the
+    engine holds it. :func:`build_briefing` applies fog (if any) as a second,
+    separate pass over this dict's output (:func:`_fog_filter_board`); this
+    function itself never changes behavior based on fog. Keeping the two
+    passes distinct is what makes "fog is a projection, never a mutation"
+    checkable by reading the code, not just by testing it.
+    """
     return {
         "match_id": state.match_id,
         "clock": state.clock,
@@ -246,11 +275,135 @@ def _board_projection(state: CMatchState) -> dict[str, Any]:
     }
 
 
+# -- continuous fog: a briefing-layer projection, never an engine mutation ---
+#
+# Plan C8-t5 (spec c11/h2/c7/c4). The engine ticks and logs ground truth
+# exactly as before fog existed at all — ``resolve_match``, the event log,
+# replay and scoring never import or call anything below. Fog only narrows
+# what :func:`build_briefing` hands back to a mind: a SECOND pass over this
+# module's own (fogless) projections of ``state``, gated by a per-match
+# ``"fog": true`` flag (mirrors the grid harness's ``config.get("fog",
+# False)`` idiom in ``league/harness.py`` — default OFF, so every existing
+# config/fixture/committed log is untouched).
+#
+# Visibility rule (pinned): an entity is visible to a team iff it is within
+# vision radius of AT LEAST ONE of that team's own living units — the union
+# of per-role vision radii (``CRoleStats.vision_mu``) — compared with the
+# SAME exact integer milliunit primitive the rest of the continuous lane uses
+# for "who is closer" (``space.dist_sq``; never a float, never the floored
+# root ``space.dist`` returns). The boundary is INCLUSIVE: an entity sitting
+# EXACTLY at the vision radius counts as visible (``dist_sq <= vision_mu **
+# 2``, not ``<``) — the same ``<=`` convention ``space.arrived`` already pins
+# for "reached the target", and the same inclusive convention the grid
+# lane's ``league/engine/vision.py`` uses for its Manhattan ball. A team's
+# own units are always fully visible to it regardless of distance (mirrors
+# the grid's ``vision.visible_units``: "a team always knows its own units,
+# they report in") — this falls out of the radius rule for free for a unit's
+# own position (distance 0 to itself) but is applied explicitly below so a
+# scattered roster (teammates far apart) never loses track of each other.
+#
+# What gets filtered: ``board["units"]`` (enemy units only — a team's own
+# units are always kept), ``board["control_points"]``, ``board
+# ["resource_nodes"]`` and ``board["missions"]`` — the four spatial entity
+# lists the board projection carries (spec c7 leaves "which entity kinds" to
+# this task; these four are exactly the lists with a ``pos``). ``board
+# ["teams"]`` (name/aggregate resources) is deliberately NOT filtered: it
+# carries no position, so it is not a spatial "entity" fog governs — it reads
+# like a scoreboard, not the map, and nothing in this cycle's contract asks
+# fog to hide it.
+#
+# Menu honesty (the spec's own ask: "menu entries must never reference
+# entities the team cannot see"): the ONLY menu entries that can name a
+# still-undiscovered entity are ``move`` entries toward a point of interest
+# (``legal_actions_continuous`` enumerates every control point / resource
+# node / mission location as a move target, visible or not — see
+# ``legal.py``'s ``_points_of_interest``). ``gather`` / ``take_post`` /
+# ``deliver`` entries always target an entity the acting unit is already
+# ARRIVED at (``space.arrived``, within ``ARRIVAL_TOLERANCE_MU`` == 1 mu) —
+# every role's ``vision_mu`` is at least 2000 mu, so the unit standing there
+# always sees it trivially; those three menu kinds need no filtering at all,
+# by construction, not by a separate check. ``move`` entries are filtered by
+# their own ``target_pos`` directly (the same visibility test applied to the
+# destination — no entity-id lookup needed, so it is correct even when two
+# entities share a position).
+#
+# The ``outlook`` gets the same treatment: an enemy unit's completion time is
+# ground truth about a unit the team may not currently see, so an entry is
+# kept only if it names the team's own unit or a currently visible enemy one.
+
+
+def _team_sees_pos(state: CMatchState, table: RoleTable, team_id: str, pos: Pos) -> bool:
+    """True iff ``pos`` sits within vision radius of at least one of
+    ``team_id``'s own living units — the union-of-vision-radii fog rule,
+    inclusive at the boundary. See the "continuous fog" section above."""
+    for unit in state.units:
+        if unit.team_id != team_id or not unit.alive:
+            continue
+        radius = stats_for(table, unit.role).vision_mu
+        if dist_sq(unit.pos, pos) <= radius * radius:
+            return True
+    return False
+
+
+def _fog_filter_board(
+    board: Mapping[str, Any], state: CMatchState, table: RoleTable, team_id: str
+) -> dict[str, Any]:
+    """Narrow a fogless :func:`_board_projection` to what ``team_id`` can
+    currently see: its own units always, everything else only within vision."""
+    fogged = dict(board)
+    fogged["units"] = [
+        u
+        for u in board["units"]
+        if u["team_id"] == team_id or _team_sees_pos(state, table, team_id, Pos.from_dict(u["pos"]))
+    ]
+    for key in ("control_points", "resource_nodes", "missions"):
+        fogged[key] = [
+            entry
+            for entry in board[key]
+            if _team_sees_pos(state, table, team_id, Pos.from_dict(entry["pos"]))
+        ]
+    return fogged
+
+
+def _fog_filter_menu(
+    entries: list[dict[str, Any]], state: CMatchState, table: RoleTable, team_id: str
+) -> list[dict[str, Any]]:
+    """Drop a ``move`` entry aimed at a point of interest the team cannot see
+    yet — the only menu-honesty gap (see the "continuous fog" section)."""
+    out: list[dict[str, Any]] = []
+    for entry in entries:
+        if entry["kind"] == "move":
+            target = Pos.from_dict(entry["target_pos"])
+            if not _team_sees_pos(state, table, team_id, target):
+                continue
+        out.append(entry)
+    return out
+
+
+def _fog_filter_outlook(
+    outlook: list[dict[str, Any]], state: CMatchState, table: RoleTable, team_id: str
+) -> list[dict[str, Any]]:
+    """Drop an enemy unit's outlook entry unless it is currently visible; a
+    team's own units' entries are always kept."""
+    out: list[dict[str, Any]] = []
+    for entry in outlook:
+        if entry["team_id"] == team_id:
+            out.append(entry)
+            continue
+        unit = _find_unit(state, entry["unit_id"])
+        if _team_sees_pos(state, table, team_id, unit.pos):
+            out.append(entry)
+    return out
+
+
 def build_briefing(
     state: CMatchState,
     unit_id: str,
     menu: Mapping[str, Any],
     messages: "list[dict[str, Any]] | tuple[()]" = (),
+    *,
+    fog: bool = False,
+    role_table: RoleTable | None = None,
 ) -> dict[str, Any]:
     """The JSON a mind receives at a decision point (the pinned contract shape).
 
@@ -259,9 +412,26 @@ def build_briefing(
     ``unit_id`` in ``state``; ``messages`` is the running social record (each
     other seat's messages so far). See the module docstring / the
     ``docs/continuous-contract.md`` for the field-by-field contract.
+
+    ``fog`` (default ``False``, so every pre-fog caller/test is unaffected)
+    applies the acting unit's team's union-of-vision-radii filter to
+    ``menu``/``outlook``/``board`` — see the "continuous fog" section above
+    for the exact rule. ``role_table`` supplies each role's ``vision_mu``;
+    it defaults to :func:`~league.engine.continuous.roles.build_role_table`'s
+    stock table when fog is on and none is given, so a caller need not thread
+    one through just to exercise the default roster.
     """
     unit = _find_unit(state, unit_id)
     game_time = state.clock
+    menu_entries = _menu_entries(menu, game_time)
+    outlook = initiative_outlook(state)
+    board = _board_projection(state)
+    if fog:
+        table = role_table or build_role_table()
+        team_id = unit.team_id
+        menu_entries = _fog_filter_menu(menu_entries, state, table, team_id)
+        outlook = _fog_filter_outlook(outlook, state, table, team_id)
+        board = _fog_filter_board(board, state, table, team_id)
     return {
         "game_time": game_time,
         "you": {
@@ -273,9 +443,9 @@ def build_briefing(
             "carrying": unit.carrying,
             "action": unit.action.to_dict() if unit.action is not None else None,
         },
-        "menu": _menu_entries(menu, game_time),
-        "outlook": initiative_outlook(state),
-        "board": _board_projection(state),
+        "menu": menu_entries,
+        "outlook": outlook,
+        "board": board,
         "messages": [dict(m) for m in messages],
         "clock_budget_note": CLOCK_BUDGET_NOTE.format(game_time=game_time),
     }
@@ -667,9 +837,17 @@ def run_cmatch(
     :class:`~league.engine.continuous.events.CMatchLog` with the harness's
     OBSERVATION events appended (fold no-ops, so ``log.final_state()`` is
     exactly the resolver's final state).
+
+    ``config["fog"]`` (default ``False``) turns on the continuous fog mode —
+    see the "continuous fog" section of the module docstring. It is read the
+    same way the grid harness reads its own top-level ``"fog"`` flag; fog is
+    strictly a briefing-layer projection, so this flag never reaches the
+    resolver and never changes the log (:func:`build_briefing` is the only
+    thing that sees it).
     """
     state = _resolve_initial(config, initial_state)
     table: RoleTable = role_table or build_role_table()
+    fog = bool(config.get("fog", False))
     team_specs = {t["id"]: t for t in config.get("teams", [])}
     override = dict(choosers or {})
 
@@ -701,7 +879,9 @@ def run_cmatch(
         team_id = unit.team_id
         agent_id = unit.agent_id
         game_time = cstate.clock
-        briefing = build_briefing(cstate, unit_id, menu, messages=messages)
+        briefing = build_briefing(
+            cstate, unit_id, menu, messages=messages, fog=fog, role_table=table
+        )
 
         started = _monotonic()
         try:
