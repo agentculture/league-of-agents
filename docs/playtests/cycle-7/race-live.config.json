@@ -1,0 +1,38 @@
+{
+  "match": {
+    "scenario": "c-skirmish-1",
+    "mode": "competitive",
+    "seed": 20260707,
+    "id": "c-race-live"
+  },
+  "teams": [
+    {
+      "id": "blue",
+      "name": "Blue Foundry",
+      "driver": {
+        "type": "command",
+        "residency": "resident",
+        "argv": ["python3", "scripts/cseat_driver.py", "--model", "sonnet"],
+        "timeout": 240
+      },
+      "agents": [
+        { "id": "blue-defender", "model": "claude-sonnet", "role": "defender" },
+        { "id": "blue-harvester", "model": "claude-sonnet", "role": "harvester" }
+      ]
+    },
+    {
+      "id": "red",
+      "name": "Red Relay",
+      "driver": {
+        "type": "command",
+        "residency": "resident",
+        "argv": ["python3", "scripts/cseat_driver.py", "--model", "sonnet"],
+        "timeout": 240
+      },
+      "agents": [
+        { "id": "red-defender", "model": "claude-sonnet", "role": "defender" },
+        { "id": "red-harvester", "model": "claude-sonnet", "role": "harvester" }
+      ]
+    }
+  ]
+}

@@ -5,11 +5,29 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+<<<<<<< HEAD
+## [0.11.0] - 2026-07-08
+
+### Added
+
+- Continuous engine lane (league/engine/continuous/): exact fixed-point milliunit positions (SCALE=1000, integer isqrt), event-timeline initiative with integer game time and the canonical (time, team_id, unit_id) tie-break, explicit race semantics (concurrent takers on a control point; the losing mid-take attempt fails first-class with "post taken by a faster agent"), role-given in-game speed (CRoleStats), a shared legality/duration oracle, the c-skirmish-1 scenario, and the lane's own scripted determinism gate with a committed hash
+- Continuous mind-facing contract and harness (league/charness.py): decision points on unit-idle, briefings carrying menu durations, absolute completion times and the initiative outlook, all five driver kinds per the all-backends rule, seat_latency observations, and a substrate-independence proof (thinking time never advances game time)
+- Continuous replay face (league/replay/chtml.py): the race made visible (race-win/race-fail moments, dashed concurrent-taker rings); league match replay detects the lane from the log itself — grid output pinned byte-identical
+- Eyes-only scout in the continuous role table (human-review decision): can_take_post withdrawn, gather/carry/deliver/vision unchanged; c-skirmish-1 recast defender-vs-harvester and the continuous determinism hash deliberately regenerated with documented provenance
+- Two-lane honesty enforced by tests: the AST-ban walk provably covers the continuous package, grid scoring axes (cooperation v1 / tempo t0 / probe p0) and the continuous lane cannot import each other, both determinism hash fixtures fenced byte-exact; continuous scoring is outcome-only this cycle by documented decision (docs/continuous-contract.md)
+- First continuous live playtest (docs/playtests/cycle-7/race-live.*): four resident claude seats, the race live and unscripted at t=8, 19-0 at t=14; fielded via scripts/cseat_driver.py and scripts/run_cmatch.py
+- Committed-logs compat sweep extended two-lane: lane detection from each log's own header, continuous logs fold through CMatchLog and pin outcomes via *.outcome.json, grid logs sweep unchanged, anti-vacuity floors on both lanes
+
+### Changed
+
+- Grid-replay byte-identity pin in tests re-anchored to the restyled grid face (PR #18); docs/playtests/README.md gains its missing cycle-6 row plus the cycle-7 row
+=======
 ## [0.10.3] - 2026-07-08
 
 ### Changed
 
 - GIF/video face recomposed to the mesmerizing design system: centered title lockup, board-hero turn frames with hairline grid + unit rings + score footer, big-numeral closing card, typographic hierarchy via scaled glyphs — both themes, same indices
+>>>>>>> origin/main
 
 ## [0.10.2] - 2026-07-07
 

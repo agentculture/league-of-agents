@@ -7,8 +7,14 @@ consumers read); ``render_html`` wraps it in a single self-contained page;
 ``render_frame`` (plus the ``run_interactive_shell`` curses wrapper) is the
 terminal face (see :mod:`league.replay.tui`); ``render_gif`` renders the same
 fold to a shareable, offline animated GIF (see :mod:`league.replay.video`).
+
+The continuous lane (cycle 7, plan task t9) gets its own minimal-but-real
+face beside these — ``build_continuous_replay_data``/``render_chtml`` (see
+:mod:`league.replay.chtml`) — for :class:`~league.engine.continuous.events.
+CMatchLog`. Two lanes, both honest: the grid face above is untouched.
 """
 
+from league.replay.chtml import build_continuous_replay_data, render_chtml
 from league.replay.html import build_assessor_guide, build_replay_data, render_html
 from league.replay.tui import render_frame, run_interactive_shell
 from league.replay.video import (
@@ -32,6 +38,8 @@ __all__ = [
     "build_assessor_guide",
     "build_replay_data",
     "render_html",
+    "build_continuous_replay_data",
+    "render_chtml",
     "render_frame",
     "run_interactive_shell",
     "render_gif",
