@@ -54,7 +54,32 @@ Config shape (JSON)::
                                     "claude-sonnet-5"],
                            "timeout": 120},
                 "agents": [...]}],
-     "max_rounds": 40}
+     "max_rounds": 40, "fog": false}
+
+Fog of war (plan task t5, spec c5/h4) — ``"fog": true`` at the top of the
+config: **fog is a harness-layer projection only**; ``league/engine`` stays
+full-information and deterministic (spec c12 non-goal), the tick never
+narrows what it resolves. Each turn, for every ``command``/``resident`` team,
+``run_match`` fetches that team's own fogged view (``match show --team <id>
+--fog --json``) instead of the shared full-board ``state``/``context`` — a
+seat's briefing then contains only its unit's vision, the team's accumulated
+knowledge (``league.engine.knowledge``, seen facts with staleness turns / told
+facts flagged), and teammate/master messages, never the full board. The
+resident driver's per-turn delta becomes newly-seen/newly-told facts since
+its last successful turn (:func:`_knowledge_delta`) instead of the raw event
+feed, which would otherwise leak enemy moves regardless of vision. A unit's
+own legal actions are always kept (they derive from its own position, never
+the board) — see :func:`_format_legal_actions`.
+
+**Bot drivers stay full-information under fog, for now.** ``make_bot_driver``
+and the ``bot-file`` lane read scenario furniture (control points, missions,
+resource nodes) directly out of ``state``/``match show --json`` with no
+vision check — turning them fog-aware would mean redesigning their policy to
+explore toward the unknown instead of the nearest known objective (not the
+"trivially easy" bar this task set). This is a **documented, temporary
+asymmetry** a fogged playtest must not gloss over: a fair fogged comparison
+keeps fog on for every driver in the match, or off for all of them, never a
+mix of a fogged agent team against an omniscient bot.
 """
 
 from __future__ import annotations
@@ -91,6 +116,18 @@ def _cli_json(argv: list[str]) -> Any:
 
 
 # -- the deterministic greedy bot ------------------------------------------
+#
+# NOTE — fog asymmetry (plan t5, spec c5/h4), loud on purpose: this policy
+# reads ``state["missions"]``/``state["control_points"]``/
+# ``state["resource_nodes"]`` directly with no vision check, so it stays
+# FULL-INFORMATION even in a fog match — ``run_match`` deliberately never
+# fogs the ``state`` a ``bot``/``bot-file`` driver receives (see the module
+# docstring's "Fog of war" section). Making this greedy policy fog-honest
+# would mean it has to explore toward unknown ground instead of beelining
+# the nearest declared objective — a real redesign, not a trivial change —
+# so it is left omniscient for now. A fogged match pitting this bot against
+# a fogged agent team is NOT a fair comparison; playtests must record fog as
+# "on for everyone" or "off for everyone", never mixed.
 
 
 def _clamp_step(pos: list[int], target: list[int], move: int, grid: dict[str, int]) -> list[int]:
@@ -229,6 +266,11 @@ def make_bot_file_driver(spec: Mapping[str, Any]) -> Driver:
     what a subprocess bot would have to do — then passes ONLY that parsed
     dict (plus ``team_id``) to the strategy's ``decide``. No scenario, no
     engine dataclass, ever crosses into strategy code.
+
+    NOTE — fog asymmetry (plan t5, spec c5/h4): this driver calls the plain
+    ``match show --json`` (never ``--team --fog``), so a bot-file strategy is
+    full-information even in a fog match, same documented, temporary
+    asymmetry as :func:`make_bot_driver` (see the module docstring).
     """
     name = spec.get("strategy")
     if not name:
@@ -367,6 +409,65 @@ def _format_legal_actions(legal_actions: Mapping[str, Any], unit_ids: list[str])
     return "\nLegal actions right now:\n" + "\n".join(lines) + "\n"
 
 
+# -- fog of war: briefing-boundary enforcement (plan t5, spec c5/h4) --------
+#
+# Fog is a HARNESS-layer projection only: league/engine (the tick, vision,
+# knowledge fold) stays full-information and deterministic — see the module
+# docstring's "Fog of war" section for the whole picture. The two pieces
+# below are what a `command`/`resident` driver's PROMPT TEXT must never leak
+# once fog is on: the once-per-match "Scenario:" block (which otherwise
+# dumps every control point / mission / resource node position up front,
+# regardless of vision) and the resident driver's per-turn delta (which
+# otherwise reads the raw event log — every team's moves, regardless of
+# vision). `run_match` separately swaps the "state" argument itself for the
+# team's fogged view via `match show --team <id> --fog --json`
+# (league/cli/_commands/match.py's `_fogged_state`) before ever calling a
+# driver — these two helpers close the two OTHER leaks that live in this
+# module's own prompt-building code.
+
+
+def _fogged_scenario(scenario: Mapping[str, Any]) -> dict[str, Any]:
+    """The once-per-match rules block under fog: drop map furniture positions
+    (control points, missions, resource nodes) so a fresh seat starts knowing
+    only the universal rules — grid size, role stats, capture/turn limits —
+    never the board. Furniture and objectives are learned the same way live
+    state is: a unit's own sightings and named teammate/master messages
+    (``league.engine.knowledge``), surfaced turn to turn in the fogged
+    ``state``/delta blocks around this one.
+    """
+    _redacted = ("control_points", "missions", "resource_nodes")
+    fogged = {k: v for k, v in scenario.items() if k not in _redacted}
+    fogged["fog_of_war"] = (
+        "on — control points, missions, and resource nodes are not listed here; "
+        "you learn them only when your own units see them or a teammate/master "
+        "message names them (watch your state/knowledge as the match unfolds)."
+    )
+    return fogged
+
+
+def _knowledge_delta(
+    prev: Mapping[str, Any] | None, current: Mapping[str, Any]
+) -> dict[str, list[Any]]:
+    """Facts a team's knowledge fold added or refreshed since ``prev`` — the
+    resident driver's fog delta (spec c5/h4): everything newly seen or told
+    since this seat's last successful turn, nothing it already had. Both
+    arguments are ``KnowledgeFrame.to_dict()`` shapes (or ``None`` for "never
+    briefed before"), fetched off the public CLI surface
+    (``match show --team <id> --fog --json``)'s ``"knowledge"`` key — this
+    module never imports ``league.engine.knowledge`` directly.
+    """
+
+    def _changed(key: str) -> list[Any]:
+        before = {fact["id"]: fact for fact in (prev or {}).get(key, [])}
+        return [fact for fact in current.get(key, []) if before.get(fact["id"]) != fact]
+
+    return {
+        "units": _changed("units"),
+        "resource_nodes": _changed("resource_nodes"),
+        "control_points": _changed("control_points"),
+    }
+
+
 def _extract_json(text: str) -> dict[str, Any]:
     decoder = json.JSONDecoder()
     for start in range(len(text)):
@@ -410,12 +511,20 @@ def _run_command(argv: list[str], prompt: str, timeout: float, who: str) -> dict
     raise RuntimeError(f"driver for {who} failed twice: {last_error}")
 
 
-def make_command_driver(spec: Mapping[str, Any], scenario: dict[str, Any]) -> Driver:
+def make_command_driver(
+    spec: Mapping[str, Any], scenario: dict[str, Any], *, fog: bool = False
+) -> Driver:
     argv = list(spec["argv"])
     timeout = float(spec.get("timeout", 300))
     solo = bool(spec.get("solo", False))
     extra = str(spec.get("prompt", ""))
     rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    # The commander's whole team shares one fogged view (spec c5/h4): under
+    # fog the once-per-turn "Scenario:" block drops map furniture too — see
+    # _fogged_scenario. `state` itself is already the team's fogged
+    # projection by the time it reaches here (run_match swaps it in per team
+    # via `match show --team <id> --fog --json` before calling this driver).
+    scenario_for_prompt = _fogged_scenario(scenario) if fog else scenario
 
     def orders(
         state: dict[str, Any],
@@ -429,7 +538,7 @@ def make_command_driver(spec: Mapping[str, Any], scenario: dict[str, Any]) -> Dr
             team_id=team_id,
             rules=rules,
             extra=(_SOLO_NOTE if solo else "") + (f"\n{extra}\n" if extra else ""),
-            scenario=json.dumps(scenario, sort_keys=True),
+            scenario=json.dumps(scenario_for_prompt, sort_keys=True),
             rejections=_format_rejections(
                 _rejections_for(context.get("rejections", []), team_id=team_id)
             ),
@@ -467,18 +576,28 @@ def _fold_seat_reply(
 
 
 def make_per_seat_driver(
-    spec: Mapping[str, Any], scenario: dict[str, Any], agents: list[dict[str, Any]]
+    spec: Mapping[str, Any],
+    scenario: dict[str, Any],
+    agents: list[dict[str, Any]],
+    *,
+    fog: bool = False,
 ) -> Driver:
     """One independent mind per seat, coordinating only through messages.
 
     Seats are consulted in roster order each turn; every seat sees the shared
     state plus the messages teammates have queued so far this turn (its own
     channel to influence later seats). Each seat may command only its unit.
+    Under fog the "shared state" every seat on this team sees is the TEAM's
+    fogged view (run_match already swapped ``state`` for it per team), and
+    the once-per-turn scenario block drops map furniture too — see
+    :func:`_fogged_scenario`. Per-unit legal actions are unaffected: they
+    always derive from that unit's own position, fog or not.
     """
     argv = list(spec["argv"])
     timeout = float(spec.get("timeout", 300))
     extra = str(spec.get("prompt", ""))
     rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    scenario_for_prompt = _fogged_scenario(scenario) if fog else scenario
     seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
 
     def orders(
@@ -506,7 +625,7 @@ def make_per_seat_driver(
                 role=unit["role"],
                 rules=rules,
                 extra=f"\n{seat_extra}\n" if seat_extra else "",
-                scenario=json.dumps(scenario, sort_keys=True),
+                scenario=json.dumps(scenario_for_prompt, sort_keys=True),
                 rejections=_format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
                 legal_actions=_format_legal_actions(legal_actions, [unit["id"]]),
                 state=json.dumps(state, sort_keys=True),
@@ -694,7 +813,13 @@ Reply as before: ONLY one JSON object — your single action for unit
 
 def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
     """The delta's state snapshot: what changes turn to turn, nothing that was
-    already taught (grid, roles, scenario constants stay in turn 1)."""
+    already taught (grid, roles, scenario constants stay in turn 1).
+
+    Under fog, ``state["units"]`` mixes two shapes: this team's own units, in
+    full, and a fog-of-war-known enemy unit (``KnowledgeFrame``'s
+    ``KnownUnit.to_dict()``), which carries no ``carrying`` field at all —
+    genuinely unknown, not zero — hence ``.get`` here, never ``[...]``.
+    """
     return {
         "turn": state.get("turn"),
         "status": state.get("status"),
@@ -706,7 +831,7 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
                 "team_id": u["team_id"],
                 "role": u["role"],
                 "pos": u["pos"],
-                "carrying": u["carrying"],
+                "carrying": u.get("carrying"),
                 "alive": u["alive"],
             }
             for u in state.get("units", [])
@@ -747,12 +872,25 @@ def _events_since(match_id: str, since_turn: int, upto_turn: int) -> list[dict[s
 
 
 def make_resident_driver(
-    spec: Mapping[str, Any], scenario: dict[str, Any], agents: list[dict[str, Any]]
+    spec: Mapping[str, Any],
+    scenario: dict[str, Any],
+    agents: list[dict[str, Any]],
+    *,
+    fog: bool = False,
 ) -> Driver:
     """One long-lived session per seat for the whole match (per-seat by
     definition). Turn 1 = full briefing into a fresh session; turn N>1 = delta
     only, into the SAME session. Every exchange (and every failure) is
     appended to ``.league/matches/<id>/sessions/<agent-id>.jsonl`` for audit.
+
+    Under fog (spec c5/h4): the once-per-match scenario block drops map
+    furniture (:func:`_fogged_scenario`), ``state`` itself is already this
+    team's fogged view (``run_match`` swaps it in before calling this
+    driver), and the delta's "new events" section becomes newly-seen/
+    newly-told facts since this seat's last successful turn
+    (:func:`_knowledge_delta`) instead of the raw log — the raw log would
+    otherwise show every team's moves regardless of vision. Legal actions are
+    unaffected: a unit always knows its own, fog or not.
     """
     transport = spec.get("transport")
     if transport not in SESSION_TRANSPORTS:
@@ -763,10 +901,12 @@ def make_resident_driver(
     timeout = float(spec.get("timeout", 300))
     extra = str(spec.get("prompt", ""))
     rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    scenario_for_prompt = _fogged_scenario(scenario) if fog else scenario
     seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
     sessions: dict[str, Any] = {}
     briefed: set[str] = set()  # seats whose session has actually seen the rules
     last_seen: dict[str, int] = {}  # state turn at the seat's last successful briefing
+    last_known: dict[str, Mapping[str, Any]] = {}  # fog only: last knowledge snapshot per seat
 
     def _full_briefing(agent: dict[str, Any], unit: dict[str, Any], **fields: Any) -> str:
         seat_extra = "\n".join(
@@ -779,7 +919,7 @@ def make_resident_driver(
             role=unit["role"],
             rules=rules,
             extra=f"\n{seat_extra}\n",
-            scenario=json.dumps(scenario, sort_keys=True),
+            scenario=json.dumps(scenario_for_prompt, sort_keys=True),
             **fields,
         )
 
@@ -798,6 +938,13 @@ def make_resident_driver(
             u["agent_id"]: u for u in state["units"] if u["team_id"] == team_id and u["alive"]
         }
         new_events: dict[str, list[dict[str, Any]]] = {}  # per since-turn, fetched lazily
+        # One team-wide knowledge snapshot per turn (every seat on a team
+        # shares the same fold; league/engine/knowledge.py is team-scoped).
+        current_knowledge: Mapping[str, Any] | None = None
+        if fog and match_id:
+            current_knowledge = _cli_json(["match", "show", match_id, "--team", team_id, "--fog"])[
+                "knowledge"
+            ]
         combined: dict[str, Any] = {"actions": [], "messages": []}
         for agent in agents:
             unit = my_units.get(agent["id"])
@@ -818,6 +965,15 @@ def make_resident_driver(
                 # delta it can't ground.
                 prompt = _full_briefing(
                     agent, unit, state=json.dumps(state, sort_keys=True), **shared
+                )
+            elif fog:
+                delta = _knowledge_delta(last_known.get(agent["id"]), current_knowledge or {})
+                prompt = _RESIDENT_DELTA_PROMPT.format(
+                    turn=turn,
+                    unit_id=unit["id"],
+                    events=json.dumps(delta, sort_keys=True),
+                    state=json.dumps(_compact_state(state), sort_keys=True),
+                    **shared,
                 )
             else:
                 since = last_seen.get(agent["id"], 0)
@@ -850,6 +1006,8 @@ def make_resident_driver(
                 store.append_session_record(match_id, agent["id"], {**record, "received": reply})
             briefed.add(agent["id"])
             last_seen[agent["id"]] = state["turn"]
+            if fog and current_knowledge is not None:
+                last_known[agent["id"]] = current_knowledge
             try:
                 result = _extract_json(reply)
             except ValueError as err:
@@ -867,7 +1025,12 @@ def build_driver(
     spec: Mapping[str, Any],
     scenario: dict[str, Any],
     agents: list[dict[str, Any]] | None = None,
+    *,
+    fog: bool = False,
 ) -> Driver:
+    """``fog`` only reaches the ``command``/``resident`` factories — bot and
+    bot-file drivers stay full-information regardless (documented asymmetry,
+    see the module docstring's "Fog of war" section)."""
     kind = spec.get("type")
     if spec.get("per_seat") and kind not in ("command", "resident"):
         raise ValueError("per_seat is only supported for 'command' and 'resident' drivers")
@@ -876,11 +1039,11 @@ def build_driver(
     if kind == "bot-file":
         return make_bot_file_driver(spec)
     if kind == "resident":  # per-seat by definition
-        return make_resident_driver(spec, scenario, agents or [])
+        return make_resident_driver(spec, scenario, agents or [], fog=fog)
     if kind == "command" and spec.get("per_seat"):
-        return make_per_seat_driver(spec, scenario, agents or [])
+        return make_per_seat_driver(spec, scenario, agents or [], fog=fog)
     if kind == "command":
-        return make_command_driver(spec, scenario)
+        return make_command_driver(spec, scenario, fog=fog)
     raise ValueError(
         f"unknown driver type {kind!r}; expected 'bot', 'bot-file', 'command' or 'resident'"
     )
@@ -935,6 +1098,10 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
     """
     match_cfg = config["match"]
     scenario = _cli_json(["arena", "show", match_cfg["scenario"]])
+    # Fog of war (plan t5, spec c5/h4) — see the module docstring's "Fog of
+    # war" section for the whole picture: a harness-layer-only projection,
+    # never touching league/engine.
+    fog = bool(config.get("fog", False))
 
     existing = {row["match_id"] for row in _cli_json(["match", "list"])["matches"]}
     if match_cfg.get("id") in existing:
@@ -966,8 +1133,10 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
         match_id = created["match_id"]
 
     drivers = {
-        t["id"]: build_driver(t["driver"], scenario, t.get("agents")) for t in config["teams"]
+        t["id"]: build_driver(t["driver"], scenario, t.get("agents"), fog=fog)
+        for t in config["teams"]
     }
+    driver_types = {t["id"]: t["driver"].get("type") for t in config["teams"]}
     max_rounds = int(config.get("max_rounds", scenario["turn_limit"] + 2))
 
     for _ in range(max_rounds):
@@ -986,7 +1155,21 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
         }
         for team in config["teams"]:
             team_id = team["id"]
-            orders = drivers[team_id](state, team_id, turn, context)
+            # Fog boundary (spec c5/h4): a command/resident seat is fed that
+            # team's own fogged view — its vision + accumulated knowledge,
+            # never the shared full-board `state`/`context` above. Bot/
+            # bot-file drivers keep the full state (documented asymmetry,
+            # module docstring).
+            if fog and driver_types[team_id] in ("command", "resident"):
+                team_shown = _cli_json(["match", "show", match_id, "--team", team_id, "--fog"])
+                team_state = team_shown["state"]
+                team_context = {
+                    "legal_actions": team_shown.get("legal_actions", {}),
+                    "rejections": team_shown.get("last_turn_rejections", []),
+                }
+            else:
+                team_state, team_context = state, context
+            orders = drivers[team_id](team_state, team_id, turn, team_context)
             acted = _cli_json(
                 [
                     "match",

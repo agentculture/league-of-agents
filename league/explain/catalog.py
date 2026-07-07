@@ -207,6 +207,17 @@ event from the turn just resolved (`{team_id, unit_id, reason}`), so a caller
 can see *why* an order failed without scraping the whole log. The harness
 folds this into each agent's next briefing (spec c8/h5) — a seat that never
 learns the reason otherwise repeats the mistake for the whole match.
+
+`--team <id>` scopes `legal_actions`/`last_turn_rejections` to that team.
+Add `--fog` (requires `--team`) for that team's fog-of-war projection (plan
+t5, spec c5/h4): `state` is replaced by that team's own roster in full plus
+every other unit / control point / resource node / discovered mission it has
+actually seen or been told about (`league.engine.knowledge`), and a new
+`knowledge` key carries the raw fold. The plain (no `--team`/`--fog`)
+response is untouched — this is additive. The harness calls this per team,
+per turn, for `command`/`resident` drivers when the match config sets
+`"fog": true`; bot drivers stay on the full, un-fogged state (documented,
+temporary asymmetry — see `league/harness.py`).
 """
 
 
@@ -251,7 +262,14 @@ driven?" alongside the score.
 
 Config shape: {"match": {"scenario", "mode", "seed", "id"},
 "teams": [{"id", "name", "driver", "agents": [{"id", "model", "role"}]}],
-"max_rounds": N}.
+"max_rounds": N, "fog": false}.
+
+`"fog": true` (plan t5, spec c5/h4) narrows every `command`/`resident`
+briefing to that team's own vision plus its accumulated knowledge
+(`match show --team <id> --fog --json`) — never the full board. Bot drivers
+(`bot`/`bot-file`) stay full-information under fog for now, a documented,
+temporary asymmetry (see `league/harness.py`); a fair fogged match keeps fog
+on for every driver or none.
 """
 
 
