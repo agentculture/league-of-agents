@@ -9,13 +9,15 @@ the first exchange — for both a claude-backed seat and a colleague-backed seat
 `sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP`).
 
 **Probed versions** (2026-07-07): cultureagent 0.12.0 + claude-agent-sdk
-0.2.110 + colleague 1.34.0 (all inside the `culture` uv-tool venv at
-`~/.local/share/uv/tools/culture/`), standalone colleague CLI 1.38.0,
-claude CLI 2.1.202. File paths below cite the installed packages.
+0.2.110 + colleague 1.34.0 (all inside the `culture` uv-tool venv — uv's
+per-tool install directory, `$HOME/.local/share/uv/tools/culture/` by
+default), standalone colleague CLI 1.38.0, claude CLI 2.1.202. File paths
+below cite the installed packages relative to that venv.
 
 ## The surface map — what cultureagent actually ships
 
-cultureagent (`~/.local/share/uv/tools/culture/lib/python3.12/site-packages/cultureagent/`)
+cultureagent (installed under the `culture` uv-tool venv's site-packages,
+e.g. `$HOME/.local/share/uv/tools/culture/lib/python3.12/site-packages/cultureagent/`)
 wraps five backends under `clients/`: `claude`, `codex`, `copilot`, `acp`,
 `colleague`. The session mechanics differ per backend, and the difference is
 the whole story of this spike.
@@ -49,8 +51,9 @@ NO subprocess coding-agent for colleague… its brain IS colleague's own
 `colleague.resident.harness.ColleagueHarness`, which runs each inbound message
 as one bounded `engine.work` turn."*
 
-`ColleagueHarness.feed_message()`
-(`~/.local/share/uv/tools/colleague/lib/python3.12/site-packages/colleague/resident/harness.py`)
+`ColleagueHarness.feed_message()` (installed under the `colleague` uv-tool
+venv's site-packages, e.g.
+`$HOME/.local/share/uv/tools/colleague/lib/python3.12/site-packages/colleague/resident/harness.py`)
 does this per message:
 
 ```python
@@ -83,9 +86,10 @@ the daemon feeds the same `ColleagueHarness`. All cost, no continuity gain.
 
 ### Proof 1 — claude seat through cultureagent's `AgentRunner` (headless)
 
-Runner script (`claude_runner_proof.py`, run with
-`~/.local/share/uv/tools/culture/bin/python`): construct one `AgentRunner`,
-plant a codeword, follow up in the same instance.
+Runner script (`claude_runner_proof.py`, run with the `culture` uv-tool
+venv's own interpreter, e.g. `$HOME/.local/share/uv/tools/culture/bin/python`):
+construct one `AgentRunner`, plant a codeword, follow up in the same
+instance.
 
 ```python
 from cultureagent.clients.claude.agent_runner import AgentRunner
@@ -163,10 +167,12 @@ claude -p --model haiku --resume "$SID" \
 
 Driver-minted UUIDs mean no JSON parsing on turn 1 (plain-text output works
 throughout); `--output-format json` additionally returns `session_id`,
-`duration_ms`, and usage. Sessions persist on disk under `~/.claude` keyed by
-cwd, so a crashed harness can resume a seat mid-match. Mechanically this is
-the *same thing* `AgentRunner` does internally (the SDK spawns the CLI with
-resume per turn) — the difference is only whose code owns the session loop.
+`duration_ms`, and usage. Sessions persist on disk in the Claude CLI's
+per-project session store (its own dotfile directory under the user's home,
+keyed by cwd), so a crashed harness can resume a seat mid-match. Mechanically
+this is the *same thing* `AgentRunner` does internally (the SDK spawns the
+CLI with resume per turn) — the difference is only whose code owns the
+session loop.
 
 ## Latency notes
 
@@ -195,10 +201,10 @@ seat, with a per-mind transport.**
    in preference order:
    - Subprocess a small seat-runner script (JSONL request/reply over stdio)
      executed with an operator-configured interpreter that has
-     `cultureagent[backend-claude]` — default
-     `~/.local/share/uv/tools/culture/bin/python`. Keeps `dependencies = []`,
-     fits the existing `command`-driver philosophy, one *process and one
-     session per seat for the whole match* (not per turn).
+     `cultureagent[backend-claude]` — default the `culture` uv-tool venv's own
+     interpreter (`$HOME/.local/share/uv/tools/culture/bin/python`). Keeps
+     `dependencies = []`, fits the existing `command`-driver philosophy, one
+     *process and one session per seat for the whole match* (not per turn).
    - Or add a `league-of-agents[resident]` extra that pulls
      `cultureagent[backend-claude]` and import it lazily. Cleaner code, but it
      changes the install story for resident matches.
