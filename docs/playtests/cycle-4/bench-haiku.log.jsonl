@@ -1,0 +1,300 @@
+{"driver_kinds":{"house":"bot","solo":"stateless"},"initial_state":{"control_points":[{"hold":[],"id":"cp-center","owner":null,"pos":[6,5]},{"hold":[],"id":"cp-west","owner":null,"pos":[3,8]},{"hold":[],"id":"cp-east","owner":null,"pos":[9,2]}],"grid_height":10,"grid_width":12,"match_id":"m-bench-haiku-solo","missions":[{"amount":6,"completed_by":[],"completed_turn":null,"id":"ms-supply","kind":"deliver","pos":[6,5],"reward":10,"status":"open"},{"amount":3,"completed_by":[],"completed_turn":null,"id":"ms-outpost","kind":"hold","pos":[9,2],"reward":8,"status":"open"}],"mode":"competitive","resource_nodes":[{"id":"rn-west","pos":[0,5],"remaining":12},{"id":"rn-east","pos":[11,4],"remaining":12}],"scenario_id":"skirmish-1","seed":20260710,"status":"pending","teams":[{"agents":[{"id":"solo-1","model":"claude-haiku-4-5","role":"scout"},{"id":"solo-2","model":"claude-haiku-4-5","role":"harvester"},{"id":"solo-3","model":"claude-haiku-4-5","role":"defender"}],"id":"solo","name":"Solo Agent","resources":0},{"agents":[{"id":"house-1","model":"bot-file:rusher","role":"scout"},{"id":"house-2","model":"bot-file:rusher","role":"harvester"},{"id":"house-3","model":"bot-file:rusher","role":"defender"}],"id":"house","name":"House Rusher (silver)","resources":0}],"turn":0,"turn_limit":30,"units":[{"agent_id":"solo-1","alive":true,"carrying":0,"id":"solo-u1","pos":[0,0],"role":"scout","team_id":"solo"},{"agent_id":"solo-2","alive":true,"carrying":0,"id":"solo-u2","pos":[1,0],"role":"harvester","team_id":"solo"},{"agent_id":"solo-3","alive":true,"carrying":0,"id":"solo-u3","pos":[0,1],"role":"defender","team_id":"solo"},{"agent_id":"house-1","alive":true,"carrying":0,"id":"house-u1","pos":[11,9],"role":"scout","team_id":"house"},{"agent_id":"house-2","alive":true,"carrying":0,"id":"house-u2","pos":[10,9],"role":"harvester","team_id":"house"},{"agent_id":"house-3","alive":true,"carrying":0,"id":"house-u3","pos":[11,8],"role":"defender","team_id":"house"}],"winner":null},"log_version":1,"map_read":{},"unit_comms":{}}
+{"data":{},"kind":"match_started","seq":0,"turn":0}
+{"data":{"team_id":"house","text":"rusher: every unit rushes its nearest control point, then holds"},"kind":"plan_declared","seq":1,"turn":1}
+{"data":{"team_id":"solo","text":"Harvest 6 resources from west node and deliver to center for mission reward. Scout races toward east control point to contest opponent position."},"kind":"plan_declared","seq":2,"turn":1}
+{"data":{"action":"move","team_id":"house","to":[8,9],"unit_id":"house-u1"},"kind":"action_declared","seq":3,"turn":1}
+{"data":{"action":"move","team_id":"house","to":[8,9],"unit_id":"house-u2"},"kind":"action_declared","seq":4,"turn":1}
+{"data":{"action":"move","team_id":"house","to":[9,8],"unit_id":"house-u3"},"kind":"action_declared","seq":5,"turn":1}
+{"data":{"action":"move","team_id":"solo","to":[1,2],"unit_id":"solo-u2"},"kind":"action_declared","seq":6,"turn":1}
+{"data":{"to":[8,9],"unit_id":"house-u1"},"kind":"unit_moved","seq":7,"turn":1}
+{"data":{"to":[8,9],"unit_id":"house-u2"},"kind":"unit_moved","seq":8,"turn":1}
+{"data":{"to":[9,8],"unit_id":"house-u3"},"kind":"unit_moved","seq":9,"turn":1}
+{"data":{"to":[1,2],"unit_id":"solo-u2"},"kind":"unit_moved","seq":10,"turn":1}
+{"data":{"turn":1},"kind":"turn_advanced","seq":11,"turn":1}
+{"data":{"turn":1},"kind":"turn_resolved","seq":12,"turn":1}
+{"data":{"agent_id":null,"elapsed_ms":76331,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":13,"turn":1}
+{"data":{"agent_id":null,"elapsed_ms":3,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":14,"turn":1}
+{"data":{"team_id":"solo","text":"Relay gathering for deliver mission. Position harvester as relay hub in center region. Defender harvests from nearby west resource. Scout supports secondary objectives. Target: deliver 6 resources to center [6, 5] for 10 points by turn 20."},"kind":"plan_declared","seq":15,"turn":2}
+{"data":{"from":"solo-1","team_id":"solo","text":"Scout ready. Will advance toward east objective once deliver mission is on track."},"kind":"message_sent","seq":16,"turn":2}
+{"data":{"from":"solo-2","team_id":"solo","text":"Harvester moving to relay position. Prepared to receive and transport resources from defender."},"kind":"message_sent","seq":17,"turn":2}
+{"data":{"from":"solo-3","team_id":"solo","text":"Defender advancing to west resource node. Will begin gathering for relay."},"kind":"message_sent","seq":18,"turn":2}
+{"data":{"action":"move","team_id":"house","to":[6,8],"unit_id":"house-u1"},"kind":"action_declared","seq":19,"turn":2}
+{"data":{"action":"move","team_id":"house","to":[6,9],"unit_id":"house-u2"},"kind":"action_declared","seq":20,"turn":2}
+{"data":{"action":"move","team_id":"house","to":[7,8],"unit_id":"house-u3"},"kind":"action_declared","seq":21,"turn":2}
+{"data":{"action":"move","team_id":"solo","to":[1,4],"unit_id":"solo-u2"},"kind":"action_declared","seq":22,"turn":2}
+{"data":{"to":[6,8],"unit_id":"house-u1"},"kind":"unit_moved","seq":23,"turn":2}
+{"data":{"to":[6,9],"unit_id":"house-u2"},"kind":"unit_moved","seq":24,"turn":2}
+{"data":{"to":[7,8],"unit_id":"house-u3"},"kind":"unit_moved","seq":25,"turn":2}
+{"data":{"to":[1,4],"unit_id":"solo-u2"},"kind":"unit_moved","seq":26,"turn":2}
+{"data":{"turn":2},"kind":"turn_advanced","seq":27,"turn":2}
+{"data":{"turn":2},"kind":"turn_resolved","seq":28,"turn":2}
+{"data":{"agent_id":null,"elapsed_ms":104445,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":29,"turn":2}
+{"data":{"agent_id":null,"elapsed_ms":3,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":30,"turn":2}
+{"data":{"team_id":"solo","text":"Harvest west resources with u2 (harvester), use u1 (scout) to probe west control point, position u3 (defender) to support center. Focus on gathering to unlock deliver mission."},"kind":"plan_declared","seq":31,"turn":3}
+{"data":{"action":"move","team_id":"house","to":[6,5],"unit_id":"house-u1"},"kind":"action_declared","seq":32,"turn":3}
+{"data":{"action":"move","team_id":"house","to":[6,7],"unit_id":"house-u2"},"kind":"action_declared","seq":33,"turn":3}
+{"data":{"action":"move","team_id":"house","to":[6,7],"unit_id":"house-u3"},"kind":"action_declared","seq":34,"turn":3}
+{"data":{"action":"move","team_id":"solo","to":[0,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":35,"turn":3}
+{"data":{"to":[6,5],"unit_id":"house-u1"},"kind":"unit_moved","seq":36,"turn":3}
+{"data":{"to":[6,7],"unit_id":"house-u2"},"kind":"unit_moved","seq":37,"turn":3}
+{"data":{"to":[6,7],"unit_id":"house-u3"},"kind":"unit_moved","seq":38,"turn":3}
+{"data":{"to":[0,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":39,"turn":3}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":1},"kind":"control_point_held","seq":40,"turn":3}
+{"data":{"turn":3},"kind":"turn_advanced","seq":41,"turn":3}
+{"data":{"turn":3},"kind":"turn_resolved","seq":42,"turn":3}
+{"data":{"agent_id":null,"elapsed_ms":20579,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":43,"turn":3}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":44,"turn":3}
+{"data":{"team_id":"solo","text":"Gather resources at west node (solo-u2), build stockpile for deliver mission (6 units to [6,5]). Scout (solo-u1) will probe toward east control point [9,2] for the hold mission. Defender (solo-u3) will advance toward center to contest house's cp-center control and provide support."},"kind":"plan_declared","seq":45,"turn":4}
+{"data":{"from":"solo-1","team_id":"solo","text":"Moving to secure the eastern control point for the hold mission."},"kind":"message_sent","seq":46,"turn":4}
+{"data":{"from":"solo-2","team_id":"solo","text":"Gathering at west node to build our resource stockpile."},"kind":"message_sent","seq":47,"turn":4}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":48,"turn":4}
+{"data":{"action":"move","team_id":"house","to":[6,5],"unit_id":"house-u2"},"kind":"action_declared","seq":49,"turn":4}
+{"data":{"action":"move","team_id":"house","to":[6,5],"unit_id":"house-u3"},"kind":"action_declared","seq":50,"turn":4}
+{"data":{"action":"gather","team_id":"solo","to":[0,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":51,"turn":4}
+{"data":{"to":[6,5],"unit_id":"house-u2"},"kind":"unit_moved","seq":52,"turn":4}
+{"data":{"to":[6,5],"unit_id":"house-u3"},"kind":"unit_moved","seq":53,"turn":4}
+{"data":{"amount":3,"node_id":"rn-west","unit_id":"solo-u2"},"kind":"resource_gathered","seq":54,"turn":4}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":2},"kind":"control_point_held","seq":55,"turn":4}
+{"data":{"cp_id":"cp-center","team_id":"house"},"kind":"control_point_captured","seq":56,"turn":4}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":2},"kind":"control_point_held","seq":57,"turn":4}
+{"data":{"turn":4},"kind":"turn_advanced","seq":58,"turn":4}
+{"data":{"turn":4},"kind":"turn_resolved","seq":59,"turn":4}
+{"data":{"agent_id":null,"elapsed_ms":12030,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":60,"turn":4}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":61,"turn":4}
+{"data":{"team_id":"solo","text":"Prioritize deliver mission (reward 10) by relaying solo-u2's 3 resources to center control point. House wins the race to east control point (turn 6 vs our turn 8), so hold mission (reward 8) is uncontested but unreachable first. Focus: move solo-u2 to deliver 3/6 resources in turns 4–6, then pivot to gathering more. Other units hold until needed."},"kind":"plan_declared","seq":62,"turn":5}
+{"data":{"from":"solo-1","team_id":"solo","text":"Stand ready at [0, 0]. Preparing to support supply relay to center."},"kind":"message_sent","seq":63,"turn":5}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":64,"turn":5}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":65,"turn":5}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":66,"turn":5}
+{"data":{"action":"move","team_id":"solo","to":[2,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":67,"turn":5}
+{"data":{"to":[2,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":68,"turn":5}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":3},"kind":"control_point_held","seq":69,"turn":5}
+{"data":{"turn":5},"kind":"turn_advanced","seq":70,"turn":5}
+{"data":{"turn":5},"kind":"turn_resolved","seq":71,"turn":5}
+{"data":{"agent_id":null,"elapsed_ms":73650,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":72,"turn":5}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":73,"turn":5}
+{"data":{"team_id":"solo","text":"Deliver mission focus: Advance solo-u2 toward [6, 5]. Deliver 3 resources next turn, then cycle gather-deliver to reach 6."},"kind":"plan_declared","seq":74,"turn":6}
+{"data":{"from":"solo-2","team_id":"solo","text":"Advancing to [4, 5]. Ready to deliver next turn."},"kind":"message_sent","seq":75,"turn":6}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":76,"turn":6}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":77,"turn":6}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":78,"turn":6}
+{"data":{"action":"move","team_id":"solo","to":[4,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":79,"turn":6}
+{"data":{"to":[4,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":80,"turn":6}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":4},"kind":"control_point_held","seq":81,"turn":6}
+{"data":{"turn":6},"kind":"turn_advanced","seq":82,"turn":6}
+{"data":{"turn":6},"kind":"turn_resolved","seq":83,"turn":6}
+{"data":{"agent_id":null,"elapsed_ms":82988,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":84,"turn":6}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":85,"turn":6}
+{"data":{"team_id":"solo","text":"Advance harvester to delivery point to progress toward 6-resource goal (currently 3 in hand). Next turn: deliver for 3/6 mission progress. Scout (solo-u1) should mobilize toward east resource node [11,4] for second harvest phase. Defender holds position pending outpost assignment."},"kind":"plan_declared","seq":86,"turn":7}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":87,"turn":7}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":88,"turn":7}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":89,"turn":7}
+{"data":{"action":"move","team_id":"solo","to":[6,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":90,"turn":7}
+{"data":{"to":[6,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":91,"turn":7}
+{"data":{"cp_id":"cp-center","team_id":"","turns":0},"kind":"control_point_held","seq":92,"turn":7}
+{"data":{"turn":7},"kind":"turn_advanced","seq":93,"turn":7}
+{"data":{"turn":7},"kind":"turn_resolved","seq":94,"turn":7}
+{"data":{"agent_id":null,"elapsed_ms":37862,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":95,"turn":7}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":96,"turn":7}
+{"data":{"team_id":"solo","text":"Establish resource relay: scout gathers from eastern node, harvester completes delivery cycles from center, defender advances toward eastern control point."},"kind":"plan_declared","seq":97,"turn":8}
+{"data":{"from":"solo-2","team_id":"solo","text":"Delivering 3 resources to supply mission now. Returning to gather more for second relay."},"kind":"message_sent","seq":98,"turn":8}
+{"data":{"from":"solo-1","team_id":"solo","text":"Scout moving to eastern resource node to support rapid relay cycles."},"kind":"message_sent","seq":99,"turn":8}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":100,"turn":8}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":101,"turn":8}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":102,"turn":8}
+{"data":{"action":"deliver","team_id":"solo","to":[6,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":103,"turn":8}
+{"data":{"amount":3,"team_id":"solo","unit_id":"solo-u2"},"kind":"resource_delivered","seq":104,"turn":8}
+{"data":{"turn":8},"kind":"turn_advanced","seq":105,"turn":8}
+{"data":{"turn":8},"kind":"turn_resolved","seq":106,"turn":8}
+{"data":{"agent_id":null,"elapsed_ms":18128,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":107,"turn":8}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":108,"turn":8}
+{"data":{"team_id":"solo","text":"Advance scout to east control point [9, 2] for hold mission. Solo-u1 will move eastward; target 3 turns to reach position, then hold for 5 consecutive turns to complete ms-outpost (base 2 + amount 3)."},"kind":"plan_declared","seq":109,"turn":9}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":110,"turn":9}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":111,"turn":9}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":112,"turn":9}
+{"data":{"action":"move","team_id":"solo","to":[3,0],"unit_id":"solo-u1"},"kind":"action_declared","seq":113,"turn":9}
+{"data":{"to":[3,0],"unit_id":"solo-u1"},"kind":"unit_moved","seq":114,"turn":9}
+{"data":{"turn":9},"kind":"turn_advanced","seq":115,"turn":9}
+{"data":{"turn":9},"kind":"turn_resolved","seq":116,"turn":9}
+{"data":{"agent_id":null,"elapsed_ms":124856,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":117,"turn":9}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":118,"turn":9}
+{"data":{"team_id":"solo","text":"Secure 6 resources for deliver mission (ms-supply, 10 pts). Solo-u3 gathering pipeline toward rn-west [0,5]; solo-u1 to follow; solo-u2 holds delivery point [6,5]. Then relay resources back for completion."},"kind":"plan_declared","seq":119,"turn":10}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":120,"turn":10}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":121,"turn":10}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":122,"turn":10}
+{"data":{"action":"move","team_id":"solo","to":[0,3],"unit_id":"solo-u3"},"kind":"action_declared","seq":123,"turn":10}
+{"data":{"to":[0,3],"unit_id":"solo-u3"},"kind":"unit_moved","seq":124,"turn":10}
+{"data":{"turn":10},"kind":"turn_advanced","seq":125,"turn":10}
+{"data":{"turn":10},"kind":"turn_resolved","seq":126,"turn":10}
+{"data":{"agent_id":null,"elapsed_ms":45951,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":127,"turn":10}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":128,"turn":10}
+{"data":{"team_id":"solo","text":"Harvest 3 resources from eastern node, deliver 6 total for 10 points. Completion target: turn 17."},"kind":"plan_declared","seq":129,"turn":11}
+{"data":{"from":"solo-2","team_id":"solo","text":"Harvester moving east to gather more resources. Will return to deliver location shortly."},"kind":"message_sent","seq":130,"turn":11}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":131,"turn":11}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":132,"turn":11}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":133,"turn":11}
+{"data":{"action":"move","team_id":"solo","to":[8,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":134,"turn":11}
+{"data":{"to":[8,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":135,"turn":11}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":1},"kind":"control_point_held","seq":136,"turn":11}
+{"data":{"turn":11},"kind":"turn_advanced","seq":137,"turn":11}
+{"data":{"turn":11},"kind":"turn_resolved","seq":138,"turn":11}
+{"data":{"agent_id":null,"elapsed_ms":81832,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":139,"turn":11}
+{"data":{"agent_id":null,"elapsed_ms":9,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":140,"turn":11}
+{"data":{"team_id":"solo","text":"Position harvester (solo-u2) toward cp-east [9,2] to attempt hold mission (3-turn occupancy for 8 points). With a 1-unit-per-turn handicap, focusing on a single-unit objective is more viable than competing with house's 3-unit resource race on the deliver mission."},"kind":"plan_declared","seq":141,"turn":12}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":142,"turn":12}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":143,"turn":12}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":144,"turn":12}
+{"data":{"action":"move","team_id":"solo","to":[9,4],"unit_id":"solo-u2"},"kind":"action_declared","seq":145,"turn":12}
+{"data":{"to":[9,4],"unit_id":"solo-u2"},"kind":"unit_moved","seq":146,"turn":12}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":2},"kind":"control_point_held","seq":147,"turn":12}
+{"data":{"turn":12},"kind":"turn_advanced","seq":148,"turn":12}
+{"data":{"turn":12},"kind":"turn_resolved","seq":149,"turn":12}
+{"data":{"agent_id":null,"elapsed_ms":149035,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":150,"turn":12}
+{"data":{"agent_id":null,"elapsed_ms":9,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":151,"turn":12}
+{"data":{"team_id":"solo","text":"Secure cp-east to complete the ms-outpost hold mission (5 consecutive turns = 8 point reward). Harvester moves to [9, 2] and holds for turns 13-17 to capture and complete."},"kind":"plan_declared","seq":152,"turn":13}
+{"data":{"from":"solo-1","team_id":"solo","text":"Eastern control point is lightly contested. Harvester should move there and hold while we work on gathering resources."},"kind":"message_sent","seq":153,"turn":13}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":154,"turn":13}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":155,"turn":13}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":156,"turn":13}
+{"data":{"action":"move","team_id":"solo","to":[9,2],"unit_id":"solo-u2"},"kind":"action_declared","seq":157,"turn":13}
+{"data":{"to":[9,2],"unit_id":"solo-u2"},"kind":"unit_moved","seq":158,"turn":13}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":3},"kind":"control_point_held","seq":159,"turn":13}
+{"data":{"cp_id":"cp-east","team_id":"solo","turns":1},"kind":"control_point_held","seq":160,"turn":13}
+{"data":{"turn":13},"kind":"turn_advanced","seq":161,"turn":13}
+{"data":{"turn":13},"kind":"turn_resolved","seq":162,"turn":13}
+{"data":{"agent_id":null,"elapsed_ms":61454,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":163,"turn":13}
+{"data":{"agent_id":null,"elapsed_ms":10,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":164,"turn":13}
+{"data":{"team_id":"solo","text":"Secure cp-east: hold solo-u2 for one more turn to capture (2-turn requirement met), then maintain hold to complete ms-outpost mission (5 total turns needed for amount=3). Parallel: solo-u1 scouts toward resource nodes or cp-west; solo-u3 gathers at west node to build supply for ms-supply delivery."},"kind":"plan_declared","seq":165,"turn":14}
+{"data":{"from":"solo-1","team_id":"solo","text":"Locking down cp-east. One more turn here and we own the point—then we defend it to complete the hold mission."},"kind":"message_sent","seq":166,"turn":14}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":167,"turn":14}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":168,"turn":14}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":169,"turn":14}
+{"data":{"action":"hold","team_id":"solo","to":[9,2],"unit_id":"solo-u2"},"kind":"action_declared","seq":170,"turn":14}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":4},"kind":"control_point_held","seq":171,"turn":14}
+{"data":{"cp_id":"cp-east","team_id":"solo","turns":2},"kind":"control_point_held","seq":172,"turn":14}
+{"data":{"cp_id":"cp-east","team_id":"solo"},"kind":"control_point_captured","seq":173,"turn":14}
+{"data":{"cp_id":"cp-east","team_id":"solo","turns":2},"kind":"control_point_held","seq":174,"turn":14}
+{"data":{"turn":14},"kind":"turn_advanced","seq":175,"turn":14}
+{"data":{"turn":14},"kind":"turn_resolved","seq":176,"turn":14}
+{"data":{"agent_id":null,"elapsed_ms":33648,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":177,"turn":14}
+{"data":{"agent_id":null,"elapsed_ms":9,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":178,"turn":14}
+{"data":{"team_id":"solo","text":"Hold cp-east to secure ms-outpost mission completion (turn 3 of 5 required hold turns = 8 pts). Gather and relay supplies to cp-center for ms-supply in parallel."},"kind":"plan_declared","seq":179,"turn":15}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":180,"turn":15}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":181,"turn":15}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":182,"turn":15}
+{"data":{"action":"hold","team_id":"solo","to":[9,2],"unit_id":"solo-u2"},"kind":"action_declared","seq":183,"turn":15}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":5},"kind":"control_point_held","seq":184,"turn":15}
+{"data":{"cp_id":"cp-east","team_id":"solo","turns":3},"kind":"control_point_held","seq":185,"turn":15}
+{"data":{"turn":15},"kind":"turn_advanced","seq":186,"turn":15}
+{"data":{"turn":15},"kind":"turn_resolved","seq":187,"turn":15}
+{"data":{"agent_id":null,"elapsed_ms":29860,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":188,"turn":15}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":189,"turn":15}
+{"data":{"team_id":"solo","text":"Hold cp-east for 2 more turns to complete ms-outpost mission (5 total required, 3 done). Advance solo-u3 to rn-west, gather with rotated units, deliver 6 resources to ms-supply at [6, 5]. With 1-action-per-turn constraint, prioritize positioning: harvesters at nodes, defenders shuttling resources."},"kind":"plan_declared","seq":190,"turn":16}
+{"data":{"from":"solo-1","team_id":"solo","text":"Holding cp-east—do not abandon the control point. solo-3, move to west node and secure gathering. We complete outpost in 2 turns, then pivot to supply delivery."},"kind":"message_sent","seq":191,"turn":16}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":192,"turn":16}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":193,"turn":16}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":194,"turn":16}
+{"data":{"action":"move","team_id":"solo","to":[0,5],"unit_id":"solo-u3"},"kind":"action_declared","seq":195,"turn":16}
+{"data":{"to":[0,5],"unit_id":"solo-u3"},"kind":"unit_moved","seq":196,"turn":16}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":6},"kind":"control_point_held","seq":197,"turn":16}
+{"data":{"cp_id":"cp-east","team_id":"solo","turns":4},"kind":"control_point_held","seq":198,"turn":16}
+{"data":{"turn":16},"kind":"turn_advanced","seq":199,"turn":16}
+{"data":{"turn":16},"kind":"turn_resolved","seq":200,"turn":16}
+{"data":{"agent_id":null,"elapsed_ms":36760,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":201,"turn":16}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":202,"turn":16}
+{"data":{"team_id":"solo","text":"Maintain solo-u2's hold at cp-east one more turn to complete the 3-turn hold mission (currently at 4/5 turns held). Gather with solo-u3 to have 4/6 resources ready. Turn 17: Move solo-u2 toward rn-east to execute gather → deliver relay sequence, reaching rn-east by turn 18 to harvest 3 resources, then relay to deliver point [6,5] by turn 21 to complete the deliver mission."},"kind":"plan_declared","seq":203,"turn":17}
+{"data":{"from":"solo-1","team_id":"solo","text":"Standing by. Will support relay operations when needed."},"kind":"message_sent","seq":204,"turn":17}
+{"data":{"from":"solo-2","team_id":"solo","text":"Holding position one more turn to complete control point mission. Moving east next turn to gather."},"kind":"message_sent","seq":205,"turn":17}
+{"data":{"from":"solo-3","team_id":"solo","text":"Gathering now. Ready to support relay chain."},"kind":"message_sent","seq":206,"turn":17}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":207,"turn":17}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":208,"turn":17}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":209,"turn":17}
+{"data":{"action":"gather","team_id":"solo","to":[0,5],"unit_id":"solo-u3"},"kind":"action_declared","seq":210,"turn":17}
+{"data":{"amount":1,"node_id":"rn-west","unit_id":"solo-u3"},"kind":"resource_gathered","seq":211,"turn":17}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":7},"kind":"control_point_held","seq":212,"turn":17}
+{"data":{"cp_id":"cp-east","team_id":"solo","turns":5},"kind":"control_point_held","seq":213,"turn":17}
+{"data":{"mission_id":"ms-outpost","team_id":"solo"},"kind":"mission_completed","seq":214,"turn":17}
+{"data":{"turn":17},"kind":"turn_advanced","seq":215,"turn":17}
+{"data":{"turn":17},"kind":"turn_resolved","seq":216,"turn":17}
+{"data":{"agent_id":null,"elapsed_ms":102388,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":217,"turn":17}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":218,"turn":17}
+{"data":{"team_id":"solo","text":"Harvester gathers 3 resources from east node, then delivers to center mission. Defender repositions toward delivery square. Scout explores remaining coverage."},"kind":"plan_declared","seq":219,"turn":18}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":220,"turn":18}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":221,"turn":18}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":222,"turn":18}
+{"data":{"action":"move","team_id":"solo","to":[11,2],"unit_id":"solo-u2"},"kind":"action_declared","seq":223,"turn":18}
+{"data":{"to":[11,2],"unit_id":"solo-u2"},"kind":"unit_moved","seq":224,"turn":18}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":8},"kind":"control_point_held","seq":225,"turn":18}
+{"data":{"cp_id":"cp-east","team_id":"","turns":0},"kind":"control_point_held","seq":226,"turn":18}
+{"data":{"turn":18},"kind":"turn_advanced","seq":227,"turn":18}
+{"data":{"turn":18},"kind":"turn_resolved","seq":228,"turn":18}
+{"data":{"agent_id":null,"elapsed_ms":104321,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":229,"turn":18}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":230,"turn":18}
+{"data":{"team_id":"solo","text":"U2 harvests 3 from east (move→gather→relay), U3 delivers 1 from west, U1 holds cp-east. Target: 6-resource completion by turn 26."},"kind":"plan_declared","seq":231,"turn":19}
+{"data":{"from":"solo-2","team_id":"solo","text":"Moving to eastern resource node to harvest maximum capacity. Will begin relay toward delivery point."},"kind":"message_sent","seq":232,"turn":19}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":233,"turn":19}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":234,"turn":19}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":235,"turn":19}
+{"data":{"action":"move","team_id":"solo","to":[11,4],"unit_id":"solo-u2"},"kind":"action_declared","seq":236,"turn":19}
+{"data":{"to":[11,4],"unit_id":"solo-u2"},"kind":"unit_moved","seq":237,"turn":19}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":9},"kind":"control_point_held","seq":238,"turn":19}
+{"data":{"turn":19},"kind":"turn_advanced","seq":239,"turn":19}
+{"data":{"turn":19},"kind":"turn_resolved","seq":240,"turn":19}
+{"data":{"agent_id":null,"elapsed_ms":73146,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":241,"turn":19}
+{"data":{"agent_id":null,"elapsed_ms":10,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":242,"turn":19}
+{"data":{"team_id":"solo","text":"Maximize resource gathering: solo-u2 gathers 3 at [11, 4]. Over next 3 turns, solo-u2 moves to [6, 5] and delivers 3 resources. Solo-u3 moves east toward [6, 5] to deliver 1 resource. Complete deliver mission by turn 23."},"kind":"plan_declared","seq":243,"turn":20}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":244,"turn":20}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":245,"turn":20}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":246,"turn":20}
+{"data":{"action":"gather","team_id":"solo","to":[11,4],"unit_id":"solo-u2"},"kind":"action_declared","seq":247,"turn":20}
+{"data":{"amount":3,"node_id":"rn-east","unit_id":"solo-u2"},"kind":"resource_gathered","seq":248,"turn":20}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":10},"kind":"control_point_held","seq":249,"turn":20}
+{"data":{"turn":20},"kind":"turn_advanced","seq":250,"turn":20}
+{"data":{"turn":20},"kind":"turn_resolved","seq":251,"turn":20}
+{"data":{"agent_id":null,"elapsed_ms":57775,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":252,"turn":20}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":253,"turn":20}
+{"data":{"team_id":"solo","text":"Solo-u2 (harvester carrying 3) moves toward delivery point at [6,5]. Path: [10,5] → [8,5] → [6,5] deliver. This completes ms-supply mission (6 resources) by turn 22."},"kind":"plan_declared","seq":254,"turn":21}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":255,"turn":21}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":256,"turn":21}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":257,"turn":21}
+{"data":{"action":"move","team_id":"solo","to":[10,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":258,"turn":21}
+{"data":{"to":[10,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":259,"turn":21}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":11},"kind":"control_point_held","seq":260,"turn":21}
+{"data":{"turn":21},"kind":"turn_advanced","seq":261,"turn":21}
+{"data":{"turn":21},"kind":"turn_resolved","seq":262,"turn":21}
+{"data":{"agent_id":null,"elapsed_ms":35452,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":263,"turn":21}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":264,"turn":21}
+{"data":{"team_id":"solo","text":"Deliver mission is the critical path. Solo-u2 has 3 resources (full capacity) at [10,5], exactly 4 Manhattan cells from delivery point [6,5]. Moving solo-u2 left to [8,5] this turn positions it for delivery next turn (move 2 from [8,5] → [6,5]). This completes ms-supply and seals 10 points. Solo-u3 will follow as secondary delivery vector."},"kind":"plan_declared","seq":265,"turn":22}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":266,"turn":22}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":267,"turn":22}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":268,"turn":22}
+{"data":{"action":"move","team_id":"solo","to":[8,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":269,"turn":22}
+{"data":{"to":[8,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":270,"turn":22}
+{"data":{"cp_id":"cp-center","team_id":"house","turns":12},"kind":"control_point_held","seq":271,"turn":22}
+{"data":{"turn":22},"kind":"turn_advanced","seq":272,"turn":22}
+{"data":{"turn":22},"kind":"turn_resolved","seq":273,"turn":22}
+{"data":{"agent_id":null,"elapsed_ms":58037,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":274,"turn":22}
+{"data":{"agent_id":null,"elapsed_ms":4,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":275,"turn":22}
+{"data":{"team_id":"solo","text":"Deliver solo-u2's full load (3 resources) to the center supply mission. This progresses from 0/6 to 3/6. Over the remaining 8 turns, gather 3 more resources via solo-u3 and solo-u1 to complete delivery mission for 10 points. Opponent is camped at center with zero resources—I have first-mover advantage on the mission."},"kind":"plan_declared","seq":276,"turn":23}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":277,"turn":23}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":278,"turn":23}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":279,"turn":23}
+{"data":{"action":"move","team_id":"solo","to":[6,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":280,"turn":23}
+{"data":{"to":[6,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":281,"turn":23}
+{"data":{"cp_id":"cp-center","team_id":"","turns":0},"kind":"control_point_held","seq":282,"turn":23}
+{"data":{"turn":23},"kind":"turn_advanced","seq":283,"turn":23}
+{"data":{"turn":23},"kind":"turn_resolved","seq":284,"turn":23}
+{"data":{"agent_id":null,"elapsed_ms":28893,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":285,"turn":23}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":286,"turn":23}
+{"data":{"team_id":"solo","text":"Deliver for mission completion: solo-u2 already at deliver point [6, 5] carrying 3 resources; combined with 3 team resources = 6 total needed"},"kind":"plan_declared","seq":287,"turn":24}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u1"},"kind":"action_declared","seq":288,"turn":24}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u2"},"kind":"action_declared","seq":289,"turn":24}
+{"data":{"action":"hold","team_id":"house","unit_id":"house-u3"},"kind":"action_declared","seq":290,"turn":24}
+{"data":{"action":"deliver","team_id":"solo","to":[6,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":291,"turn":24}
+{"data":{"amount":3,"team_id":"solo","unit_id":"solo-u2"},"kind":"resource_delivered","seq":292,"turn":24}
+{"data":{"mission_id":"ms-supply","team_id":"solo"},"kind":"mission_completed","seq":293,"turn":24}
+{"data":{"turn":24},"kind":"turn_advanced","seq":294,"turn":24}
+{"data":{"winner":"solo"},"kind":"match_finished","seq":295,"turn":24}
+{"data":{"turn":24},"kind":"turn_resolved","seq":296,"turn":24}
+{"data":{"agent_id":null,"elapsed_ms":27096,"team_id":"solo","unit_id":null},"kind":"seat_latency","seq":297,"turn":24}
+{"data":{"agent_id":null,"elapsed_ms":5,"team_id":"house","unit_id":null},"kind":"seat_latency","seq":298,"turn":24}
