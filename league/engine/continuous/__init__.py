@@ -1,0 +1,52 @@
+"""The continuous arena lane — decimal positions, in-game time, race semantics.
+
+This package lands *beside* the grid engine (``league.engine``), not over it:
+the grid engine and every committed grid artifact keep working untouched
+(cycle-7 spec, two-lane honesty). Determinism is the same load-bearing property
+the grid earned — the engine-wide AST import ban
+(``tests/test_engine_state.py``) scans ``league/engine/`` recursively, so it
+already forbids ``random``/``time``/``datetime``/``secrets``/``uuid`` here too.
+
+``space.py`` is the fixed-point spatial core every later task imports from this
+stable path; ``timeline.py``/``state.py``/``events.py`` join it as their tasks
+land. See ``space.py``'s docstring for the pinned representation, scale, metric,
+and movement rounding rules.
+"""
+
+from league.engine.continuous.space import (
+    ARRIVAL_TOLERANCE_MU,
+    MAX_STEP_UNDERSHOOT_MU,
+    SCALE,
+    Pos,
+    Vec,
+    arrived,
+    dist,
+    dist_sq,
+    format_units,
+    from_units,
+    isqrt,
+    move_toward,
+    pos_from_json,
+    pos_to_json,
+    vec_from_json,
+    vec_to_json,
+)
+
+__all__ = [
+    "ARRIVAL_TOLERANCE_MU",
+    "MAX_STEP_UNDERSHOOT_MU",
+    "SCALE",
+    "Pos",
+    "Vec",
+    "arrived",
+    "dist",
+    "dist_sq",
+    "format_units",
+    "from_units",
+    "isqrt",
+    "move_toward",
+    "pos_from_json",
+    "pos_to_json",
+    "vec_from_json",
+    "vec_to_json",
+]
