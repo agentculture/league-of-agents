@@ -23,6 +23,7 @@ from league.engine.legal import legal_actions
 from league.engine.scenario import get_scenario, instantiate
 from league.engine.scoring import score_match
 from league.engine.tick import resolve_turn, start_match
+from league.faces import faces_app, render_brief_markdown
 from league.replay import build_replay_data, render_html
 from league.store import Store, validate_id
 
@@ -97,6 +98,7 @@ def cmd_match_overview(args: argparse.Namespace) -> int:
             "(dry-run; --apply)",
             "tick": "force-resolve the turn with whatever is staged (dry-run; --apply)",
             "score": "outcome + cooperation scores from the log",
+            "brief": "markdown briefing from the faces registry (--team for the fogged view)",
             "replay": "self-contained HTML replay on stdout",
         },
     }
@@ -475,6 +477,37 @@ def cmd_match_score(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_match_brief(args: argparse.Namespace) -> int:
+    """The agents' face: markdown (or facts JSON) served from the faces registry.
+
+    The verb is a thin adapter — it resolves the ``("match", "brief")`` tool in
+    the agentfront registry (``league.faces.faces_app``) and renders whatever
+    that one declaration returns, so the markdown and JSON projections cannot
+    drift (face-agreement tests in ``tests/test_faces.py`` prove it).
+    """
+    json_mode = bool(getattr(args, "json", False))
+    entry = faces_app().get_by_path(("match", "brief"))
+    try:
+        facts = entry.func(args.match_id, args.team or "")
+    except FileNotFoundError as err:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=str(err),
+            remediation="run 'league match list' to see matches",
+        ) from err
+    except ValueError as err:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=str(err),
+            remediation="pass --team <id> for a team in this match, or omit --team",
+        ) from err
+    if json_mode:
+        emit_result(facts, json_mode=True)
+    else:
+        emit_result(render_brief_markdown(facts), json_mode=False)
+    return 0
+
+
 def cmd_match_replay(args: argparse.Namespace) -> int:
     log = _load(Store(), args.match_id)
     if getattr(args, "json", False):
@@ -635,6 +668,16 @@ def register(sub: argparse._SubParsersAction) -> None:
     score.add_argument("match_id", help="Match id.")
     score.add_argument("--json", action="store_true", help="Emit structured JSON.")
     score.set_defaults(func=cmd_match_score)
+
+    brief = noun_sub.add_parser(
+        "brief", help="Markdown briefing of the match — the agents' face (--team for fog)."
+    )
+    brief.add_argument("match_id", help="Match id.")
+    brief.add_argument("--team", help="Render the fogged view: only what this team knows.")
+    brief.add_argument(
+        "--json", action="store_true", help="The same facts as JSON instead of markdown."
+    )
+    brief.set_defaults(func=cmd_match_brief)
 
     replay = noun_sub.add_parser("replay", help="Self-contained HTML replay on stdout.")
     replay.add_argument("match_id", help="Match id.")

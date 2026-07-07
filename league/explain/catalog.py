@@ -31,8 +31,9 @@ buildable/deployable package baseline. Clone it, rename the package, edit
 
 - `league arena list|show` — the scenario catalog (read-only).
 - `league team register|list|show` — the competitors' rosters.
-- `league match new|act|tick|show|list|score|replay` — the play loop:
-  declare orders, deterministic resolution, dual scoring, HTML replay.
+- `league match new|act|tick|show|list|score|brief|replay` — the play loop:
+  declare orders, deterministic resolution, dual scoring, markdown briefing
+  (the agents' face; `--team` fogs it), HTML replay.
 
 Write verbs (`team register`, `match new/act/tick`) are dry-run by default;
 add `--apply` to commit. Every read verb takes `--json`.
@@ -184,7 +185,14 @@ commits** — a stray call never silently advances the game.
         --message blue-1:"east is open" --apply
     league match tick <id> --apply         # force-resolve (timeouts)
     league match score <id> --json         # outcome + cooperation
+    league match brief <id> [--team blue]  # markdown briefing (the agents' face)
     league match replay <id> > match.html  # self-contained human replay
+
+`brief` is the markdown face for agents, served from the agentfront faces
+registry (`league/faces/`): `--json` returns the SAME facts the markdown
+renders — one declaration, two projections, proven fact-for-fact by the
+face-agreement tests. `--team <id>` fogs the brief to that team's knowledge
+fold (seen/told facts only — never the full board, never scores).
 
 Orders can also be one JSON object: `--orders-json '{"plan": ..., "messages":
 [...], "actions": [...]}'`.
@@ -287,6 +295,7 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("match", "act"): _MATCH,
     ("match", "tick"): _MATCH,
     ("match", "score"): _MATCH,
+    ("match", "brief"): _MATCH,
     ("match", "replay"): _MATCH,
     ("match", "rematch"): _MATCH,
     ("standings",): _STANDINGS,
