@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-07-07
+
+### Added
+
+- Parked cycle-3 spec draft: AgentFront audience-typed faces (markdown/TUI+HTML/JSON), fog of war with per-role line of sight, orchestrator as a real game mode, coded-strategy bots as opponents; devague frame parked with a deliberate blocking unknown on the agentfront dependency policy
+
 ## [0.7.0] - 2026-07-07
 
 ### Added
