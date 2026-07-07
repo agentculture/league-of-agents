@@ -1,0 +1,45 @@
+{
+ "match": {
+  "scenario": "skirmish-1",
+  "mode": "cooperative",
+  "seed": 20260710,
+  "id": "m-colleague-coop"
+ },
+ "_comment": "Cooperative colleague run (user directive, cycle-5 live-test thread): three colleague-agent seats (per-seat, in-game messages only) vs the environment's turn limit on the same board as the solo benchmarks.",
+ "teams": [
+  {
+   "id": "guild",
+   "name": "Colleague Guild",
+   "driver": {
+    "type": "command",
+    "per_seat": true,
+    "argv": [
+     "python3",
+     "scripts/colleague_driver.py",
+     "--model",
+     "sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP",
+     "--workdir",
+     ".league/colleague-coop-seat"
+    ],
+    "timeout": 420
+   },
+   "agents": [
+    {
+     "id": "guild-1",
+     "model": "colleague-agent/qwen3.6-27b",
+     "role": "scout"
+    },
+    {
+     "id": "guild-2",
+     "model": "colleague-agent/qwen3.6-27b",
+     "role": "harvester"
+    },
+    {
+     "id": "guild-3",
+     "model": "colleague-agent/qwen3.6-27b",
+     "role": "defender"
+    }
+   ]
+  }
+ ]
+}
