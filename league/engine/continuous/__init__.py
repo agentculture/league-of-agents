@@ -9,12 +9,26 @@ already forbids ``random``/``time``/``datetime``/``secrets``/``uuid`` here too.
 
 ``space.py`` is the fixed-point spatial core every later task imports from this
 stable path; ``timeline.py`` is the deterministic initiative queue (time is
-integer game-time units, completions order the world); ``state.py``/
-``events.py`` join them as their tasks land. See each module's docstring for
-its pinned decisions (representation/scale/metric/rounding in ``space.py``,
-event-queue-over-micro-ticks and the total tie-break in ``timeline.py``).
+integer game-time units, completions order the world); ``state.py`` is the
+continuous match-state model (frozen dataclasses, canonical JSON, ``cstate_hash``
+— a sibling of the grid's ``state.py`` with :class:`Pos` positions and an
+integer game ``clock``); ``events.py`` is its event log and pure fold (the race
+made representable in state via a control point's concurrent ``takers``). See
+each module's docstring for its pinned decisions (representation/scale/metric/
+rounding in ``space.py``, event-queue-over-micro-ticks and the total tie-break in
+``timeline.py``, the contested-take vocabulary in ``state.py``/``events.py``).
 """
 
+from league.engine.continuous.events import (
+    EVENT_KINDS,
+    LOG_VERSION,
+    OBSERVATION_KINDS,
+    TRANSITION_KINDS,
+    CEvent,
+    CMatchLog,
+    apply_event,
+    fold_events,
+)
 from league.engine.continuous.space import (
     ARRIVAL_TOLERANCE_MU,
     MAX_STEP_UNDERSHOOT_MU,
@@ -32,6 +46,26 @@ from league.engine.continuous.space import (
     pos_to_json,
     vec_from_json,
     vec_to_json,
+)
+from league.engine.continuous.state import (
+    ACTION_KINDS,
+    MATCH_MODES,
+    MATCH_STATUSES,
+    MISSION_KINDS,
+    MISSION_STATUSES,
+    CAction,
+    CAgentSlot,
+    CControlPoint,
+    CMatchState,
+    CMission,
+    CResourceNode,
+    CTeamState,
+    CUnit,
+    TakeAttempt,
+    canonical_takers,
+    cstate_from_json,
+    cstate_hash,
+    cstate_to_json,
 )
 from league.engine.continuous.timeline import ScheduledAction, Timeline
 
@@ -54,4 +88,32 @@ __all__ = [
     "pos_to_json",
     "vec_from_json",
     "vec_to_json",
+    # continuous match state (state.py)
+    "ACTION_KINDS",
+    "MATCH_MODES",
+    "MATCH_STATUSES",
+    "MISSION_KINDS",
+    "MISSION_STATUSES",
+    "CAction",
+    "CAgentSlot",
+    "CControlPoint",
+    "CMatchState",
+    "CMission",
+    "CResourceNode",
+    "CTeamState",
+    "CUnit",
+    "TakeAttempt",
+    "canonical_takers",
+    "cstate_from_json",
+    "cstate_hash",
+    "cstate_to_json",
+    # continuous event log (events.py)
+    "EVENT_KINDS",
+    "LOG_VERSION",
+    "OBSERVATION_KINDS",
+    "TRANSITION_KINDS",
+    "CEvent",
+    "CMatchLog",
+    "apply_event",
+    "fold_events",
 ]
