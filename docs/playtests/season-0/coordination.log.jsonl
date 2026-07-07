@@ -1,0 +1,307 @@
+{"initial_state":{"control_points":[{"hold":[],"id":"cp-center","owner":null,"pos":[6,5]},{"hold":[],"id":"cp-west","owner":null,"pos":[3,8]},{"hold":[],"id":"cp-east","owner":null,"pos":[9,2]}],"grid_height":10,"grid_width":12,"match_id":"m-season0-coordination","missions":[{"amount":6,"completed_by":null,"completed_turn":null,"id":"ms-supply","kind":"deliver","pos":[6,5],"reward":10,"status":"open"},{"amount":3,"completed_by":null,"completed_turn":null,"id":"ms-outpost","kind":"hold","pos":[9,2],"reward":8,"status":"open"}],"mode":"competitive","resource_nodes":[{"id":"rn-west","pos":[0,5],"remaining":12},{"id":"rn-east","pos":[11,4],"remaining":12}],"scenario_id":"skirmish-1","seed":20260708,"status":"pending","teams":[{"agents":[{"id":"solo-1","model":"claude-sonnet-5","role":"scout"},{"id":"solo-2","model":"claude-sonnet-5","role":"harvester"},{"id":"solo-3","model":"claude-sonnet-5","role":"defender"}],"id":"solo","name":"Solo Sonnet","resources":0},{"agents":[{"id":"swarm-1","model":"colleague/gemma-4-12b","role":"scout"},{"id":"swarm-2","model":"colleague/gemma-4-12b","role":"harvester"},{"id":"swarm-3","model":"colleague/gemma-4-12b","role":"defender"}],"id":"swarm","name":"Gemma Swarm","resources":0}],"turn":0,"turn_limit":30,"units":[{"agent_id":"solo-1","alive":true,"carrying":0,"id":"solo-u1","pos":[0,0],"role":"scout","team_id":"solo"},{"agent_id":"solo-2","alive":true,"carrying":0,"id":"solo-u2","pos":[1,0],"role":"harvester","team_id":"solo"},{"agent_id":"solo-3","alive":true,"carrying":0,"id":"solo-u3","pos":[0,1],"role":"defender","team_id":"solo"},{"agent_id":"swarm-1","alive":true,"carrying":0,"id":"swarm-u1","pos":[11,9],"role":"scout","team_id":"swarm"},{"agent_id":"swarm-2","alive":true,"carrying":0,"id":"swarm-u2","pos":[10,9],"role":"harvester","team_id":"swarm"},{"agent_id":"swarm-3","alive":true,"carrying":0,"id":"swarm-u3","pos":[11,8],"role":"defender","team_id":"swarm"}],"winner":null},"log_version":1}
+{"data":{},"kind":"match_started","seq":0,"turn":0}
+{"data":{"team_id":"solo","text":"Dedicate every turn's single action to solo-u2 (harvester) running the rn-west -> ms-supply shuttle (reward 10) since travel/gather/deliver distances are symmetric with the swarm and this task isn't slowed by the solo handicap. Once the deliver mission banks or stalls, redirect spare turns to solo-u1 (scout) for a cp-west capture attempt."},"kind":"plan_declared","seq":1,"turn":1}
+{"data":{"from":"solo-2","team_id":"solo","text":"Moving out to rn-west to start the supply shuttle for ms-supply."},"kind":"message_sent","seq":2,"turn":1}
+{"data":{"from":"solo-1","team_id":"solo","text":"Holding at spawn this turn — no spare action under the handicap. Will push for cp-west once the harvester's loop is running."},"kind":"message_sent","seq":3,"turn":1}
+{"data":{"from":"solo-3","team_id":"solo","text":"Holding position. Ready to contest a control point if the harvester's route frees up turns later."},"kind":"message_sent","seq":4,"turn":1}
+{"data":{"team_id":"swarm","text":"Gather resources from rn-east and deliver to ms-supply at [6, 5]."},"kind":"plan_declared","seq":5,"turn":1}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am a scout. I will move toward the eastern resource node (rn-east) to begin gathering resources for our team. I can move 3 spaces per turn."},"kind":"message_sent","seq":6,"turn":1}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"I am a harvester. I will assist with the eastern resource node (rn-east) and then deliver resources to the center for ms-supply."},"kind":"message_sent","seq":7,"turn":1}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I am the defender. I will move toward the center control point (cp-center) to secure the delivery zone and support our supply mission."},"kind":"message_sent","seq":8,"turn":1}
+{"data":{"action":"move","team_id":"solo","to":[0,1],"unit_id":"solo-u2"},"kind":"action_declared","seq":9,"turn":1}
+{"data":{"action":"move","team_id":"swarm","to":[9,7],"unit_id":"swarm-u1"},"kind":"action_declared","seq":10,"turn":1}
+{"data":{"action":"move","team_id":"swarm","to":[9,8],"unit_id":"swarm-u2"},"kind":"action_declared","seq":11,"turn":1}
+{"data":{"action":"move","team_id":"swarm","to":[9,6],"unit_id":"swarm-u3"},"kind":"action_declared","seq":12,"turn":1}
+{"data":{"reason":"target beyond this role's move range","team_id":"swarm","unit_id":"swarm-u1"},"kind":"action_rejected","seq":13,"turn":1}
+{"data":{"reason":"target beyond this role's move range","team_id":"swarm","unit_id":"swarm-u3"},"kind":"action_rejected","seq":14,"turn":1}
+{"data":{"to":[0,1],"unit_id":"solo-u2"},"kind":"unit_moved","seq":15,"turn":1}
+{"data":{"to":[9,8],"unit_id":"swarm-u2"},"kind":"unit_moved","seq":16,"turn":1}
+{"data":{"turn":1},"kind":"turn_advanced","seq":17,"turn":1}
+{"data":{"turn":1},"kind":"turn_resolved","seq":18,"turn":1}
+{"data":{"team_id":"solo","text":"Solo handicap: commit every turn's single action to relaying solo-2 (harvester, carry 3) between rn-west and the deliver point at cp-center (6,5), since it clears ms-supply (amount 6) in about 15 total actions across two round trips — well inside the 30-turn budget. Scout and defender hold position/spawn until the harvester route is secured, then pivot idle-turn actions to contesting cp-east for ms-outpost if turns remain."},"kind":"plan_declared","seq":19,"turn":2}
+{"data":{"from":"solo-2","team_id":"solo","text":"Moving out to rn-west to begin the resource relay for ms-supply; will shuttle 3 per trip."},"kind":"message_sent","seq":20,"turn":2}
+{"data":{"from":"solo-1","team_id":"solo","text":"Holding at spawn — only one of us can act per turn, so I'm yielding this turn to the harvester's relay."},"kind":"message_sent","seq":21,"turn":2}
+{"data":{"from":"solo-3","team_id":"solo","text":"Holding at spawn; will move to defend cp-center once the harvester's delivery runs are underway."},"kind":"message_sent","seq":22,"turn":2}
+{"data":{"team_id":"swarm","text":"Scout (swarm-u1) will gather resources from rn-east and deliver to ms-supply. Harvester (swarm-u2) should prioritize transporting resources. Defender (swarm-u3) should secure cp-east to complete the hold mission."},"kind":"plan_declared","seq":23,"turn":2}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am a scout. I will focus on rapid resource gathering from rn-east and delivering to ms-supply. Team, let's coordinate on capturing cp-east for the hold mission."},"kind":"message_sent","seq":24,"turn":2}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Understood. I will assist with the supply mission by harvesting from rn-east and delivering to ms-supply. I'll move toward the center to support the logistics chain."},"kind":"message_sent","seq":25,"turn":2}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I will move to the center to secure the cp-center area and provide defensive support for our supply logistics chain. I'll ensure the path remains clear for our harvesters."},"kind":"message_sent","seq":26,"turn":2}
+{"data":{"action":"move","team_id":"solo","to":[0,3],"unit_id":"solo-u2"},"kind":"action_declared","seq":27,"turn":2}
+{"data":{"action":"move","team_id":"swarm","to":[9,8],"unit_id":"swarm-u1"},"kind":"action_declared","seq":28,"turn":2}
+{"data":{"action":"move","team_id":"swarm","to":[9,6],"unit_id":"swarm-u2"},"kind":"action_declared","seq":29,"turn":2}
+{"data":{"action":"move","team_id":"swarm","to":[9,6],"unit_id":"swarm-u3"},"kind":"action_declared","seq":30,"turn":2}
+{"data":{"reason":"target beyond this role's move range","team_id":"swarm","unit_id":"swarm-u3"},"kind":"action_rejected","seq":31,"turn":2}
+{"data":{"to":[0,3],"unit_id":"solo-u2"},"kind":"unit_moved","seq":32,"turn":2}
+{"data":{"to":[9,8],"unit_id":"swarm-u1"},"kind":"unit_moved","seq":33,"turn":2}
+{"data":{"to":[9,6],"unit_id":"swarm-u2"},"kind":"unit_moved","seq":34,"turn":2}
+{"data":{"turn":2},"kind":"turn_advanced","seq":35,"turn":2}
+{"data":{"turn":2},"kind":"turn_resolved","seq":36,"turn":2}
+{"data":{"team_id":"solo","text":"Handicap-aware serial plan: dedicate single actions to a west-side resupply loop (harvester rn-west -> cp-center deliver, mission ms-supply) since it yields the best resources-per-action ratio; scout screens/contests nearby control points opportunistically when it gets an action; defender holds home ground near rn-west until a delivery escort or late push to ms-outpost becomes worthwhile."},"kind":"plan_declared","seq":37,"turn":3}
+{"data":{"from":"solo-2","team_id":"solo","text":"Moving to rn-west this turn to start the supply loop toward cp-center (ms-supply, need 6). Will gather next time I get an action."},"kind":"message_sent","seq":38,"turn":3}
+{"data":{"from":"solo-1","team_id":"solo","text":"Holding at spawn for now — only one action/turn team-wide, so I'll wait for a turn where scouting/contesting cp-west or cp-center is the highest-value move."},"kind":"message_sent","seq":39,"turn":3}
+{"data":{"from":"solo-3","team_id":"solo","text":"Holding at spawn to guard the west resource node; can push toward ms-outpost at cp-east later if the harvester loop is stable."},"kind":"message_sent","seq":40,"turn":3}
+{"data":{"team_id":"swarm","text":"Phase 1: Harvester collects from rn-east. Scout (me) scouts the eastern area and prepares to escort/support the transport of resources to the center (ms-supply). Phase 2: Deliver resources to [6, 5]. Phase 3: Secure the outpost at [9, 2]."},"kind":"plan_declared","seq":41,"turn":3}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am a scout. I will prioritize scouting the eastern resource node (rn-east) and then sprinting to the center for the supply mission. Harvester (swarm-u2) should focus on rn-east for resources."},"kind":"message_sent","seq":42,"turn":3}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Acknowledged. I will head to rn-east now to begin harvesting. Once full, I will move to the center for the supply mission."},"kind":"message_sent","seq":43,"turn":3}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I am moving to the center area to provide defensive support and assist with the supply mission (ms-supply) once resources are ready."},"kind":"message_sent","seq":44,"turn":3}
+{"data":{"action":"move","team_id":"solo","to":[0,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":45,"turn":3}
+{"data":{"action":"move","team_id":"swarm","to":[8,7],"unit_id":"swarm-u1"},"kind":"action_declared","seq":46,"turn":3}
+{"data":{"action":"move","team_id":"swarm","to":[11,5],"unit_id":"swarm-u2"},"kind":"action_declared","seq":47,"turn":3}
+{"data":{"action":"move","team_id":"swarm","to":[9,6],"unit_id":"swarm-u3"},"kind":"action_declared","seq":48,"turn":3}
+{"data":{"reason":"target beyond this role's move range","team_id":"swarm","unit_id":"swarm-u2"},"kind":"action_rejected","seq":49,"turn":3}
+{"data":{"reason":"target beyond this role's move range","team_id":"swarm","unit_id":"swarm-u3"},"kind":"action_rejected","seq":50,"turn":3}
+{"data":{"to":[0,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":51,"turn":3}
+{"data":{"to":[8,7],"unit_id":"swarm-u1"},"kind":"unit_moved","seq":52,"turn":3}
+{"data":{"turn":3},"kind":"turn_advanced","seq":53,"turn":3}
+{"data":{"turn":3},"kind":"turn_resolved","seq":54,"turn":3}
+{"data":{"team_id":"solo","text":"Harvester gathers at rn-west then hauls to cp-center to feed ms-supply; scout and defender hold position under solo handicap."},"kind":"plan_declared","seq":55,"turn":4}
+{"data":{"from":"solo-2","team_id":"solo","text":"On rn-west now, gathering to full carry (3) this turn, then hauling toward cp-center [6,5] for ms-supply deliveries."},"kind":"message_sent","seq":56,"turn":4}
+{"data":{"team_id":"swarm","text":"Gather resources from rn-east/rn-west and deliver to ms-supply at [6, 5]. Coordinate with harvester for efficient transport."},"kind":"plan_declared","seq":57,"turn":4}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am a scout with high mobility. I will prioritize scouting the resource nodes and moving to the center for the supply mission. Let's coordinate on who secures the east outpost."},"kind":"message_sent","seq":58,"turn":4}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"I am a harvester. I will focus on the eastern resource node (rn-east) and then transport resources to the center for the supply mission. I'll keep an eye on the east outpost too."},"kind":"message_sent","seq":59,"turn":4}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I will move to the east outpost (cp-east) to help secure it while you two handle the supply mission at the center. I'll start holding it once I arrive."},"kind":"message_sent","seq":60,"turn":4}
+{"data":{"action":"gather","team_id":"solo","unit_id":"solo-u2"},"kind":"action_declared","seq":61,"turn":4}
+{"data":{"action":"move","team_id":"swarm","to":[7,6],"unit_id":"swarm-u1"},"kind":"action_declared","seq":62,"turn":4}
+{"data":{"action":"move","team_id":"swarm","to":[9,5],"unit_id":"swarm-u2"},"kind":"action_declared","seq":63,"turn":4}
+{"data":{"action":"move","team_id":"swarm","to":[9,6],"unit_id":"swarm-u3"},"kind":"action_declared","seq":64,"turn":4}
+{"data":{"reason":"target beyond this role's move range","team_id":"swarm","unit_id":"swarm-u3"},"kind":"action_rejected","seq":65,"turn":4}
+{"data":{"to":[7,6],"unit_id":"swarm-u1"},"kind":"unit_moved","seq":66,"turn":4}
+{"data":{"to":[9,5],"unit_id":"swarm-u2"},"kind":"unit_moved","seq":67,"turn":4}
+{"data":{"amount":3,"node_id":"rn-west","unit_id":"solo-u2"},"kind":"resource_gathered","seq":68,"turn":4}
+{"data":{"turn":4},"kind":"turn_advanced","seq":69,"turn":4}
+{"data":{"turn":4},"kind":"turn_resolved","seq":70,"turn":4}
+{"data":{"team_id":"solo","text":"Solo handicap: one action/turn. Priority order — walk the already-full harvester (carrying 3/6) toward the supply delivery point at (6,5), then deliver; only after that shift focus to outpost capture at cp-east. Scout and defender hold position until freed up."},"kind":"plan_declared","seq":71,"turn":5}
+{"data":{"from":"solo-1","team_id":"solo","text":"Handicapped to 1 action/turn. u2 is already at carry cap (3) — moving it toward (6,5) this turn instead of gathering more. Will need ~3 moves + 1 deliver to land the first 3 of 6 supply. Scout/defender parked, will pivot to cp-east outpost hold once supply delivery is underway."},"kind":"message_sent","seq":72,"turn":5}
+{"data":{"team_id":"swarm","text":"Prioritize ms-supply at (6, 5). Swarm-u1 (Scout) will provide vision and hold the center point. Swarm-u2 (Harvester) should focus on gathering from rn-east and delivering to (6, 5)."},"kind":"plan_declared","seq":73,"turn":5}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am a scout. I will move to the center control point (6, 5) to help secure the supply mission and provide vision. Team: Let's prioritize the supply mission (6, 5) first as it has a higher reward."},"kind":"message_sent","seq":74,"turn":5}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Acknowledged. I will head to the eastern resource node (11, 4) to begin harvesting. I'll prioritize the supply mission (6, 5) as requested by swarm-1."},"kind":"message_sent","seq":75,"turn":5}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"Understood. I am moving toward the center (6, 5) to support the supply mission and defend the position. Let's focus on the supply mission first."},"kind":"message_sent","seq":76,"turn":5}
+{"data":{"action":"move","team_id":"solo","to":[2,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":77,"turn":5}
+{"data":{"action":"move","team_id":"swarm","to":[6,5],"unit_id":"swarm-u1"},"kind":"action_declared","seq":78,"turn":5}
+{"data":{"action":"move","team_id":"swarm","to":[9,4],"unit_id":"swarm-u2"},"kind":"action_declared","seq":79,"turn":5}
+{"data":{"action":"move","team_id":"swarm","to":[9,6],"unit_id":"swarm-u3"},"kind":"action_declared","seq":80,"turn":5}
+{"data":{"reason":"target beyond this role's move range","team_id":"swarm","unit_id":"swarm-u3"},"kind":"action_rejected","seq":81,"turn":5}
+{"data":{"to":[2,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":82,"turn":5}
+{"data":{"to":[6,5],"unit_id":"swarm-u1"},"kind":"unit_moved","seq":83,"turn":5}
+{"data":{"to":[9,4],"unit_id":"swarm-u2"},"kind":"unit_moved","seq":84,"turn":5}
+{"data":{"cp_id":"cp-center","team_id":"swarm","turns":1},"kind":"control_point_held","seq":85,"turn":5}
+{"data":{"turn":5},"kind":"turn_advanced","seq":86,"turn":5}
+{"data":{"turn":5},"kind":"turn_resolved","seq":87,"turn":5}
+{"data":{"team_id":"solo","text":"Rush ms-supply: harvester ferries resources to [6,5] while scout/defender hold position (handicap limits us to one action)."},"kind":"plan_declared","seq":88,"turn":6}
+{"data":{"from":"solo-2","team_id":"solo","text":"Full carry (3/3), pushing toward deliver point at [6,5]. Scout and defender hold until next turn."},"kind":"message_sent","seq":89,"turn":6}
+{"data":{"team_id":"swarm","text":"Secure the center control point to facilitate the ms-supply mission while Swarm-2 handles resource extraction from the east side."},"kind":"plan_declared","seq":90,"turn":6}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am holding the center point (6, 5) to secure the supply mission zone. Swarm-2 should focus on gathering from rn-east and delivering to center."},"kind":"message_sent","seq":91,"turn":6}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Acknowledged. I am heading to rn-east to begin gathering resources for the ms-supply mission."},"kind":"message_sent","seq":92,"turn":6}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I am moving to support the hold on cp-east (9, 2) and to defend the team's interests in the eastern sector."},"kind":"message_sent","seq":93,"turn":6}
+{"data":{"action":"move","team_id":"solo","to":[4,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":94,"turn":6}
+{"data":{"action":"hold","team_id":"swarm","to":[6,5],"unit_id":"swarm-u1"},"kind":"action_declared","seq":95,"turn":6}
+{"data":{"action":"move","team_id":"swarm","to":[11,4],"unit_id":"swarm-u2"},"kind":"action_declared","seq":96,"turn":6}
+{"data":{"action":"move","team_id":"swarm","to":[9,6],"unit_id":"swarm-u3"},"kind":"action_declared","seq":97,"turn":6}
+{"data":{"reason":"target beyond this role's move range","team_id":"swarm","unit_id":"swarm-u3"},"kind":"action_rejected","seq":98,"turn":6}
+{"data":{"to":[4,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":99,"turn":6}
+{"data":{"to":[11,4],"unit_id":"swarm-u2"},"kind":"unit_moved","seq":100,"turn":6}
+{"data":{"cp_id":"cp-center","team_id":"swarm","turns":2},"kind":"control_point_held","seq":101,"turn":6}
+{"data":{"cp_id":"cp-center","team_id":"swarm"},"kind":"control_point_captured","seq":102,"turn":6}
+{"data":{"cp_id":"cp-center","team_id":"swarm","turns":2},"kind":"control_point_held","seq":103,"turn":6}
+{"data":{"turn":6},"kind":"turn_advanced","seq":104,"turn":6}
+{"data":{"turn":6},"kind":"turn_resolved","seq":105,"turn":6}
+{"data":{"team_id":"solo","text":"Push the loaded harvester to the center square this turn so it can deliver next turn; scout and defender hold in place under the solo handicap."},"kind":"plan_declared","seq":106,"turn":7}
+{"data":{"from":"solo-2","team_id":"solo","text":"Moving to (6,5) with 3/3 resources — will deliver next turn and contest the control point."},"kind":"message_sent","seq":107,"turn":7}
+{"data":{"team_id":"swarm","text":"Secure center control point to facilitate ms-supply. Swarm-u2 gathers from rn-east; Swarm-u3 secures cp-east."},"kind":"plan_declared","seq":108,"turn":7}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am holding the center control point (6, 5) to secure the supply mission location. Swarm-u2 should focus on gathering from rn-east and delivering to (6, 5). Swarm-u3 should move toward cp-east (9, 2) to begin the hold mission."},"kind":"message_sent","seq":109,"turn":7}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Acknowledged. I am currently at rn-east (11, 4). I will begin gathering resources now and then proceed to deliver them to the center (6, 5) as requested."},"kind":"message_sent","seq":110,"turn":7}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"Understood. I am moving toward cp-east (9, 2) to begin the hold mission as requested."},"kind":"message_sent","seq":111,"turn":7}
+{"data":{"action":"move","team_id":"solo","to":[6,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":112,"turn":7}
+{"data":{"action":"hold","team_id":"swarm","to":[6,5],"unit_id":"swarm-u1"},"kind":"action_declared","seq":113,"turn":7}
+{"data":{"action":"gather","team_id":"swarm","to":[11,4],"unit_id":"swarm-u2"},"kind":"action_declared","seq":114,"turn":7}
+{"data":{"action":"move","team_id":"swarm","to":[10,7],"unit_id":"swarm-u3"},"kind":"action_declared","seq":115,"turn":7}
+{"data":{"to":[6,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":116,"turn":7}
+{"data":{"to":[10,7],"unit_id":"swarm-u3"},"kind":"unit_moved","seq":117,"turn":7}
+{"data":{"amount":3,"node_id":"rn-east","unit_id":"swarm-u2"},"kind":"resource_gathered","seq":118,"turn":7}
+{"data":{"cp_id":"cp-center","team_id":"","turns":0},"kind":"control_point_held","seq":119,"turn":7}
+{"data":{"turn":7},"kind":"turn_advanced","seq":120,"turn":7}
+{"data":{"turn":7},"kind":"turn_resolved","seq":121,"turn":7}
+{"data":{"team_id":"solo","text":"Solo handicap: prioritize the one legal action per turn on whichever unit yields guaranteed mission progress. This turn, deliver the harvester's full load at the center hub (cp-center is also ms-supply's deliver point) since it's an immediate, certain gain toward the 6-resource deliver mission. Scout and defender hold their spawn squares (no action issued, per the one-unit rule) but are earmarked to push east next free turns toward rn-east/cp-east to seed the ms-outpost hold mission, since swarm already has a harvester and defender converging there."},"kind":"plan_declared","seq":122,"turn":8}
+{"data":{"from":"solo-2","team_id":"solo","text":"Delivering my 3 carried resources now at center — that's halfway to ms-supply (6 needed). Will head back to rn-west or rn-east afterward depending on which unit needs cover."},"kind":"message_sent","seq":123,"turn":8}
+{"data":{"from":"solo-1","team_id":"solo","text":"Standing by at spawn this turn (handicap only allows one action). Next turn I want the move — I'll scout toward cp-east to contest ms-outpost before swarm's units consolidate there."},"kind":"message_sent","seq":124,"turn":8}
+{"data":{"from":"solo-3","team_id":"solo","text":"Holding at spawn. Once we get a free action for me, I'll escort whichever unit is closer to contested ground — likely backing up the scout at cp-east or covering the harvester's resupply run."},"kind":"message_sent","seq":125,"turn":8}
+{"data":{"team_id":"swarm","text":"Deliver 6 resources to ms-supply at [6, 5] while Swarm-3 holds ms-outpost at [9, 2]."},"kind":"plan_declared","seq":126,"turn":8}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"I am delivering resources to the center point to complete the supply mission. Swarm-1 should continue scouting while Swarm-3 secures the east point."},"kind":"message_sent","seq":127,"turn":8}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"Acknowledged. I am moving to secure the east control point (9, 2) to support the hold mission."},"kind":"message_sent","seq":128,"turn":8}
+{"data":{"action":"deliver","team_id":"solo","unit_id":"solo-u2"},"kind":"action_declared","seq":129,"turn":8}
+{"data":{"action":"deliver","team_id":"swarm","to":[6,5],"unit_id":"swarm-u2"},"kind":"action_declared","seq":130,"turn":8}
+{"data":{"action":"move","team_id":"swarm","to":[9,6],"unit_id":"swarm-u3"},"kind":"action_declared","seq":131,"turn":8}
+{"data":{"reason":"not standing on the delivery square","team_id":"swarm","unit_id":"swarm-u2"},"kind":"action_rejected","seq":132,"turn":8}
+{"data":{"to":[9,6],"unit_id":"swarm-u3"},"kind":"unit_moved","seq":133,"turn":8}
+{"data":{"amount":3,"team_id":"solo","unit_id":"solo-u2"},"kind":"resource_delivered","seq":134,"turn":8}
+{"data":{"turn":8},"kind":"turn_advanced","seq":135,"turn":8}
+{"data":{"turn":8},"kind":"turn_resolved","seq":136,"turn":8}
+{"data":{"team_id":"solo","text":"Harvester runs the west resource lane alone (carry 3 matches the remaining 3 supply needed) while scout and defender hold position under the solo handicap; avoid contesting cp-center since it's already tied up with swarm-u1."},"kind":"plan_declared","seq":137,"turn":9}
+{"data":{"from":"solo-2","team_id":"solo","text":"Moving to rn-west to fill up (carry 3 = exactly what ms-supply still needs), then returning to deliver at cp-center. Scout/defender stay put this turn — only one of us can act."},"kind":"message_sent","seq":138,"turn":9}
+{"data":{"team_id":"swarm","text":"Secure the East outpost (ms-outpost) while maintaining presence near the East resource node for logistics."},"kind":"plan_declared","seq":139,"turn":9}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am moving toward the East resource node to assist with gathering. Team should focus on securing the East outpost."},"kind":"message_sent","seq":140,"turn":9}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Acknowledged. I am currently at the East resource node and will begin gathering resources to support our supply mission and outpost hold."},"kind":"message_sent","seq":141,"turn":9}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I am moving toward the East resource node to provide defensive support and help secure the East outpost. Let's prioritize the hold mission there."},"kind":"message_sent","seq":142,"turn":9}
+{"data":{"action":"move","team_id":"solo","to":[4,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":143,"turn":9}
+{"data":{"action":"move","team_id":"swarm","to":[9,4],"unit_id":"swarm-u1"},"kind":"action_declared","seq":144,"turn":9}
+{"data":{"action":"gather","team_id":"swarm","to":[11,4],"unit_id":"swarm-u2"},"kind":"action_declared","seq":145,"turn":9}
+{"data":{"action":"move","team_id":"swarm","to":[9,4],"unit_id":"swarm-u3"},"kind":"action_declared","seq":146,"turn":9}
+{"data":{"reason":"target beyond this role's move range","team_id":"swarm","unit_id":"swarm-u1"},"kind":"action_rejected","seq":147,"turn":9}
+{"data":{"reason":"already carrying to capacity","team_id":"swarm","unit_id":"swarm-u2"},"kind":"action_rejected","seq":148,"turn":9}
+{"data":{"to":[4,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":149,"turn":9}
+{"data":{"to":[9,4],"unit_id":"swarm-u3"},"kind":"unit_moved","seq":150,"turn":9}
+{"data":{"cp_id":"cp-center","team_id":"swarm","turns":1},"kind":"control_point_held","seq":151,"turn":9}
+{"data":{"turn":9},"kind":"turn_advanced","seq":152,"turn":9}
+{"data":{"turn":9},"kind":"turn_resolved","seq":153,"turn":9}
+{"data":{"team_id":"solo","text":"Contest cp-center now to break swarm's capture streak (they're at 1/2 turns held); harvester then rotates to rn-west to finish ms-supply since we're already at 3/6 delivered."},"kind":"plan_declared","seq":154,"turn":10}
+{"data":{"from":"solo-2","team_id":"solo","text":"Pushing onto cp-center to deny swarm's capture this turn — will head to rn-west afterward to close out ms-supply."},"kind":"message_sent","seq":155,"turn":10}
+{"data":{"team_id":"swarm","text":"Hold cp-center to secure ms-supply; Swarm-u2 harvests rn-east and delivers to cp-center; Swarm-u3/u1 coordinate on ms-outpost."},"kind":"plan_declared","seq":156,"turn":10}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am holding the center point (6, 5) to secure the supply mission. Swarm-u2 is currently harvesting at the east node. Let's coordinate on the outpost hold."},"kind":"message_sent","seq":157,"turn":10}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Copy that. I'm moving toward the east outpost (9, 2) to begin the hold mission. I'll start holding it once I arrive."},"kind":"message_sent","seq":158,"turn":10}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"Understood. I am moving to the east outpost (9, 2) to assist swarm-u2 with the hold mission. I will begin holding as soon as I reach the position."},"kind":"message_sent","seq":159,"turn":10}
+{"data":{"action":"move","team_id":"solo","to":[6,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":160,"turn":10}
+{"data":{"action":"hold","team_id":"swarm","to":[6,5],"unit_id":"swarm-u1"},"kind":"action_declared","seq":161,"turn":10}
+{"data":{"action":"move","team_id":"swarm","to":[10,4],"unit_id":"swarm-u2"},"kind":"action_declared","seq":162,"turn":10}
+{"data":{"action":"move","team_id":"swarm","to":[9,3],"unit_id":"swarm-u3"},"kind":"action_declared","seq":163,"turn":10}
+{"data":{"to":[6,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":164,"turn":10}
+{"data":{"to":[10,4],"unit_id":"swarm-u2"},"kind":"unit_moved","seq":165,"turn":10}
+{"data":{"to":[9,3],"unit_id":"swarm-u3"},"kind":"unit_moved","seq":166,"turn":10}
+{"data":{"cp_id":"cp-center","team_id":"","turns":0},"kind":"control_point_held","seq":167,"turn":10}
+{"data":{"turn":10},"kind":"turn_advanced","seq":168,"turn":10}
+{"data":{"turn":10},"kind":"turn_resolved","seq":169,"turn":10}
+{"data":{"team_id":"solo","text":"Harvester ferries 3 resources from rn-west to close ms-supply (need 3 more of 6); scout and defender hold position due to solo handicap."},"kind":"plan_declared","seq":170,"turn":11}
+{"data":{"from":"solo-2","team_id":"solo","text":"Moving west toward rn-west to gather 3 resources, then returning to deliver at cp-center and complete ms-supply."},"kind":"message_sent","seq":171,"turn":11}
+{"data":{"team_id":"swarm","text":"Hold cp-center to secure the supply zone while swarm-u2 gathers from rn-east and brings resources to [6, 5]."},"kind":"plan_declared","seq":172,"turn":11}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am holding cp-center to secure the supply mission zone. swarm-u2 is currently near rn-east, so we should prioritize the eastern resources for the supply mission."},"kind":"message_sent","seq":173,"turn":11}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Acknowledged. I will gather resources from rn-east and then head to cp-center to deliver them for the supply mission."},"kind":"message_sent","seq":174,"turn":11}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I am moving to cp-east to begin the hold mission (ms-outpost). I will maintain presence there to secure the secondary objective while the others handle the supply mission."},"kind":"message_sent","seq":175,"turn":11}
+{"data":{"action":"move","team_id":"solo","to":[4,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":176,"turn":11}
+{"data":{"action":"hold","team_id":"swarm","to":[6,5],"unit_id":"swarm-u1"},"kind":"action_declared","seq":177,"turn":11}
+{"data":{"action":"gather","team_id":"swarm","to":[11,4],"unit_id":"swarm-u2"},"kind":"action_declared","seq":178,"turn":11}
+{"data":{"action":"move","team_id":"swarm","to":[9,2],"unit_id":"swarm-u3"},"kind":"action_declared","seq":179,"turn":11}
+{"data":{"reason":"not standing on a resource node","team_id":"swarm","unit_id":"swarm-u2"},"kind":"action_rejected","seq":180,"turn":11}
+{"data":{"to":[4,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":181,"turn":11}
+{"data":{"to":[9,2],"unit_id":"swarm-u3"},"kind":"unit_moved","seq":182,"turn":11}
+{"data":{"cp_id":"cp-center","team_id":"swarm","turns":1},"kind":"control_point_held","seq":183,"turn":11}
+{"data":{"cp_id":"cp-east","team_id":"swarm","turns":1},"kind":"control_point_held","seq":184,"turn":11}
+{"data":{"turn":11},"kind":"turn_advanced","seq":185,"turn":11}
+{"data":{"turn":11},"kind":"turn_resolved","seq":186,"turn":11}
+{"data":{"team_id":"solo","text":"Handicap forces one action per turn, so commit the whole team's tempo to a single deliverable win: shuttle solo-u2 (harvester, carry 3) to rn-west, fill up, then run it to (6,5) and deliver — 3(carried)+3(banked)=6 finishes ms-supply exactly. Route: (4,5)->(2,5)->(0,5)[gather]->(2,5)->(4,5)->(6,5)[deliver]. Scout and defender hold position each turn since they can't act; not worth chasing cp-east, swarm's hold lead there is uncatchable in time."},"kind":"plan_declared","seq":187,"turn":12}
+{"data":{"from":"solo-2","team_id":"solo","text":"Committing to the deliver mission alone: heading to rn-west now, will gather to full carry and run it back to (6,5) to close ms-supply at 6/6. Scout and defender, hold your ground — the handicap means you won't get an action until this chain finishes."},"kind":"message_sent","seq":188,"turn":12}
+{"data":{"team_id":"swarm","text":"Hold cp-center to secure the deliver mission zone. Coordinate with swarm-u2 to gather from rn-east and swarm-u3 to hold cp-east for the outpost mission."},"kind":"plan_declared","seq":189,"turn":12}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am holding cp-center to secure the supply mission zone. swarm-u2 should continue hauling from rn-east while swarm-u3 maintains the hold on cp-east."},"kind":"message_sent","seq":190,"turn":12}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Acknowledged. I am currently at rn-east and will continue to gather resources to fulfill the ms-supply mission."},"kind":"message_sent","seq":191,"turn":12}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"Confirmed. I am holding cp-east to complete the ms-outpost mission."},"kind":"message_sent","seq":192,"turn":12}
+{"data":{"action":"move","team_id":"solo","to":[2,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":193,"turn":12}
+{"data":{"action":"hold","team_id":"swarm","to":[6,5],"unit_id":"swarm-u1"},"kind":"action_declared","seq":194,"turn":12}
+{"data":{"action":"gather","team_id":"swarm","to":[11,4],"unit_id":"swarm-u2"},"kind":"action_declared","seq":195,"turn":12}
+{"data":{"action":"hold","team_id":"swarm","to":[9,2],"unit_id":"swarm-u3"},"kind":"action_declared","seq":196,"turn":12}
+{"data":{"reason":"not standing on a resource node","team_id":"swarm","unit_id":"swarm-u2"},"kind":"action_rejected","seq":197,"turn":12}
+{"data":{"to":[2,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":198,"turn":12}
+{"data":{"cp_id":"cp-center","team_id":"swarm","turns":2},"kind":"control_point_held","seq":199,"turn":12}
+{"data":{"cp_id":"cp-east","team_id":"swarm","turns":2},"kind":"control_point_held","seq":200,"turn":12}
+{"data":{"cp_id":"cp-east","team_id":"swarm"},"kind":"control_point_captured","seq":201,"turn":12}
+{"data":{"cp_id":"cp-east","team_id":"swarm","turns":2},"kind":"control_point_held","seq":202,"turn":12}
+{"data":{"turn":12},"kind":"turn_advanced","seq":203,"turn":12}
+{"data":{"turn":12},"kind":"turn_resolved","seq":204,"turn":12}
+{"data":{"team_id":"solo","text":"Rebuild the resource lead: run the harvester to rn-west, fill to capacity, then deliver — carry(3) exactly closes the ms-supply gap (3/6 banked). Scout and defender hold position each turn since only one action is allowed; cp-east's hold mission is already lost this turn (swarm streak 2, none of my units in range), so don't waste the single action chasing it."},"kind":"plan_declared","seq":205,"turn":13}
+{"data":{"from":"solo-2","team_id":"solo","text":"Moving to rn-west this turn, will gather next turn (fills to 3), then deliver at (6,5) to close ms-supply (3/6 now, need 3 more). solo-1 and solo-3 hold in place — only one action allowed per turn."},"kind":"message_sent","seq":206,"turn":13}
+{"data":{"team_id":"swarm","text":"Hold center point to secure ms-supply. Swarm-u2 gathers from rn-east, Swarm-u3 holds cp-east for ms-outpost."},"kind":"plan_declared","seq":207,"turn":13}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am holding the center point to secure the supply mission. Swarm-u2 is already gathering; let's prioritize the supply delivery."},"kind":"message_sent","seq":208,"turn":13}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Understood. I am moving to deliver the resources to the center point now to complete the supply mission."},"kind":"message_sent","seq":209,"turn":13}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I am holding the east point (ms-outpost) to secure our second objective while the others handle the supply mission."},"kind":"message_sent","seq":210,"turn":13}
+{"data":{"action":"move","team_id":"solo","to":[0,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":211,"turn":13}
+{"data":{"action":"hold","team_id":"swarm","to":[6,5],"unit_id":"swarm-u1"},"kind":"action_declared","seq":212,"turn":13}
+{"data":{"action":"deliver","team_id":"swarm","to":[6,5],"unit_id":"swarm-u2"},"kind":"action_declared","seq":213,"turn":13}
+{"data":{"action":"hold","team_id":"swarm","to":[9,2],"unit_id":"swarm-u3"},"kind":"action_declared","seq":214,"turn":13}
+{"data":{"reason":"not standing on the delivery square","team_id":"swarm","unit_id":"swarm-u2"},"kind":"action_rejected","seq":215,"turn":13}
+{"data":{"to":[0,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":216,"turn":13}
+{"data":{"cp_id":"cp-center","team_id":"swarm","turns":3},"kind":"control_point_held","seq":217,"turn":13}
+{"data":{"cp_id":"cp-east","team_id":"swarm","turns":3},"kind":"control_point_held","seq":218,"turn":13}
+{"data":{"turn":13},"kind":"turn_advanced","seq":219,"turn":13}
+{"data":{"turn":13},"kind":"turn_resolved","seq":220,"turn":13}
+{"data":{"team_id":"solo","text":"Harvester banks resources at rn-west then hauls to cp-center to finish ms-supply (3/6 already delivered); scout and defender hold position until the lane is clear, since only one unit can act per turn."},"kind":"plan_declared","seq":221,"turn":14}
+{"data":{"from":"solo-2","team_id":"solo","text":"Gathering at rn-west now (carry->3). Next: 3 moves east to cp-center, then deliver — that closes ms-supply for +10."},"kind":"message_sent","seq":222,"turn":14}
+{"data":{"from":"solo-1","team_id":"solo","text":"Holding at spawn this turn due to the one-action cap. Once the harvester's route is locked in, I'll swing for cp-west — it's still unclaimed."},"kind":"message_sent","seq":223,"turn":14}
+{"data":{"from":"solo-3","team_id":"solo","text":"Standing by near spawn. Will escort the harvester into cp-center once we're clear to move, since swarm still has a unit sitting on that square."},"kind":"message_sent","seq":224,"turn":14}
+{"data":{"team_id":"swarm","text":"Hold center point (6,5) to secure the supply mission zone while Swarm-u2 transports resources from the east node."},"kind":"plan_declared","seq":225,"turn":14}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am holding the center point (6,5) to secure the supply mission zone. Swarm-u2 is currently at the east resource node with full capacity; please prioritize delivering to (6,5) as soon as possible."},"kind":"message_sent","seq":226,"turn":14}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Understood. I am moving from the east resource node toward the center point (6, 5) to deliver the resources as requested."},"kind":"message_sent","seq":227,"turn":14}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I am holding the east control point (9, 2) to complete the outpost mission. Swarm-u1 is securing the center."},"kind":"message_sent","seq":228,"turn":14}
+{"data":{"action":"gather","team_id":"solo","unit_id":"solo-u2"},"kind":"action_declared","seq":229,"turn":14}
+{"data":{"action":"hold","team_id":"swarm","to":[6,5],"unit_id":"swarm-u1"},"kind":"action_declared","seq":230,"turn":14}
+{"data":{"action":"move","team_id":"swarm","to":[9,3],"unit_id":"swarm-u2"},"kind":"action_declared","seq":231,"turn":14}
+{"data":{"action":"hold","team_id":"swarm","to":[9,2],"unit_id":"swarm-u3"},"kind":"action_declared","seq":232,"turn":14}
+{"data":{"to":[9,3],"unit_id":"swarm-u2"},"kind":"unit_moved","seq":233,"turn":14}
+{"data":{"amount":3,"node_id":"rn-west","unit_id":"solo-u2"},"kind":"resource_gathered","seq":234,"turn":14}
+{"data":{"cp_id":"cp-center","team_id":"swarm","turns":4},"kind":"control_point_held","seq":235,"turn":14}
+{"data":{"cp_id":"cp-east","team_id":"swarm","turns":4},"kind":"control_point_held","seq":236,"turn":14}
+{"data":{"turn":14},"kind":"turn_advanced","seq":237,"turn":14}
+{"data":{"turn":14},"kind":"turn_resolved","seq":238,"turn":14}
+{"data":{"team_id":"solo","text":"Solo handicap: only harvester acts. Push solo-u2 toward ms-supply at (6,5) — it carries exactly 3 and the team bank is at 3/6, so arrival+deliver completes ms-supply (reward 10) outright. Swarm already controls cp-center/cp-east and is one turn from finishing ms-outpost; we can't reach either in time, so bank on the delivery mission instead. Scout and defender hold in place per handicap; scout should route toward cp-west once free since it's uncontested."},"kind":"plan_declared","seq":239,"turn":15}
+{"data":{"from":"solo-2","team_id":"solo","text":"Carrying full load (3/3), team bank at 3 — heading east along y=5 to (6,5) to deliver and close out ms-supply. Solo handicap means only one of us moves per turn, so hold your ground until I clear the lane."},"kind":"message_sent","seq":240,"turn":15}
+{"data":{"team_id":"swarm","text":"Hold cp-center to secure ms-supply zone while Swarm-u2 delivers resources."},"kind":"plan_declared","seq":241,"turn":15}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am holding the center point to secure the supply mission location. Swarm-u2 is carrying resources; I will help defend the area."},"kind":"message_sent","seq":242,"turn":15}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Understood. I am delivering the resources to the center point now to complete the supply mission."},"kind":"message_sent","seq":243,"turn":15}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I am holding the eastern control point (cp-east) to complete the outpost mission and provide defensive support for the team."},"kind":"message_sent","seq":244,"turn":15}
+{"data":{"action":"move","team_id":"solo","to":[2,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":245,"turn":15}
+{"data":{"action":"hold","team_id":"swarm","to":[6,5],"unit_id":"swarm-u1"},"kind":"action_declared","seq":246,"turn":15}
+{"data":{"action":"deliver","team_id":"swarm","to":[6,5],"unit_id":"swarm-u2"},"kind":"action_declared","seq":247,"turn":15}
+{"data":{"action":"hold","team_id":"swarm","to":[9,2],"unit_id":"swarm-u3"},"kind":"action_declared","seq":248,"turn":15}
+{"data":{"reason":"not standing on the delivery square","team_id":"swarm","unit_id":"swarm-u2"},"kind":"action_rejected","seq":249,"turn":15}
+{"data":{"to":[2,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":250,"turn":15}
+{"data":{"cp_id":"cp-center","team_id":"swarm","turns":5},"kind":"control_point_held","seq":251,"turn":15}
+{"data":{"cp_id":"cp-east","team_id":"swarm","turns":5},"kind":"control_point_held","seq":252,"turn":15}
+{"data":{"mission_id":"ms-outpost","team_id":"swarm"},"kind":"mission_completed","seq":253,"turn":15}
+{"data":{"turn":15},"kind":"turn_advanced","seq":254,"turn":15}
+{"data":{"turn":15},"kind":"turn_resolved","seq":255,"turn":15}
+{"data":{"team_id":"solo","text":"Rush the harvester to the supply drop; scout and defender hold position due to solo handicap."},"kind":"plan_declared","seq":256,"turn":16}
+{"data":{"from":"solo-2","team_id":"solo","text":"Moving toward (6,5) to deliver 3 resources and close out ms-supply — 2 more turns to arrival, then deliver."},"kind":"message_sent","seq":257,"turn":16}
+{"data":{"team_id":"swarm","text":"Hold center control point to secure the supply mission zone while ensuring the rest of the team prioritizes delivering resources to [6, 5]."},"kind":"plan_declared","seq":258,"turn":16}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am holding the center point (6,5) to secure the supply mission zone. swarm-u2 is currently carrying resources near the east node; we need to ensure the delivery is prioritized."},"kind":"message_sent","seq":259,"turn":16}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Understood. I am delivering the resources I've collected to the center point (6,5) now to complete the supply mission."},"kind":"message_sent","seq":260,"turn":16}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I am holding the east control point (9,2) to maintain our presence there while swarm-u1 and swarm-u2 focus on the supply mission."},"kind":"message_sent","seq":261,"turn":16}
+{"data":{"action":"move","team_id":"solo","to":[4,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":262,"turn":16}
+{"data":{"action":"hold","team_id":"swarm","to":[6,5],"unit_id":"swarm-u1"},"kind":"action_declared","seq":263,"turn":16}
+{"data":{"action":"deliver","team_id":"swarm","to":[6,5],"unit_id":"swarm-u2"},"kind":"action_declared","seq":264,"turn":16}
+{"data":{"action":"hold","team_id":"swarm","to":[9,2],"unit_id":"swarm-u3"},"kind":"action_declared","seq":265,"turn":16}
+{"data":{"reason":"not standing on the delivery square","team_id":"swarm","unit_id":"swarm-u2"},"kind":"action_rejected","seq":266,"turn":16}
+{"data":{"to":[4,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":267,"turn":16}
+{"data":{"cp_id":"cp-center","team_id":"swarm","turns":6},"kind":"control_point_held","seq":268,"turn":16}
+{"data":{"cp_id":"cp-east","team_id":"swarm","turns":6},"kind":"control_point_held","seq":269,"turn":16}
+{"data":{"turn":16},"kind":"turn_advanced","seq":270,"turn":16}
+{"data":{"turn":16},"kind":"turn_resolved","seq":271,"turn":16}
+{"data":{"team_id":"solo","text":"Solo handicap: fund the deliver mission through the harvester. Move solo-u2 (carrying 3) to the supply point at (6,5) this turn, deliver next turn to hit 3+3=6 and close ms-supply for +10."},"kind":"plan_declared","seq":272,"turn":17}
+{"data":{"from":"solo-2","team_id":"solo","text":"Moving to (6,5) with my 3 carried resources. Next turn I deliver — 3 banked + 3 carried = 6, closes ms-supply. Scout and defender hold this turn, only one action allowed under the solo handicap."},"kind":"message_sent","seq":273,"turn":17}
+{"data":{"team_id":"swarm","text":"Secure the center control point to complete the ms-supply mission (6 units) while others manage resource extraction."},"kind":"plan_declared","seq":274,"turn":17}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am holding the center point to secure the supply mission. Swarm-u2 should continue delivering resources to [6, 5] as soon as possible."},"kind":"message_sent","seq":275,"turn":17}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"Acknowledged. I am carrying 3 units and moving to [6, 5] to deliver resources for the supply mission."},"kind":"message_sent","seq":276,"turn":17}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I am holding the east point [9, 2] to ensure we maintain control of the outpost area while the others focus on the supply mission."},"kind":"message_sent","seq":277,"turn":17}
+{"data":{"action":"move","team_id":"solo","to":[6,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":278,"turn":17}
+{"data":{"action":"hold","team_id":"swarm","to":[6,5],"unit_id":"swarm-u1"},"kind":"action_declared","seq":279,"turn":17}
+{"data":{"action":"deliver","team_id":"swarm","to":[6,5],"unit_id":"swarm-u2"},"kind":"action_declared","seq":280,"turn":17}
+{"data":{"action":"hold","team_id":"swarm","to":[9,2],"unit_id":"swarm-u3"},"kind":"action_declared","seq":281,"turn":17}
+{"data":{"reason":"not standing on the delivery square","team_id":"swarm","unit_id":"swarm-u2"},"kind":"action_rejected","seq":282,"turn":17}
+{"data":{"to":[6,5],"unit_id":"solo-u2"},"kind":"unit_moved","seq":283,"turn":17}
+{"data":{"cp_id":"cp-center","team_id":"","turns":0},"kind":"control_point_held","seq":284,"turn":17}
+{"data":{"cp_id":"cp-east","team_id":"swarm","turns":7},"kind":"control_point_held","seq":285,"turn":17}
+{"data":{"turn":17},"kind":"turn_advanced","seq":286,"turn":17}
+{"data":{"turn":17},"kind":"turn_resolved","seq":287,"turn":17}
+{"data":{"team_id":"solo","text":"Harvester delivers at the mission tile to complete ms-supply; other units hold position."},"kind":"plan_declared","seq":288,"turn":18}
+{"data":{"from":"solo-2","team_id":"solo","text":"Delivering 3 now — that fills ms-supply to 6/6, mission complete."},"kind":"message_sent","seq":289,"turn":18}
+{"data":{"team_id":"swarm","text":"Secure cp-east for the hold mission while monitoring the central supply point."},"kind":"plan_declared","seq":290,"turn":18}
+{"data":{"from":"swarm-1","team_id":"swarm","text":"I am moving to cp-east to help secure the hold mission and provide scouting visibility for our harvester."},"kind":"message_sent","seq":291,"turn":18}
+{"data":{"from":"swarm-2","team_id":"swarm","text":"I am carrying 3 resources. I will move to the center supply point (6, 5) to deliver them immediately."},"kind":"message_sent","seq":292,"turn":18}
+{"data":{"from":"swarm-3","team_id":"swarm","text":"I will hold cp-east (9, 2) to ensure we complete the hold mission requirements while our harvester delivers the resources."},"kind":"message_sent","seq":293,"turn":18}
+{"data":{"action":"deliver","team_id":"solo","to":[6,5],"unit_id":"solo-u2"},"kind":"action_declared","seq":294,"turn":18}
+{"data":{"action":"move","team_id":"swarm","to":[9,2],"unit_id":"swarm-u1"},"kind":"action_declared","seq":295,"turn":18}
+{"data":{"action":"deliver","team_id":"swarm","to":[6,5],"unit_id":"swarm-u2"},"kind":"action_declared","seq":296,"turn":18}
+{"data":{"action":"hold","team_id":"swarm","to":[9,2],"unit_id":"swarm-u3"},"kind":"action_declared","seq":297,"turn":18}
+{"data":{"reason":"target beyond this role's move range","team_id":"swarm","unit_id":"swarm-u1"},"kind":"action_rejected","seq":298,"turn":18}
+{"data":{"reason":"not standing on the delivery square","team_id":"swarm","unit_id":"swarm-u2"},"kind":"action_rejected","seq":299,"turn":18}
+{"data":{"amount":3,"team_id":"solo","unit_id":"solo-u2"},"kind":"resource_delivered","seq":300,"turn":18}
+{"data":{"cp_id":"cp-east","team_id":"swarm","turns":8},"kind":"control_point_held","seq":301,"turn":18}
+{"data":{"mission_id":"ms-supply","team_id":"solo"},"kind":"mission_completed","seq":302,"turn":18}
+{"data":{"turn":18},"kind":"turn_advanced","seq":303,"turn":18}
+{"data":{"winner":"solo"},"kind":"match_finished","seq":304,"turn":18}
+{"data":{"turn":18},"kind":"turn_resolved","seq":305,"turn":18}

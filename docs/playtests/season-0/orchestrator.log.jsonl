@@ -1,0 +1,269 @@
+{"initial_state":{"control_points":[{"hold":[],"id":"cp-center","owner":null,"pos":[6,5]},{"hold":[],"id":"cp-west","owner":null,"pos":[3,8]},{"hold":[],"id":"cp-east","owner":null,"pos":[9,2]}],"grid_height":10,"grid_width":12,"match_id":"m-season0-orchestrator","missions":[{"amount":6,"completed_by":null,"completed_turn":null,"id":"ms-supply","kind":"deliver","pos":[6,5],"reward":10,"status":"open"},{"amount":3,"completed_by":null,"completed_turn":null,"id":"ms-outpost","kind":"hold","pos":[9,2],"reward":8,"status":"open"}],"mode":"competitive","resource_nodes":[{"id":"rn-west","pos":[0,5],"remaining":12},{"id":"rn-east","pos":[11,4],"remaining":12}],"scenario_id":"skirmish-1","seed":20260709,"status":"pending","teams":[{"agents":[{"id":"fable-scout","model":"claude-sonnet-5","role":"scout"},{"id":"fable-harvester","model":"claude-sonnet-5","role":"harvester"},{"id":"fable-defender","model":"claude-sonnet-5","role":"defender"}],"id":"fable","name":"Fable Spawn","resources":0},{"agents":[{"id":"baseline-1","model":"bot:greedy","role":"scout"},{"id":"baseline-2","model":"bot:greedy","role":"harvester"},{"id":"baseline-3","model":"bot:greedy","role":"defender"}],"id":"baseline","name":"Greedy Baseline","resources":0}],"turn":0,"turn_limit":30,"units":[{"agent_id":"fable-scout","alive":true,"carrying":0,"id":"fable-u1","pos":[0,0],"role":"scout","team_id":"fable"},{"agent_id":"fable-harvester","alive":true,"carrying":0,"id":"fable-u2","pos":[1,0],"role":"harvester","team_id":"fable"},{"agent_id":"fable-defender","alive":true,"carrying":0,"id":"fable-u3","pos":[0,1],"role":"defender","team_id":"fable"},{"agent_id":"baseline-1","alive":true,"carrying":0,"id":"baseline-u1","pos":[11,9],"role":"scout","team_id":"baseline"},{"agent_id":"baseline-2","alive":true,"carrying":0,"id":"baseline-u2","pos":[10,9],"role":"harvester","team_id":"baseline"},{"agent_id":"baseline-3","alive":true,"carrying":0,"id":"baseline-u3","pos":[11,8],"role":"defender","team_id":"baseline"}],"winner":null},"log_version":1}
+{"data":{},"kind":"match_started","seq":0,"turn":0}
+{"data":{"team_id":"baseline","text":"greedy split: harvester runs node-to-target relay; scout takes the far point, defender the near one"},"kind":"plan_declared","seq":1,"turn":1}
+{"data":{"team_id":"fable","text":"Team plan: scout (me) rushes cp-east and locks it down for the full 5-turn hold streak — do not contest cp-east, I have it covered. Harvester should prioritize ms-supply deliveries at cp-center (needs 6 resources) via nearest node. Defender screen/support cp-center or intercept baseline units approaching our lanes; contest cp-west/cp-center only if supply delivery is secure. I'll report ETA and streak count every turn."},"kind":"plan_declared","seq":2,"turn":1}
+{"data":{"from":"fable-scout","team_id":"fable","text":"Rushing cp-east (9,2) via direct path, move budget 3/turn. Turn1: at (3,0), 8 distance left, ETA arrival turn4. Streak: 0 (not yet on point). Will hold continuously once there — need 5 consecutive sole-occupancy turns for ms-outpost."},"kind":"message_sent","seq":3,"turn":1}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"Carrying 0. Heading to rn-west (0,5) via (0,1)->(0,3)->(0,5), ETA arrival turn3, gather turn4. Then 3 moves to deliver at (6,5), ETA deliver turn8 carrying 3/6 supply. Note: cp-center (6,5) is the same square as the delivery point — I'll be sitting there turn7-8 if anyone wants to time a hold."},"kind":"message_sent","seq":4,"turn":1}
+{"data":{"from":"fable-defender","team_id":"fable","text":"Defender at (0,1) heading to cp-center (6,5), path (2,1)->(4,1)->(6,1)->(6,3)->(6,5), move 2/turn, ETA arrival turn5. Will hold 2 turns to capture, then sit as delivery guard for ms-supply (harvester ETA turn8 carrying 3/6). Enemy sighted: all 3 baseline units clustered SE corner (11,9),(10,9),(11,8) — no immediate threat to cp-center or cp-west this turn."},"kind":"message_sent","seq":5,"turn":1}
+{"data":{"action":"move","team_id":"baseline","to":[8,9],"unit_id":"baseline-u1"},"kind":"action_declared","seq":6,"turn":1}
+{"data":{"action":"move","team_id":"baseline","to":[11,8],"unit_id":"baseline-u2"},"kind":"action_declared","seq":7,"turn":1}
+{"data":{"action":"move","team_id":"baseline","to":[9,8],"unit_id":"baseline-u3"},"kind":"action_declared","seq":8,"turn":1}
+{"data":{"action":"move","team_id":"fable","to":[3,0],"unit_id":"fable-u1"},"kind":"action_declared","seq":9,"turn":1}
+{"data":{"action":"move","team_id":"fable","to":[0,1],"unit_id":"fable-u2"},"kind":"action_declared","seq":10,"turn":1}
+{"data":{"action":"move","team_id":"fable","to":[2,1],"unit_id":"fable-u3"},"kind":"action_declared","seq":11,"turn":1}
+{"data":{"to":[8,9],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":12,"turn":1}
+{"data":{"to":[11,8],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":13,"turn":1}
+{"data":{"to":[9,8],"unit_id":"baseline-u3"},"kind":"unit_moved","seq":14,"turn":1}
+{"data":{"to":[3,0],"unit_id":"fable-u1"},"kind":"unit_moved","seq":15,"turn":1}
+{"data":{"to":[0,1],"unit_id":"fable-u2"},"kind":"unit_moved","seq":16,"turn":1}
+{"data":{"to":[2,1],"unit_id":"fable-u3"},"kind":"unit_moved","seq":17,"turn":1}
+{"data":{"turn":1},"kind":"turn_advanced","seq":18,"turn":1}
+{"data":{"turn":1},"kind":"turn_resolved","seq":19,"turn":1}
+{"data":{"team_id":"fable","text":"Team priority: missions over control points. Scout(u1) rushes cp-east for ms-outpost hold (ETA turn3, secure by ~turn8). Harvester(u2) should ferry rn-west->cp-center for ms-supply deliver (needs 6). Defender(u3) escort/guard the supply relay at cp-center or intercept baseline near center; only contest cp-center/cp-west if supply route is safe."},"kind":"plan_declared","seq":20,"turn":2}
+{"data":{"from":"fable-scout","team_id":"fable","text":"Rushing cp-east per doctrine: at [3,0]->[6,0] this turn, dist remaining 5, ETA arrival turn 3. Streak 0 (not yet on point). Will capture turns 4-5, hold mission done ~turn 8. No contest needed elsewhere from me."},"kind":"message_sent","seq":21,"turn":2}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"Relay run started: at [0,1] moving to [0,3] this turn, ETA rn-west turn 3, gather turn 3, ETA cp-center delivery turn 6-7 with 3 carried. Carrying 0 now."},"kind":"message_sent","seq":22,"turn":2}
+{"data":{"from":"fable-defender","team_id":"fable","text":"Heading to cp-center per doctrine: at [2,1]->[3,2] this turn, dist remaining 6, ETA arrival turn 4, hold/capture turns 5-6. Will stay as delivery guard for ms-supply once there. Enemy positions: baseline-1 scout [8,9], baseline-2 harvester [11,8], baseline-3 defender [9,8] — all far SE, no threat to cp-center or relay yet."},"kind":"message_sent","seq":23,"turn":2}
+{"data":{"action":"move","team_id":"baseline","to":[9,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":24,"turn":2}
+{"data":{"action":"move","team_id":"baseline","to":[11,6],"unit_id":"baseline-u2"},"kind":"action_declared","seq":25,"turn":2}
+{"data":{"action":"move","team_id":"baseline","to":[7,8],"unit_id":"baseline-u3"},"kind":"action_declared","seq":26,"turn":2}
+{"data":{"action":"move","team_id":"fable","to":[6,0],"unit_id":"fable-u1"},"kind":"action_declared","seq":27,"turn":2}
+{"data":{"action":"move","team_id":"fable","to":[0,3],"unit_id":"fable-u2"},"kind":"action_declared","seq":28,"turn":2}
+{"data":{"action":"move","team_id":"fable","to":[3,2],"unit_id":"fable-u3"},"kind":"action_declared","seq":29,"turn":2}
+{"data":{"to":[9,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":30,"turn":2}
+{"data":{"to":[11,6],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":31,"turn":2}
+{"data":{"to":[7,8],"unit_id":"baseline-u3"},"kind":"unit_moved","seq":32,"turn":2}
+{"data":{"to":[6,0],"unit_id":"fable-u1"},"kind":"unit_moved","seq":33,"turn":2}
+{"data":{"to":[0,3],"unit_id":"fable-u2"},"kind":"unit_moved","seq":34,"turn":2}
+{"data":{"to":[3,2],"unit_id":"fable-u3"},"kind":"unit_moved","seq":35,"turn":2}
+{"data":{"turn":2},"kind":"turn_advanced","seq":36,"turn":2}
+{"data":{"turn":2},"kind":"turn_resolved","seq":37,"turn":2}
+{"data":{"team_id":"fable","text":"Tempo plan: scout rushes and locks cp-east for ms-outpost (needs 2-turn capture then 5-turn sole-occupancy streak); harvester runs rn-west/rn-east to cp-center for ms-supply (needs 6 delivered); defender screens cp-center/relay path and only contests enemy points if supply delivery is on track. Missions first, control points opportunistic."},"kind":"plan_declared","seq":38,"turn":3}
+{"data":{"from":"fable-scout","team_id":"fable","text":"Scout at (6,0) moving to (9,0) this turn; ETA turn+2 to cp-east (9,2) via (9,0)->(9,2). Streak: 0, not yet on point. Rushing cp-east for ms-outpost, will hold once captured and report streak count every turn."},"kind":"message_sent","seq":39,"turn":3}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"Harvester at (0,3) moving to (0,5) this turn (rn-west). Carrying 0. ETA: gather turn 3 (full to 3), deliver at (6,5) turn 6, completing 3/6 supply."},"kind":"message_sent","seq":40,"turn":3}
+{"data":{"from":"fable-defender","team_id":"fable","text":"Defender at (3,2) moving to (4,3), ETA turn+3 to cp-center (6,5). Enemy sightings: baseline-scout (9,7), baseline-harvester (11,6), baseline-defender (7,8) — all clustered east/south, none near cp-center yet. Will hold cp-center and guard ms-supply delivery once in position, ready before harvester's turn-6 delivery."},"kind":"message_sent","seq":41,"turn":3}
+{"data":{"action":"move","team_id":"baseline","to":[6,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":42,"turn":3}
+{"data":{"action":"move","team_id":"baseline","to":[11,4],"unit_id":"baseline-u2"},"kind":"action_declared","seq":43,"turn":3}
+{"data":{"action":"move","team_id":"baseline","to":[6,7],"unit_id":"baseline-u3"},"kind":"action_declared","seq":44,"turn":3}
+{"data":{"action":"move","team_id":"fable","to":[9,0],"unit_id":"fable-u1"},"kind":"action_declared","seq":45,"turn":3}
+{"data":{"action":"move","team_id":"fable","to":[0,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":46,"turn":3}
+{"data":{"action":"move","team_id":"fable","to":[4,3],"unit_id":"fable-u3"},"kind":"action_declared","seq":47,"turn":3}
+{"data":{"to":[6,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":48,"turn":3}
+{"data":{"to":[11,4],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":49,"turn":3}
+{"data":{"to":[6,7],"unit_id":"baseline-u3"},"kind":"unit_moved","seq":50,"turn":3}
+{"data":{"to":[9,0],"unit_id":"fable-u1"},"kind":"unit_moved","seq":51,"turn":3}
+{"data":{"to":[0,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":52,"turn":3}
+{"data":{"to":[4,3],"unit_id":"fable-u3"},"kind":"unit_moved","seq":53,"turn":3}
+{"data":{"turn":3},"kind":"turn_advanced","seq":54,"turn":3}
+{"data":{"turn":3},"kind":"turn_resolved","seq":55,"turn":3}
+{"data":{"team_id":"fable","text":"Fable plan: u1 rushes+holds cp-east for ms-outpost (streak 5 needed), u2 harvests rn-west and relays to ms-supply at cp-center, u3 escorts/defends the relay route and contests cp-center if free. Tempo over spread — missions first."},"kind":"plan_declared","seq":56,"turn":4}
+{"data":{"from":"fable-scout","team_id":"fable","text":"fable-u1 arriving cp-east (9,2) this turn (T3). Streak 0/5 — capture at T5, ms-outpost complete at T8 if uncontested. No baseline units near cp-east (baseline-1 scout at 6,7, far). Holding cp-east from next turn, will not leave."},"kind":"message_sent","seq":57,"turn":4}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"fable-u2 gathered full load 3/3 at rn-west (0,5), T3. Moving to delivery (6,5) next, ETA arrive T6 (2 tiles/turn x3), deliver T7. First delivery brings ms-supply to 3/6."},"kind":"message_sent","seq":58,"turn":4}
+{"data":{"from":"fable-defender","team_id":"fable","text":"fable-u3 moving (4,3)->(5,4), ETA cp-center (6,5) at T4, ready before harvester's T7 delivery. Threat: baseline defender & scout both sitting at (6,7), only 2 tiles from cp-center — could contest as early as T3/T4. Baseline harvester at (11,4) near rn-east, not a threat to us. Holding cp-center on arrival regardless of contest; delivery still completes per doctrine."},"kind":"message_sent","seq":59,"turn":4}
+{"data":{"action":"move","team_id":"baseline","to":[9,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":60,"turn":4}
+{"data":{"action":"gather","team_id":"baseline","unit_id":"baseline-u2"},"kind":"action_declared","seq":61,"turn":4}
+{"data":{"action":"move","team_id":"baseline","to":[6,5],"unit_id":"baseline-u3"},"kind":"action_declared","seq":62,"turn":4}
+{"data":{"action":"move","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":63,"turn":4}
+{"data":{"action":"gather","team_id":"fable","unit_id":"fable-u2"},"kind":"action_declared","seq":64,"turn":4}
+{"data":{"action":"move","team_id":"fable","to":[5,4],"unit_id":"fable-u3"},"kind":"action_declared","seq":65,"turn":4}
+{"data":{"to":[9,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":66,"turn":4}
+{"data":{"to":[6,5],"unit_id":"baseline-u3"},"kind":"unit_moved","seq":67,"turn":4}
+{"data":{"to":[9,2],"unit_id":"fable-u1"},"kind":"unit_moved","seq":68,"turn":4}
+{"data":{"to":[5,4],"unit_id":"fable-u3"},"kind":"unit_moved","seq":69,"turn":4}
+{"data":{"amount":3,"node_id":"rn-east","unit_id":"baseline-u2"},"kind":"resource_gathered","seq":70,"turn":4}
+{"data":{"amount":3,"node_id":"rn-west","unit_id":"fable-u2"},"kind":"resource_gathered","seq":71,"turn":4}
+{"data":{"cp_id":"cp-center","team_id":"baseline","turns":1},"kind":"control_point_held","seq":72,"turn":4}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":1},"kind":"control_point_held","seq":73,"turn":4}
+{"data":{"turn":4},"kind":"turn_advanced","seq":74,"turn":4}
+{"data":{"turn":4},"kind":"turn_resolved","seq":75,"turn":4}
+{"data":{"from":"fable-scout","team_id":"fable","text":"At cp-east (9,2), streak=1 entering turn 4, holding again this turn to lock capture at streak=2. No enemies within 5 tiles of cp-east; baseline scout is at (9,7)."},"kind":"message_sent","seq":76,"turn":5}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"Carrying 3/3 full, at (2,5) after this move, ETA 3 more turns to delivery (6,5); will deliver then return to rn-west (0,5) for next load."},"kind":"message_sent","seq":77,"turn":5}
+{"data":{"from":"fable-defender","team_id":"fable","text":"Moving onto cp-center (6,5) to contest baseline-3 defender who's sitting there with streak=1 — breaks their capture and I'll hold the delivery square for harvester's arrival. Baseline harvester (baseline-u2) is at (11,4) full 3/3, likely inbound toward (6,5) to race our delivery. Baseline scout at (9,7), no threat to cp-east."},"kind":"message_sent","seq":78,"turn":5}
+{"data":{"action":"move","team_id":"baseline","to":[6,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":79,"turn":5}
+{"data":{"action":"move","team_id":"baseline","to":[9,4],"unit_id":"baseline-u2"},"kind":"action_declared","seq":80,"turn":5}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":81,"turn":5}
+{"data":{"action":"hold","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":82,"turn":5}
+{"data":{"action":"move","team_id":"fable","to":[2,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":83,"turn":5}
+{"data":{"action":"move","team_id":"fable","to":[6,5],"unit_id":"fable-u3"},"kind":"action_declared","seq":84,"turn":5}
+{"data":{"to":[6,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":85,"turn":5}
+{"data":{"to":[9,4],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":86,"turn":5}
+{"data":{"to":[2,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":87,"turn":5}
+{"data":{"to":[6,5],"unit_id":"fable-u3"},"kind":"unit_moved","seq":88,"turn":5}
+{"data":{"cp_id":"cp-center","team_id":"","turns":0},"kind":"control_point_held","seq":89,"turn":5}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":2},"kind":"control_point_held","seq":90,"turn":5}
+{"data":{"cp_id":"cp-east","team_id":"fable"},"kind":"control_point_captured","seq":91,"turn":5}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":2},"kind":"control_point_held","seq":92,"turn":5}
+{"data":{"turn":5},"kind":"turn_advanced","seq":93,"turn":5}
+{"data":{"turn":5},"kind":"turn_resolved","seq":94,"turn":5}
+{"data":{"team_id":"fable","text":"Scout locks cp-east indefinitely for streak/mission credit; harvester keeps ferrying rn-west->ms-supply; defender holds cp-center to block baseline-defender contest."},"kind":"plan_declared","seq":95,"turn":6}
+{"data":{"from":"fable-scout","team_id":"fable","text":"cp-east captured, streak=2, holding again this turn -> streak=3 completes ms-outpost (amount 3). No enemy units within reach of cp-east this turn (nearest baseline harvester at [9,4], 2 away)."},"kind":"message_sent","seq":96,"turn":6}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"Carrying 3/3 from rn-west, at [2,5] moving toward delivery [6,5]. ETA 2 more turns (arrive turn 7, deliver turn 7 if unblocked)."},"kind":"message_sent","seq":97,"turn":6}
+{"data":{"from":"fable-defender","team_id":"fable","text":"At cp-center [6,5], holding; baseline defender also here so point is contested, but delivery still works. Baseline scout at [6,7] (2 away), baseline harvester carrying 3 at [9,4]. No escort call yet — staying put for harvester's turn-7 delivery."},"kind":"message_sent","seq":98,"turn":6}
+{"data":{"action":"move","team_id":"baseline","to":[9,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":99,"turn":6}
+{"data":{"action":"move","team_id":"baseline","to":[7,4],"unit_id":"baseline-u2"},"kind":"action_declared","seq":100,"turn":6}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":101,"turn":6}
+{"data":{"action":"hold","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":102,"turn":6}
+{"data":{"action":"move","team_id":"fable","to":[4,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":103,"turn":6}
+{"data":{"action":"hold","team_id":"fable","to":[6,5],"unit_id":"fable-u3"},"kind":"action_declared","seq":104,"turn":6}
+{"data":{"to":[9,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":105,"turn":6}
+{"data":{"to":[7,4],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":106,"turn":6}
+{"data":{"to":[4,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":107,"turn":6}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":3},"kind":"control_point_held","seq":108,"turn":6}
+{"data":{"turn":6},"kind":"turn_advanced","seq":109,"turn":6}
+{"data":{"turn":6},"kind":"turn_resolved","seq":110,"turn":6}
+{"data":{"from":"fable-scout","team_id":"fable","text":"cp-east secured, streak=3/5, ETA 2 turns to ms-outpost completion. No enemy units near (9,2); baseline scout is at (9,7), 5 away. Holding."},"kind":"message_sent","seq":111,"turn":7}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"Carrying 3/3, moving to (6,5) this turn (dist 2, within move), will deliver next turn — that lands ms-supply at 3/6. Note: I'll be co-occupying cp-center with fable-u3, which may block sole-occupancy capture there until I leave to re-gather."},"kind":"message_sent","seq":112,"turn":7}
+{"data":{"from":"fable-defender","team_id":"fable","text":"cp-center contested: baseline-u3 (defender) sharing my square (6,5). Baseline harvester at (7,4) carrying 3, dist 2 to (6,5) — could arrive and deliver same turn as ours. Holding position to guard the delivery regardless of contest."},"kind":"message_sent","seq":113,"turn":7}
+{"data":{"action":"move","team_id":"baseline","to":[6,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":114,"turn":7}
+{"data":{"action":"move","team_id":"baseline","to":[6,5],"unit_id":"baseline-u2"},"kind":"action_declared","seq":115,"turn":7}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":116,"turn":7}
+{"data":{"action":"hold","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":117,"turn":7}
+{"data":{"action":"move","team_id":"fable","to":[6,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":118,"turn":7}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":119,"turn":7}
+{"data":{"to":[6,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":120,"turn":7}
+{"data":{"to":[6,5],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":121,"turn":7}
+{"data":{"to":[6,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":122,"turn":7}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":4},"kind":"control_point_held","seq":123,"turn":7}
+{"data":{"turn":7},"kind":"turn_advanced","seq":124,"turn":7}
+{"data":{"turn":7},"kind":"turn_resolved","seq":125,"turn":7}
+{"data":{"from":"baseline-2","team_id":"baseline","text":"delivered 3"},"kind":"message_sent","seq":126,"turn":8}
+{"data":{"from":"fable-scout","team_id":"fable","text":"cp-east: streak 4/5, holding again this turn — mission ms-outpost completes next turn if uncontested, no enemy scout in sight of (9,2)"},"kind":"message_sent","seq":127,"turn":8}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"delivering 3 now at (6,5) — ms-supply will be at 3/6; heading back to rn-west (0,5) next, ETA 3 turns to refill"},"kind":"message_sent","seq":128,"turn":8}
+{"data":{"from":"fable-defender","team_id":"fable","text":"cp-center (6,5) contested: baseline-u2 (harvester, carrying 3) and baseline-u3 (defender) both here with us; enemy scout baseline-u1 at (6,7). Holding (6,5) to guard delivery, no escort called, ms-supply at 3/6 after this delivery."},"kind":"message_sent","seq":129,"turn":8}
+{"data":{"action":"move","team_id":"baseline","to":[9,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":130,"turn":8}
+{"data":{"action":"deliver","team_id":"baseline","unit_id":"baseline-u2"},"kind":"action_declared","seq":131,"turn":8}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":132,"turn":8}
+{"data":{"action":"hold","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":133,"turn":8}
+{"data":{"action":"deliver","team_id":"fable","to":[6,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":134,"turn":8}
+{"data":{"action":"hold","team_id":"fable","to":[6,5],"unit_id":"fable-u3"},"kind":"action_declared","seq":135,"turn":8}
+{"data":{"to":[9,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":136,"turn":8}
+{"data":{"amount":3,"team_id":"baseline","unit_id":"baseline-u2"},"kind":"resource_delivered","seq":137,"turn":8}
+{"data":{"amount":3,"team_id":"fable","unit_id":"fable-u2"},"kind":"resource_delivered","seq":138,"turn":8}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":5},"kind":"control_point_held","seq":139,"turn":8}
+{"data":{"mission_id":"ms-outpost","team_id":"fable"},"kind":"mission_completed","seq":140,"turn":8}
+{"data":{"turn":8},"kind":"turn_advanced","seq":141,"turn":8}
+{"data":{"turn":8},"kind":"turn_resolved","seq":142,"turn":8}
+{"data":{"from":"fable-scout","team_id":"fable","text":"cp-east held, streak=5, ms-outpost complete (turn 8). Holding to keep cp-east owned — no enemy scout in range (baseline-1 at 9,7, 5 tiles out). Harvester/defender: relay (ms-supply) still needs 3 more at (6,5); focus resource runs there, I can't haul (carry 1)."},"kind":"message_sent","seq":143,"turn":9}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"u2 carrying 0, moving from (6,5) toward rn-west (0,5), now at (4,5). ETA node turn 10, gather turn 11 (full=3), back at (6,5) turn 14, deliver turn 15 to complete ms-supply (3+3=6)."},"kind":"message_sent","seq":144,"turn":9}
+{"data":{"from":"fable-defender","team_id":"fable","text":"Holding cp-center (6,5), contested — baseline harvester u2 and baseline defender u3 both here with me. Baseline scout u1 at (9,7), not near our harvester's route to rn-west. Staying put to guard ms-supply delivery; will escort only if harvester calls."},"kind":"message_sent","seq":145,"turn":9}
+{"data":{"action":"move","team_id":"baseline","to":[6,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":146,"turn":9}
+{"data":{"action":"move","team_id":"baseline","to":[8,5],"unit_id":"baseline-u2"},"kind":"action_declared","seq":147,"turn":9}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":148,"turn":9}
+{"data":{"action":"hold","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":149,"turn":9}
+{"data":{"action":"move","team_id":"fable","to":[4,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":150,"turn":9}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":151,"turn":9}
+{"data":{"to":[6,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":152,"turn":9}
+{"data":{"to":[8,5],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":153,"turn":9}
+{"data":{"to":[4,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":154,"turn":9}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":6},"kind":"control_point_held","seq":155,"turn":9}
+{"data":{"turn":9},"kind":"turn_advanced","seq":156,"turn":9}
+{"data":{"turn":9},"kind":"turn_resolved","seq":157,"turn":9}
+{"data":{"from":"fable-scout","team_id":"fable","text":"Holding cp-east, streak 6 (ms-outpost already completed t8), no enemy units within reach — staying put per doctrine. ms-supply still open, team resources 3/6 — harvester/defender, push the relay."},"kind":"message_sent","seq":158,"turn":10}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"Carrying 0/3, at (4,5) moving to (2,5), ETA 2 turns to reach rn-west (0,5), then gather, then 3 turns back to deliver at (6,5) — exactly the 3 we need to close ms-supply (3/6)."},"kind":"message_sent","seq":159,"turn":10}
+{"data":{"from":"fable-defender","team_id":"fable","text":"At cp-center (6,5), holding as delivery guard. baseline-3 (defender) shares my square — cp-center contested, delivery still works. baseline-2 (harvester) at (8,5), baseline-1 (scout) at (6,7), both near center. No escort call yet, staying put for ms-supply (3/6)."},"kind":"message_sent","seq":160,"turn":10}
+{"data":{"action":"move","team_id":"baseline","to":[9,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":161,"turn":10}
+{"data":{"action":"move","team_id":"baseline","to":[10,5],"unit_id":"baseline-u2"},"kind":"action_declared","seq":162,"turn":10}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":163,"turn":10}
+{"data":{"action":"hold","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":164,"turn":10}
+{"data":{"action":"move","team_id":"fable","to":[2,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":165,"turn":10}
+{"data":{"action":"hold","team_id":"fable","to":[6,5],"unit_id":"fable-u3"},"kind":"action_declared","seq":166,"turn":10}
+{"data":{"to":[9,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":167,"turn":10}
+{"data":{"to":[10,5],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":168,"turn":10}
+{"data":{"to":[2,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":169,"turn":10}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":7},"kind":"control_point_held","seq":170,"turn":10}
+{"data":{"turn":10},"kind":"turn_advanced","seq":171,"turn":10}
+{"data":{"turn":10},"kind":"turn_resolved","seq":172,"turn":10}
+{"data":{"team_id":"fable","text":"Relay: u2 cycles rn-west(0,5)->deliver(6,5) for ms-supply (3 more closes it); u1 holds cp-east to deny; u3 guards center/delivery square."},"kind":"plan_declared","seq":173,"turn":11}
+{"data":{"from":"fable-scout","team_id":"fable","text":"cp-east streak 7/2, ms-outpost done turn 8, holding to deny — baseline-1 scout spotted at (9,7), 5 tiles out, could contest in 2 turns"},"kind":"message_sent","seq":174,"turn":11}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"u2 at (2,5)->(0,5) this turn, gather turn 12 (full 3), then 3 turns to deliver at (6,5), ETA turn ~15. Team resources 3/6 — my delivery of 3 completes ms-supply."},"kind":"message_sent","seq":175,"turn":11}
+{"data":{"from":"fable-defender","team_id":"fable","text":"Holding cp-center/ms-supply (6,5): baseline-3 defender co-located, point contested but delivery still works. baseline-2 harvester at (10,5) near rn-east, baseline-1 scout at (9,7) per scout's report. Staying put for harvester's ETA ~15 delivery unless escort called."},"kind":"message_sent","seq":176,"turn":11}
+{"data":{"action":"move","team_id":"baseline","to":[6,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":177,"turn":11}
+{"data":{"action":"move","team_id":"baseline","to":[11,4],"unit_id":"baseline-u2"},"kind":"action_declared","seq":178,"turn":11}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":179,"turn":11}
+{"data":{"action":"hold","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":180,"turn":11}
+{"data":{"action":"move","team_id":"fable","to":[0,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":181,"turn":11}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":182,"turn":11}
+{"data":{"to":[6,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":183,"turn":11}
+{"data":{"to":[11,4],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":184,"turn":11}
+{"data":{"to":[0,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":185,"turn":11}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":8},"kind":"control_point_held","seq":186,"turn":11}
+{"data":{"turn":11},"kind":"turn_advanced","seq":187,"turn":11}
+{"data":{"turn":11},"kind":"turn_resolved","seq":188,"turn":11}
+{"data":{"from":"fable-scout","team_id":"fable","text":"cp-east held, streak 9 (turn 11), ms-outpost already completed turn 8 — primary job secure. Holding to deny baseline the point; redirect me to ms-supply relay if resources (3/6) need a third carrier instead."},"kind":"message_sent","seq":189,"turn":12}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"At rn-west (0,5), gathering to full 3/3. ETA to deliver at (6,5): 3 turns (~turn 14). Team resources 3/6 on ms-supply."},"kind":"message_sent","seq":190,"turn":12}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"Scout: ms-outpost is done, so holding cp-east is a bonus not the priority — my west relay is the bottleneck for ms-supply, stay put unless baseline threatens cp-center."},"kind":"message_sent","seq":191,"turn":12}
+{"data":{"from":"fable-defender","team_id":"fable","text":"At cp-center (6,5), contested with baseline-3 (defender) on my square; baseline-1 (scout) nearby at (6,7). Holding for delivery guard duty — harvester ETA turn 14. No escort needed yet."},"kind":"message_sent","seq":192,"turn":12}
+{"data":{"action":"move","team_id":"baseline","to":[9,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":193,"turn":12}
+{"data":{"action":"gather","team_id":"baseline","unit_id":"baseline-u2"},"kind":"action_declared","seq":194,"turn":12}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":195,"turn":12}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u1"},"kind":"action_declared","seq":196,"turn":12}
+{"data":{"action":"gather","team_id":"fable","to":[0,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":197,"turn":12}
+{"data":{"action":"hold","team_id":"fable","to":[6,5],"unit_id":"fable-u3"},"kind":"action_declared","seq":198,"turn":12}
+{"data":{"to":[9,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":199,"turn":12}
+{"data":{"amount":3,"node_id":"rn-east","unit_id":"baseline-u2"},"kind":"resource_gathered","seq":200,"turn":12}
+{"data":{"amount":3,"node_id":"rn-west","unit_id":"fable-u2"},"kind":"resource_gathered","seq":201,"turn":12}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":9},"kind":"control_point_held","seq":202,"turn":12}
+{"data":{"turn":12},"kind":"turn_advanced","seq":203,"turn":12}
+{"data":{"turn":12},"kind":"turn_resolved","seq":204,"turn":12}
+{"data":{"from":"fable-scout","team_id":"fable","text":"cp-east secure, streak 10 next turn, ms-outpost already completed t8 — holding to deny baseline-1 (5 tiles out at 9,7). Outpost job done; focus everyone on ms-supply (need 3 more, u2 has 3 at rn-west, 6 away)."},"kind":"message_sent","seq":205,"turn":13}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"Carrying 3/3, moving (0,5)->(2,5), ETA (6,5) turn 15 (4 tiles left, 2/turn)."},"kind":"message_sent","seq":206,"turn":13}
+{"data":{"from":"fable-defender","team_id":"fable","text":"Holding cp-center (6,5), contested by baseline-3 (enemy defender) here with me. Baseline-2 harvester carrying 3 at (11,4), baseline-1 scout at (9,7). Staying put to guard ms-supply for u2's delivery, no escort needed yet."},"kind":"message_sent","seq":207,"turn":13}
+{"data":{"action":"move","team_id":"baseline","to":[6,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":208,"turn":13}
+{"data":{"action":"move","team_id":"baseline","to":[9,4],"unit_id":"baseline-u2"},"kind":"action_declared","seq":209,"turn":13}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":210,"turn":13}
+{"data":{"action":"hold","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":211,"turn":13}
+{"data":{"action":"move","team_id":"fable","to":[2,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":212,"turn":13}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":213,"turn":13}
+{"data":{"to":[6,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":214,"turn":13}
+{"data":{"to":[9,4],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":215,"turn":13}
+{"data":{"to":[2,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":216,"turn":13}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":10},"kind":"control_point_held","seq":217,"turn":13}
+{"data":{"turn":13},"kind":"turn_advanced","seq":218,"turn":13}
+{"data":{"turn":13},"kind":"turn_resolved","seq":219,"turn":13}
+{"data":{"from":"fable-scout","team_id":"fable","text":"cp-east streak 10, holding — ms-outpost already complete, staying to keep ownership secure. Nearest threat is baseline scout at (6,7), 8 away, no immediate risk."},"kind":"message_sent","seq":220,"turn":14}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"Carrying 3/3, moving (2,5)->(4,5), ETA 2 turns to reach (6,5), deliver ~turn 15."},"kind":"message_sent","seq":221,"turn":14}
+{"data":{"from":"fable-defender","team_id":"fable","text":"Holding cp-center (6,5), contested by baseline defender sharing my square; delivery still works when harvester arrives. Baseline scout at (6,7), no escort needed yet."},"kind":"message_sent","seq":222,"turn":14}
+{"data":{"action":"move","team_id":"baseline","to":[9,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":223,"turn":14}
+{"data":{"action":"move","team_id":"baseline","to":[7,4],"unit_id":"baseline-u2"},"kind":"action_declared","seq":224,"turn":14}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":225,"turn":14}
+{"data":{"action":"hold","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":226,"turn":14}
+{"data":{"action":"move","team_id":"fable","to":[4,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":227,"turn":14}
+{"data":{"action":"hold","team_id":"fable","to":[6,5],"unit_id":"fable-u3"},"kind":"action_declared","seq":228,"turn":14}
+{"data":{"to":[9,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":229,"turn":14}
+{"data":{"to":[7,4],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":230,"turn":14}
+{"data":{"to":[4,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":231,"turn":14}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":11},"kind":"control_point_held","seq":232,"turn":14}
+{"data":{"turn":14},"kind":"turn_advanced","seq":233,"turn":14}
+{"data":{"turn":14},"kind":"turn_resolved","seq":234,"turn":14}
+{"data":{"from":"fable-scout","team_id":"fable","text":"cp-east streak=11 (outpost mission already completed turn 8), holding to block baseline-u1 scout at (9,7) which is 2 moves out. cp-center is contested: our defender u3 and baseline-3 both sitting on (6,5) — no capture progress there, sole-occupancy blocked. Supply mission at 3/6, u2 carrying 3 en route to (6,5)."},"kind":"message_sent","seq":235,"turn":15}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"u2 carrying 3/3, moving (4,5)->(6,5) this turn, ETA arrive end of turn 14, will deliver turn 15 to finish supply mission at 6/6."},"kind":"message_sent","seq":236,"turn":15}
+{"data":{"from":"fable-defender","team_id":"fable","text":"Holding (6,5) as delivery guard; baseline-3 defender shares my square (contested, no capture) but delivery still works. Baseline harvester u2-equiv at (7,4), baseline scout at (9,7). u2: proceed to deliver next turn, I've got the square covered."},"kind":"message_sent","seq":237,"turn":15}
+{"data":{"action":"move","team_id":"baseline","to":[6,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":238,"turn":15}
+{"data":{"action":"move","team_id":"baseline","to":[6,5],"unit_id":"baseline-u2"},"kind":"action_declared","seq":239,"turn":15}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":240,"turn":15}
+{"data":{"action":"hold","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":241,"turn":15}
+{"data":{"action":"move","team_id":"fable","to":[6,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":242,"turn":15}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":243,"turn":15}
+{"data":{"to":[6,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":244,"turn":15}
+{"data":{"to":[6,5],"unit_id":"baseline-u2"},"kind":"unit_moved","seq":245,"turn":15}
+{"data":{"to":[6,5],"unit_id":"fable-u2"},"kind":"unit_moved","seq":246,"turn":15}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":12},"kind":"control_point_held","seq":247,"turn":15}
+{"data":{"turn":15},"kind":"turn_advanced","seq":248,"turn":15}
+{"data":{"turn":15},"kind":"turn_resolved","seq":249,"turn":15}
+{"data":{"from":"baseline-2","team_id":"baseline","text":"delivered 3"},"kind":"message_sent","seq":250,"turn":16}
+{"data":{"from":"fable-scout","team_id":"fable","text":"cp-east secured, streak=12 (mission ms-outpost already completed t8), holding sole occupancy. Nearest enemy (baseline-scout) at (6,7), 8 tiles out, no threat this turn."},"kind":"message_sent","seq":251,"turn":16}
+{"data":{"from":"fable-harvester","team_id":"fable","text":"Delivering 3 at (6,5) now — team resources 3->6, completes ms-supply this turn. Heading back to rn-west (0,5) next, ETA 6 turns for the return trip."},"kind":"message_sent","seq":252,"turn":16}
+{"data":{"from":"fable-defender","team_id":"fable","text":"Holding cp-center (6,5) as delivery guard; enemy baseline-defender and baseline-harvester both here too, point contested but ms-supply delivery unaffected. Enemy scout at (6,7), 8 tiles from cp-east, no threat."},"kind":"message_sent","seq":253,"turn":16}
+{"data":{"action":"move","team_id":"baseline","to":[9,7],"unit_id":"baseline-u1"},"kind":"action_declared","seq":254,"turn":16}
+{"data":{"action":"deliver","team_id":"baseline","unit_id":"baseline-u2"},"kind":"action_declared","seq":255,"turn":16}
+{"data":{"action":"hold","team_id":"baseline","unit_id":"baseline-u3"},"kind":"action_declared","seq":256,"turn":16}
+{"data":{"action":"hold","team_id":"fable","to":[9,2],"unit_id":"fable-u1"},"kind":"action_declared","seq":257,"turn":16}
+{"data":{"action":"deliver","team_id":"fable","to":[6,5],"unit_id":"fable-u2"},"kind":"action_declared","seq":258,"turn":16}
+{"data":{"action":"hold","team_id":"fable","unit_id":"fable-u3"},"kind":"action_declared","seq":259,"turn":16}
+{"data":{"to":[9,7],"unit_id":"baseline-u1"},"kind":"unit_moved","seq":260,"turn":16}
+{"data":{"amount":3,"team_id":"baseline","unit_id":"baseline-u2"},"kind":"resource_delivered","seq":261,"turn":16}
+{"data":{"amount":3,"team_id":"fable","unit_id":"fable-u2"},"kind":"resource_delivered","seq":262,"turn":16}
+{"data":{"cp_id":"cp-east","team_id":"fable","turns":13},"kind":"control_point_held","seq":263,"turn":16}
+{"data":{"mission_id":"ms-supply","team_id":"baseline"},"kind":"mission_completed","seq":264,"turn":16}
+{"data":{"turn":16},"kind":"turn_advanced","seq":265,"turn":16}
+{"data":{"winner":"draw"},"kind":"match_finished","seq":266,"turn":16}
+{"data":{"turn":16},"kind":"turn_resolved","seq":267,"turn":16}
