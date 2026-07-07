@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-07-07
+
+### Added
+
+- Cycle-6 spec (devague /think): the watchable, vast arena — mesmerizing replay + embedded assessor guide, video export from logs, seeded scenario generation at any scale, board size/complexity for long-horizon + memory assessment, subagent span-of-control probe, coding-reflective roles (explorer/planner/executor) — 13 user-confirmed claims, 13 honesty conditions, 4 parked unknowns
+- Cycle-6 build plan (devague /spec-to-plan): 12 user-confirmed tasks over 5 waves, risks pinned to tasks
+
 ## [0.9.0] - 2026-07-07
 
 ### Added

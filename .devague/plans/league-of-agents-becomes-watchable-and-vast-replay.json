@@ -1,0 +1,386 @@
+{
+  "slug": "league-of-agents-becomes-watchable-and-vast-replay",
+  "title": "League of Agents becomes watchable and vast: replays turn mesmerizing with a built-in judge's guide, any match exports to a shareable video, seeded generation scales boards from skirmish to campaign, and coding-shaped roles \u2014 explorer, planner, and the subagent chains they command \u2014 measure whether a mind can truly run a team over the long haul",
+  "frame_slug": "league-of-agents-becomes-watchable-and-vast-replay",
+  "schema_version": 1,
+  "status": "exported",
+  "created": "2026-07-07T16:02:26Z",
+  "updated": "2026-07-07T16:05:12Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "League of Agents becomes watchable and vast: replays turn mesmerizing with a built-in judge's guide, any match exports to a shareable video, seeded generation scales boards from skirmish to campaign, and coding-shaped roles \u2014 explorer, planner, and the subagent chains they command \u2014 measure whether a mind can truly run a team over the long haul"
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "Every announcement phrase is backed by a committed artifact: the redesigned replay, a rendered video file's provenance, a seed-repeat test, a large-board long-horizon match report, the span-of-control report, and the role-lattice match"
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "The human evaluator judging matches visually (with the replay teaching them what to look for) and sharing recordings; researchers comparing minds on long-horizon, many-agent, memory-bound capability; agent developers testing whether their mind can command subagents"
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "Each audience touches the increment on the record: a human review conducted through the new guide, a shared video artifact, and a span-of-control comparison a developer could act on"
+    },
+    {
+      "id": "c3",
+      "kind": "after_state",
+      "text": "Replays are mesmerizing \u2014 a designed visual system (validated palette, dark+light, motion with intent) with an embedded assessor guide per scenario; one command renders any match log to a shareable video; scenarios generate from seeds (random when you want novelty, byte-repeatable when you want a rematch) at any board size/complexity; a span-of-control probe measures how many subagents a mind can actually command and how well; roles form a coding-reflective capability lattice \u2014 explorer (wide vision/reach, no gather/capture) feeds planner (aggregates intel, coordinates, hands instructions to agents/subagents) feeds executors"
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "The after-state is claimed only when each thread has a committed artifact \u2014 no thread ships silently"
+    },
+    {
+      "id": "c4",
+      "kind": "before_state",
+      "text": "The replay is functional but utilitarian \u2014 no guidance for a human on HOW to assess what they see; no video export (sharing means sending an HTML file); exactly two hand-coded scenarios (skirmish-1/2) with small boards and a 30-turn ceiling \u2014 nothing can assess long-running tasks, many agents, or memory; orchestrator mode allows subagents but nothing measures span of control; roles are stat-lines (scout/harvester/defender) with no tie to the shape of real coding work"
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "Every before-state deficiency cites the current code or record: the existing replay html, the two hand-coded scenarios, the 30-turn ceiling in scenario.py, the unmeasured orchestrator mode, the role stat tables"
+    },
+    {
+      "id": "c5",
+      "kind": "why_it_matters",
+      "text": "Issue #1 demands the arena make WHY a team succeeded inspectable and teams comparable \u2014 a human can only judge what the replay teaches them to see, a shareable video recruits more human judges, and long-horizon + memory + span-of-control are exactly the questions that decide whether agent teams can do real (coding) work"
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "The why traces to issue #1's own words (inspectability, fair comparison) \u2014 quoted, not strengthened"
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "Replay visual overhaul (user directive: mesmerizing, beautiful, elegant): a designed system \u2014 validated color, dark+light themes, purposeful motion, legible at a glance \u2014 plus an embedded ASSESSOR GUIDE: per-scenario explanations and guidance telling a human evaluator what to look at, phase by phase, to judge coordination quality"
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "Beauty is not self-declared: the replay passes the design method's own checks (validated palette, both themes, no anti-pattern hits) AND a real human review conducted with the embedded guide is recorded in docs/ \u2014 the guide is judged by whether the human could assess the match with it"
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "Recording generation (user directive): one command renders a committed match log into a shareable video file \u2014 offline, from the log alone, reproducible; sharing a match no longer means sending an HTML file"
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "The video renders offline from the committed log alone \u2014 same log, same video content; no screen capture, no live session; the artifact's generation command is recorded in the report"
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "Seeded scenario system (user directive): scenarios generate from an explicit seed \u2014 randomize for novelty, repeat byte-identically for rematches and fair comparisons; hand-authored scenarios (skirmish-1/2) and named presets keep working unchanged"
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "A test proves same seed \u2192 byte-identical scenario and different seeds \u2192 structurally different boards; every generated match log records its scenario seed so any match is re-creatable from the log header alone"
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "Board scale and complexity knobs (user directive): larger grids, more units and teams, longer turn limits, richer objective mixes \u2014 sized to assess long-running tasks, many agents, and MEMORY (does a mind retain and use early-match knowledge late?)"
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "A recorded long-horizon match on a generated large board actually exists, and its report assesses memory concretely (whether a mind used early-match knowledge late) rather than asserting scale in the abstract"
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "Subagent span-of-control probe (user directive): measure whether a mind can spawn and command subagents, how many it can control, and how well \u2014 a scored, recorded report comparing minds on delegation capability, built on orchestrator mode"
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "The probe measures real spawned subagents through the harness (field agents, not simulated fan-out) and every span-of-control claim reconstructs from the committed log's delegation evidence, not from the mind's self-report"
+    },
+    {
+      "id": "c11",
+      "kind": "requirement",
+      "text": "Coding-reflective roles (user directive): roles become capability contracts mirroring real coding work \u2014 EXPLORER: extended vision and reach, fewer tools, cannot gather resources or capture posts (reconnaissance/code-reading); PLANNER: listens to explorer intel, coordinates, hands instructions to other agents/subagents (architect/tech-lead); executor roles carry the do-work tools (builder/implementer) \u2014 each role documents its software-work analog and the engine ENFORCES the capability differences"
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "Role capabilities are enforced by engine legality \u2014 an explorer's gather/capture order is REJECTED, not discouraged by prompt \u2014 proven by tests; each role's coding-work analog is documented next to its stats"
+    },
+    {
+      "id": "c12",
+      "kind": "boundary",
+      "text": "Determinism is non-negotiable: scenario generation is seed-derived (no runtime randomness \u2014 the engine import ban stands), video rendering is offline post-processing (no live UI service, no streaming); engine changes (roles, board scale) are ADDITIVE \u2014 every committed match log still folds to its recorded state, and any regeneration of the determinism-gate hash is a deliberate, documented PR event, never a side effect; cooperation v1 and tempo t0 formulas are untouched this cycle"
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "Every previously committed match log still folds to its recorded final state after this cycle's engine changes; if the determinism-gate hash regenerates, the PR says so and why in its own words"
+    },
+    {
+      "id": "c13",
+      "kind": "success_signal",
+      "text": "A shared video of a seeded large-board match exists; a human evaluator assesses a match using only the replay's embedded guide and their review is recorded (the cycle-3 h15 pattern); a span-of-control report compares at least two minds on real spawned subagents; an explorer+planner match where scouting demonstrably becomes strategy \u2014 visible in the replay, checkable in the log"
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "Each success signal is verifiable by pointing at a committed artifact (video file or its checksum+provenance, the human review doc, the probe report, the match log)"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Seeded scenario generator",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "generate(seed, params) returns a valid Scenario deterministically: a test proves same seed yields a byte-identical scenario and different seeds yield structurally different boards; no runtime randomness (the engine import ban holds \u2014 seeds drive a pure PRNG-free derivation or a hash-based one)",
+        "Every match on a generated scenario records the generator seed and params in its log header, so any match is re-creatable from the log alone",
+        "Generated boards are fair by construction (symmetric spawns/objectives per team), asserted by test; hand-authored scenarios and existing presets keep working unchanged"
+      ],
+      "deps": [],
+      "covers": [
+        "c8",
+        "h8"
+      ]
+    },
+    {
+      "id": "t2",
+      "summary": "Board scale and complexity knobs",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The generator (and match new/play surfaces) accept grid size, roster size, team count, turn limit, and objective-mix parameters well beyond the current 30-turn two-scenario ceiling",
+        "A generated large-board long-turn scenario runs a full bot-vs-bot match to completion in tests (fast, coded bots) proving the engine scales; every previously committed log still folds to its recorded final state"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c9",
+        "c12"
+      ]
+    },
+    {
+      "id": "t3",
+      "summary": "Coding-reflective roles: explorer, planner, executor lattice",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Explorer has extended vision/reach and CANNOT gather or capture \u2014 such orders are rejected by engine legality, proven by tests mirroring legal.py<->resolve_turn agreement both ways",
+        "Planner's coordination function is real: it can receive explorer intel and hand instructions to teammates through the existing message/plan channels, with role stats that make it strategically necessary; scenarios can roster the new roles alongside scout/harvester/defender (migration decision from parked v4 pinned here)",
+        "Each role documents its software-work analog (explorer=reconnaissance/code-reading, planner=architect/tech-lead, executors=implementers) next to its stats; determinism-hash regeneration, if any, is a deliberate documented event in the PR"
+      ],
+      "deps": [],
+      "covers": [
+        "c11",
+        "h11",
+        "c12"
+      ]
+    },
+    {
+      "id": "t4",
+      "summary": "Replay visual overhaul: the mesmerizing pass",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The replay's visual system passes the design method's own checks: palette validated by script (CVD-safe, contrast), dark+light themes both designed (not auto-flipped), purposeful motion, no anti-pattern hits; stacked-unit fan-out and deep links keep working",
+        "The board, event feed, team panels, and score breakdown are legible at a glance and beautiful in both themes \u2014 reviewed against the design checklist in the PR, with screenshots committed"
+      ],
+      "deps": [],
+      "covers": [
+        "c6",
+        "h6"
+      ]
+    },
+    {
+      "id": "t5",
+      "summary": "Embedded assessor guide",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The replay embeds a per-scenario assessor guide: phase-by-phase explanations of what to look at and how to judge coordination quality (delegation, message content, multi-turn consequences), derived from the scenario and the log \u2014 not generic boilerplate",
+        "A human evaluator can assess a match using ONLY the replay and its guide \u2014 validated by the recorded human review task (t10), which this task enables"
+      ],
+      "deps": [
+        "t4"
+      ],
+      "covers": [
+        "c6",
+        "h6",
+        "c2"
+      ]
+    },
+    {
+      "id": "t6",
+      "summary": "Video export from the match log",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "One command renders a committed match log into a shareable video file, offline, from the log alone \u2014 no screen capture, no live session; the toolchain decision (parked v1: ffmpeg vs stdlib-only animated format) is pinned here with the runtime kept dependency-free",
+        "Reproducibility proven by test: the same log renders the same frame sequence (content-hash of frames or deterministic intermediate); the render command is recorded in each artifact's provenance"
+      ],
+      "deps": [
+        "t4"
+      ],
+      "covers": [
+        "c7",
+        "h7"
+      ]
+    },
+    {
+      "id": "t7",
+      "summary": "Span-of-control probe: delegation measured from the log",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A probe mode/report measures from the committed log alone: how many subagents a mind actually fielded, orders realized per subagent, and how command quality degrades as N grows (the parked v2 formula pinned with unit tests on synthetic logs)",
+        "Only real spawned subagents count \u2014 the probe runs through the harness (field agents), and a test proves self-reported delegation without log evidence scores zero"
+      ],
+      "deps": [],
+      "covers": [
+        "c10",
+        "h10"
+      ]
+    },
+    {
+      "id": "t8",
+      "summary": "Long-horizon memory playtest on a generated board",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A recorded match on a seeded generated large board with an extended turn limit, played by a resident mind, is committed with log+replay+report",
+        "The report assesses memory concretely: whether the mind used early-match knowledge late (e.g. returning to a resource node or threat it saw many turns earlier), cited to specific turns in the log"
+      ],
+      "deps": [
+        "t1",
+        "t2"
+      ],
+      "covers": [
+        "c9",
+        "h9",
+        "c13"
+      ]
+    },
+    {
+      "id": "t9",
+      "summary": "Span-of-control live comparison: two minds",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A committed report compares at least two minds (e.g. sonnet-orchestrator vs colleague-orchestrator) on the probe's span-of-control score, on the same seeded scenario, with every claim reconstructible from the logs"
+      ],
+      "deps": [
+        "t7"
+      ],
+      "covers": [
+        "c10",
+        "h10",
+        "c13",
+        "c2"
+      ]
+    },
+    {
+      "id": "t10",
+      "summary": "The shared-video human review",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A seeded large-board match is rendered to video and shared; the human evaluator (Ori) assesses the match using only the replay's embedded guide, and the review is recorded in docs/ (the cycle-3 h15 pattern), including whether the guide sufficed",
+        "The report quotes issue #1's own inspectability/fair-comparison language for the why (quoted, not strengthened)"
+      ],
+      "deps": [
+        "t5",
+        "t6",
+        "t8"
+      ],
+      "covers": [
+        "c13",
+        "h13",
+        "h6",
+        "c2",
+        "h2",
+        "c5",
+        "h5"
+      ]
+    },
+    {
+      "id": "t11",
+      "summary": "Compatibility sweep: every committed log still folds",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A test sweeps every committed *.log.jsonl under docs/playtests/ and asserts each still folds to its recorded final state after this cycle's engine changes",
+        "The before-state deficiencies cited in reports point at the current code/record (the pre-overhaul replay, the two hand-coded scenarios, scenario.py's turn ceiling, the unmeasured orchestrator mode)"
+      ],
+      "deps": [
+        "t1",
+        "t3"
+      ],
+      "covers": [
+        "c12",
+        "h12",
+        "c4",
+        "h4"
+      ]
+    },
+    {
+      "id": "t12",
+      "summary": "Cycle-6 closure ledger",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A committed ledger maps every announcement thread (mesmerizing replay+guide, video, seeded generation at scale, span-of-control, role lattice) to its artifact on main and names which audience each serves; no thread claimed done without one"
+      ],
+      "deps": [
+        "t8",
+        "t9",
+        "t10",
+        "t11"
+      ],
+      "covers": [
+        "c1",
+        "h1",
+        "c3",
+        "h3"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "Video toolchain (parked frame v1): ffmpeg-on-PATH vs stdlib-only animated format \u2014 pinned in t6",
+      "kind": "unknown_nonblocking",
+      "task_id": "t6"
+    },
+    {
+      "id": "r2",
+      "text": "Span-of-control formula (parked frame v2) \u2014 pinned in t7's unit tests",
+      "kind": "unknown_nonblocking",
+      "task_id": "t7"
+    },
+    {
+      "id": "r3",
+      "text": "Generator parameter space + fairness guarantees (parked frame v3) \u2014 pinned in t1",
+      "kind": "unknown_nonblocking",
+      "task_id": "t1"
+    },
+    {
+      "id": "r4",
+      "text": "Role-set migration (parked frame v4: join vs replace scout/harvester/defender) \u2014 pinned in t3",
+      "kind": "unknown_nonblocking",
+      "task_id": "t3"
+    }
+  ]
+}
