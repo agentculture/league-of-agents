@@ -94,10 +94,15 @@ Field by field:
   able to take posts — only be the 'eyes'". Its menu simply never offers
   `take_post`; see [`docs/roles.md`](roles.md) for how this splits from the
   grid lane, where scout is unchanged.)
-- **`board`** — a full-information (fogless) projection of the whole state:
-  teams, units, control points (with their concurrent `takers`), missions, and
-  resource nodes. Continuous fog is a later cycle's concern; this contract is
-  fogless by construction.
+- **`board`** — a projection of the whole state: teams, units, control points
+  (with their concurrent `takers`), missions, and resource nodes. Fogless by
+  default; with `config["fog"]` on (plan C8-t5), `units`/`control_points`/
+  `resource_nodes`/`missions` are narrowed to the acting team's union of
+  per-role vision radii (a team's own units are always kept) — filtering is
+  purely a `league/charness.py` briefing-layer projection, never an engine
+  change, so ground truth in the log and scoring are unaffected. See
+  `build_briefing`'s "continuous fog" docstring section for the exact rule
+  and `tests/test_fog.py` for the boundary/scout-lever proofs.
 - **`messages`** — the running social record: messages other seats have attached
   to their orders so far, each `{from, text, game_time}`. A mind may attach a
   message to its own order reply; the harness records it as a `message_sent`
