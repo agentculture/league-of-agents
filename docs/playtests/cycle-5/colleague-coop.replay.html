@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>League of Agents — match replay</title>
+<style>
+:root {
+  --surface: #fcfcfb; --plane: #f9f9f7; --ink: #0b0b0b; --ink-2: #52514e;
+  --muted: #898781; --grid: #e1e0d9; --line: #c3c2b7; --ring: rgba(11,11,11,.10);
+  --team-0: #2a78d6; --team-1: #e34948; --node: #1baf7a; --good: #0ca30c;
+  --bad: #d03b3b; --chip: #f0efec;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --surface: #1a1a19; --plane: #0d0d0d; --ink: #ffffff; --ink-2: #c3c2b7;
+  --muted: #898781; --grid: #2c2c2a; --line: #383835; --ring: rgba(255,255,255,.10);
+  --team-0: #3987e5; --team-1: #e66767; --node: #199e70; --good: #0ca30c;
+  --bad: #d03b3b; --chip: #262624;
+}}
+:root[data-theme="light"] {
+  --surface: #fcfcfb; --plane: #f9f9f7; --ink: #0b0b0b; --ink-2: #52514e;
+  --muted: #898781; --grid: #e1e0d9; --line: #c3c2b7; --ring: rgba(11,11,11,.10);
+  --team-0: #2a78d6; --team-1: #e34948; --node: #1baf7a; --chip: #f0efec;
+}
+:root[data-theme="dark"] {
+  --surface: #1a1a19; --plane: #0d0d0d; --ink: #ffffff; --ink-2: #c3c2b7;
+  --muted: #898781; --grid: #2c2c2a; --line: #383835; --ring: rgba(255,255,255,.10);
+  --team-0: #3987e5; --team-1: #e66767; --node: #199e70; --chip: #262624;
+}
+* { box-sizing: border-box; margin: 0; }
+body {
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--plane); color: var(--ink); padding: 20px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 16px; }
+header h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
+.chip {
+  background: var(--chip); color: var(--ink-2); border: 1px solid var(--ring);
+  border-radius: 999px; padding: 2px 10px; font-size: 12px; white-space: nowrap;
+}
+.winner-chip { color: var(--good); font-weight: 600; border-color: var(--good); }
+#theme-toggle {
+  margin-left: auto; background: var(--surface); color: var(--ink-2);
+  border: 1px solid var(--ring); border-radius: 999px; padding: 4px 12px; cursor: pointer;
+}
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+.card {
+  background: var(--surface); border: 1px solid var(--ring); border-radius: 14px;
+  padding: 14px; overflow: hidden;
+}
+.card h2 {
+  font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); margin-bottom: 10px;
+}
+#board-box { display: flex; flex-direction: column; gap: 12px; }
+#board { width: 100%; height: auto; display: block; }
+.controls { display: flex; align-items: center; gap: 8px; }
+.controls button {
+  background: var(--chip); color: var(--ink); border: 1px solid var(--ring);
+  border-radius: 8px; min-width: 34px; height: 30px; cursor: pointer; font-size: 13px;
+}
+.controls button:hover { border-color: var(--muted); }
+#turn-slider { flex: 1; accent-color: var(--team-0); }
+#turn-label { font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 86px;
+  text-align: right; }
+.right { display: flex; flex-direction: column; gap: 16px; }
+.team { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; }
+.team + .team { border-top: 1px solid var(--grid); }
+.team-head { display: flex; align-items: center; gap: 8px; }
+.swatch { width: 12px; height: 12px; border-radius: 4px; }
+.team-name { font-weight: 650; }
+.team-stats { display: flex; gap: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.team-stats b { color: var(--ink); font-weight: 650; }
+.agents { display: flex; flex-wrap: wrap; gap: 6px; }
+.agents .chip { font-size: 11px; padding: 1px 8px; }
+#feed { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.evt { display: flex; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.evt .glyph { flex: 0 0 18px; text-align: center; }
+.evt.msg { color: var(--ink); }
+.evt.msg .body {
+  background: var(--chip); border-radius: 10px; padding: 4px 10px; border: 1px solid var(--ring);
+}
+.evt.reject { color: var(--bad); }
+.evt.big { color: var(--ink); font-weight: 600; }
+.evt .who { font-weight: 600; }
+.empty { color: var(--muted); font-style: italic; }
+.score-grid { display: grid; grid-template-columns: auto repeat(2, 1fr); gap: 6px 12px;
+  font-variant-numeric: tabular-nums; }
+.score-grid .h { color: var(--muted); font-size: 12px; }
+.score-grid .num { text-align: right; }
+.score-grid .total { font-weight: 700; border-top: 1px solid var(--grid); padding-top: 6px; }
+.sig { margin-top: 4px; }
+.sig-row { display: grid; grid-template-columns: 130px 1fr 40px; gap: 8px; align-items: center;
+  margin-bottom: 6px; }
+.sig-row .lbl { color: var(--ink-2); font-size: 12px; }
+.sig-row .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2);
+  font-size: 12px; }
+.bar { height: 8px; border-radius: 4px; background: var(--chip); position: relative; }
+.bar > i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; display: block; }
+footer { margin-top: 16px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>League of Agents</h1>
+    <span class="chip" id="meta-match"></span>
+    <span class="chip" id="meta-mode"></span>
+    <span class="chip" id="meta-seed"></span>
+    <span class="chip winner-chip" id="meta-winner" hidden></span>
+    <button id="theme-toggle" type="button">theme</button>
+  </header>
+  <div class="layout">
+    <div class="card" id="board-box">
+      <svg id="board" role="img" aria-label="match board"></svg>
+      <div class="controls">
+        <button id="btn-first" title="first turn">&#171;</button>
+        <button id="btn-prev" title="previous turn">&#8249;</button>
+        <button id="btn-play" title="play/pause">&#9654;</button>
+        <button id="btn-next" title="next turn">&#8250;</button>
+        <button id="btn-last" title="last turn">&#187;</button>
+        <input type="range" id="turn-slider" min="0" value="0">
+        <span id="turn-label"></span>
+      </div>
+    </div>
+    <div class="right">
+      <div class="card"><h2>Teams</h2><div id="teams"></div></div>
+      <div class="card"><h2>Turn feed</h2><div id="feed"></div></div>
+      <div class="card"><h2>Final score</h2><div id="scores"></div></div>
+    </div>
+  </div>
+  <footer>Replay rendered from the match log — the same record agents read as JSON.
+    Arrow keys step turns; space plays.</footer>
+</div>
+<script id="match-data" type="application/json">{"events_by_turn": {"0": [{"data": {}, "kind": "match_started"}], "1": [{"data": {"team_id": "guild", "text": "Turn 0-1: u1 moves to rn-west [0,5], u2 moves toward rn-west, u3 moves toward cp-east [9,2]. Turn 2: u1 gathers at rn-west, u2 gathers. Turn 3+: u1 delivers to [6,5], u2 delivers. u3 holds cp-east for ms-outpost."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Plan: I'll head to rn-west [0,5] to gather. guild-u2 (harvester), you also move toward rn-west — your carry=3 is key for ms-supply (need 6 total). guild-u3 (defender), start moving toward cp-east [9,2] for ms-outpost hold. I'll be at rn-west by turn 2 to gather and relay."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Acknowledged. I'm moving south toward rn-west [0,5] — will be there in ~2 turns to gather (carry=3). Once I have resources, I'll head to cp-center [6,5] for ms-supply delivery. guild-u3, good luck on cp-east for ms-outpost. I'll support if needed after my first delivery run."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Acknowledged. I'm moving east toward cp-east [9,2] for ms-outpost. From [0,1] I'll head to [2,1] this turn. At move=2, I need ~5 turns to reach cp-east, then hold for 5 turns (2 to capture + 3 for the mission). I'll update my ETA once I'm closer. Good luck with rn-west gathering, guild-u1 and guild-u2!"}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [0, 3], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [1, 2], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [2, 1], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [0, 3], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [1, 2], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"to": [2, 1], "unit_id": "guild-u3"}, "kind": "unit_moved"}, {"data": {"turn": 1}, "kind": "turn_advanced"}, {"data": {"turn": 1}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 79335, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 55221, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 55845, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "10": [{"data": {"team_id": "guild", "text": "Phase 1: guild-u1 delivers at [6,5] (turn 10). guild-u2 gathers from rn-east and delivers. guild-u3 holds cp-east for 1 more turn to complete ms-outpost. Phase 2: Complete ms-supply by gathering remaining resources."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Moving to [6,5] to deliver my 1 item next turn. Team has 3 resources, will be 4 after delivery. Need 2 more for ms-supply. guild-u2 (harvester), please gather from rn-east [11,4] and bring supplies. guild-u3, keep holding cp-east [9,2] - we have 4/5 turns for ms-outpost, just need 1 more hold."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Acknowledged. Moving to [10,5] to reach rn-east [11,4] next turn. I'll gather there (carry 3) then head to [6,5] to deliver. That should give us 3+4=7 resources, completing ms-supply. guild-u3, keep holding cp-east for ms-outpost."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Confirmed. Holding cp-east [9,2] - this is turn 5 of 5 needed for ms-outpost (2 capture + 3 amount). Mission completes this turn. guild-u1, good luck with the delivery at [6,5]. guild-u2, gather at rn-east and bring it back. We'll have both ms-supply and ms-outpost completed."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [6, 5], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [10, 5], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "hold", "team_id": "guild", "to": [9, 2], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [6, 5], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [10, 5], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"cp_id": "cp-center", "team_id": "guild", "turns": 1}, "kind": "control_point_held"}, {"data": {"cp_id": "cp-east", "team_id": "guild", "turns": 5}, "kind": "control_point_held"}, {"data": {"mission_id": "ms-outpost", "team_id": "guild"}, "kind": "mission_completed"}, {"data": {"turn": 10}, "kind": "turn_advanced"}, {"data": {"turn": 10}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 86790, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 74612, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 64518, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "11": [{"data": {"team_id": "guild", "text": "Deliver mission ms-supply needs 3 more resources (have 3/6). guild-u1 delivers now, then shuttles rn-west→deliver. guild-u2 (harvester, carry 3) gathers at rn-east and delivers. guild-u3 holds cp-east [9,2] for control."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Delivering 1 resource now (team: 3→4). Need 2 more for ms-supply. guild-u2: head to rn-east [11,4], gather, then bring to [6,5]. I'll move to rn-west [0,5] next turn to gather and return."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Moving to rn-east [11,4] to gather. Will bring resources to [6,5] next turn. Good plan — we need 2 more after your delivery."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Moving to [11,2] toward rn-east. Next turn I'll gather at [11,4] and bring 1 resource to [6,5]. Between us we should get the 3 needed for ms-supply."}, "kind": "message_sent"}, {"data": {"action": "deliver", "team_id": "guild", "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [11, 4], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [11, 2], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [11, 4], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"to": [11, 2], "unit_id": "guild-u3"}, "kind": "unit_moved"}, {"data": {"amount": 1, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "resource_delivered"}, {"data": {"cp_id": "cp-center", "team_id": "guild", "turns": 2}, "kind": "control_point_held"}, {"data": {"cp_id": "cp-east", "team_id": "", "turns": 0}, "kind": "control_point_held"}, {"data": {"turn": 11}, "kind": "turn_advanced"}, {"data": {"turn": 11}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 67298, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 33037, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 65212, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "12": [{"data": {"team_id": "guild", "text": "Complete ms-supply (need 2 more resources, have 4/6). u1 (scout) gathers at rn-west, u2 (harvester) gathers at rn-east, both deliver to [6,5]. u3 (defender) holds cp-east [9,2] for control."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "I'm heading to rn-west [0,5] to gather. u2 (harvester) please gather at rn-east [11,4] and bring resources to deliver point [6,5]. We need 2 more for ms-supply. I'll move to [3,5] now, then [0,5] next turn to gather."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Gathering at rn-east [11,4] now. I'll carry 3 and head to deliver point [6,5] over next turns. Distance is 6, so I'll arrive in ~3 turns. u1, you handle rn-west and bring what you can."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Moving to rn-east [11,4] to help gather. I'll take resources to deliver point [6,5] once u2 finishes. With my carry of 1, I can chip in the last bit we need for ms-supply. u2, let me know when you're done gathering so I can take over the node."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [3, 5], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "gather", "team_id": "guild", "to": [11, 4], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [11, 4], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [3, 5], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [11, 4], "unit_id": "guild-u3"}, "kind": "unit_moved"}, {"data": {"amount": 3, "node_id": "rn-east", "unit_id": "guild-u2"}, "kind": "resource_gathered"}, {"data": {"cp_id": "cp-center", "team_id": "", "turns": 0}, "kind": "control_point_held"}, {"data": {"turn": 12}, "kind": "turn_advanced"}, {"data": {"turn": 12}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 93168, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 36073, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 109042, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "13": [{"data": {"team_id": "guild", "text": "Priority: Complete ms-supply (deliver 6 resources at [6,5]). guild-2 carries 3, so deliver those to finish. guild-1 (scout) moves to [6,5] to hold cp-center. Maintain control of cp-center and cp-east."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "guild-2: You have 3 resources. Head to [6,5] and deliver to complete ms-supply (need 2 more). I'll move to [6,5] to hold cp-center. guild-3: Help secure cp-center at [6,5] or cover cp-east at [9,2]."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Moving to [9,4] toward deliver point [6,5]. I have 3 resources - delivering will bring team to 7, completing ms-supply. ETA 2 more turns. guild-1: Good call on cp-center. guild-3: Please cover cp-east at [9,2] while I transit."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Acknowledged. Moving to [10,3] toward cp-east [9,2] — I'll reach it next turn and hold. guild-2: Your delivery of 3 will complete ms-supply (team at 7/6). I'll secure cp-east so we keep both points."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [6, 5], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [9, 4], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [10, 3], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [6, 5], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [9, 4], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"to": [10, 3], "unit_id": "guild-u3"}, "kind": "unit_moved"}, {"data": {"cp_id": "cp-center", "team_id": "guild", "turns": 1}, "kind": "control_point_held"}, {"data": {"turn": 13}, "kind": "turn_advanced"}, {"data": {"turn": 13}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 67604, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 59840, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 98423, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "14": [{"data": {"team_id": "guild", "text": "Priority 1: Complete ms-supply (need 2 more resources). guild-u2 delivers 3 at [6,5]. guild-u1 gathers from rn-west. Priority 2: Capture cp-center by holding [6,5] for 2 turns. guild-u3 can assist with cp-west."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "guild-2: please deliver your 3 at cp-center [6,5] to complete ms-supply (need 2 more, have 4). I'm heading to rn-west to gather more. guild-3: help secure cp-west [3,8] if possible."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "On it — moving to [8,5] to reach cp-center [6,5] next turn and deliver my 3. That'll complete ms-supply (4+3=7 >= 6)."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Acknowledged. cp-west [3,8] is too far for me right now (distance 12, I can only move 2). I'll move to rn-east [11,4] to gather 1 resource next turn, then work my way west toward cp-west over subsequent turns. guild-2: your delivery at cp-center should complete ms-supply. I'll bring resources to cp-center when I can."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [3, 5], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [8, 5], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [11, 4], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [3, 5], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [8, 5], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"to": [11, 4], "unit_id": "guild-u3"}, "kind": "unit_moved"}, {"data": {"cp_id": "cp-center", "team_id": "", "turns": 0}, "kind": "control_point_held"}, {"data": {"turn": 14}, "kind": "turn_advanced"}, {"data": {"turn": 14}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 73631, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 80497, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 136059, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "15": [{"data": {"team_id": "guild", "text": "Priority: complete ms-supply deliver mission (need 2 more resources). guild-u2 delivers 3 at cp-center [6,5] to finish it. guild-u1 gathers at rn-west for future turns. guild-u3 can gather at rn-east or hold cp-east."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "guild-2: you're at [8,5] with 3 cargo - move to [6,5] and deliver to complete ms-supply (need 2 more, you bring 3). I'm heading to rn-west [0,5] to gather next turn."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Confirmed. Moving to [6,5] this turn. Will deliver 3 cargo next turn to complete ms-supply (team will have 7, exceeding the 6 needed). See you at the drop."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Gathering at rn-east [11,4] (carry 1). guild-2, your delivery of 3 at [6,5] will complete ms-supply (4+3=7 >= 6). I'll move toward center next turn to support."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [0, 5], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [6, 5], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "gather", "team_id": "guild", "to": [11, 4], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [0, 5], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [6, 5], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"amount": 1, "node_id": "rn-east", "unit_id": "guild-u3"}, "kind": "resource_gathered"}, {"data": {"cp_id": "cp-center", "team_id": "guild", "turns": 1}, "kind": "control_point_held"}, {"data": {"turn": 15}, "kind": "turn_advanced"}, {"data": {"turn": 15}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 65293, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 45562, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 41915, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "16": [{"data": {"team_id": "guild", "text": "Finish ms-supply (deliver 6): u2 delivers 3 at cp-center now, u3 moves to deliver 1, u1 gathers rn-west then shuttles. Team has 4, need 2 more."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "g1: Gathering at rn-west (1 resource). u2: you're at cp-center with 3 — please deliver to complete ms-supply (need 2 more, have 4). u3: bring your 1 to cp-center too. I'll move toward [6,5] next turn with my gather."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "g2: Delivering 3 resources at cp-center. This should complete ms-supply (4+3=7 >= 6). u1: keep gathering at rn-west. u3: bring your 1 to cp-center to help if needed."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "g3: Moving to [9,4] toward cp-center with my 1 resource. u2: your 3 should complete ms-supply (4+3=7 >= 6). I'll be at [6,5] in 2 more turns with my 1. u1: keep gathering at rn-west."}, "kind": "message_sent"}, {"data": {"action": "gather", "team_id": "guild", "to": [0, 5], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "deliver", "team_id": "guild", "to": [6, 5], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [9, 4], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [9, 4], "unit_id": "guild-u3"}, "kind": "unit_moved"}, {"data": {"amount": 1, "node_id": "rn-west", "unit_id": "guild-u1"}, "kind": "resource_gathered"}, {"data": {"amount": 3, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "resource_delivered"}, {"data": {"cp_id": "cp-center", "team_id": "guild", "turns": 2}, "kind": "control_point_held"}, {"data": {"mission_id": "ms-supply", "team_id": "guild"}, "kind": "mission_completed"}, {"data": {"turn": 16}, "kind": "turn_advanced"}, {"data": {"winner": "guild"}, "kind": "match_finished"}, {"data": {"turn": 16}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 57155, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 29137, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 50430, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "2": [{"data": {"team_id": "guild", "text": "Scout->cp-east hold; Harvester->rn-west gather->deliver ms-supply; Defender->secure cp-center"}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Plan: I (scout) head east to cp-east [9,2] for the hold mission. guild-u2 (harvester), gather from rn-west [0,5] and deliver to [6,5] for ms-supply. guild-u3 (defender), secure cp-center [6,5] or assist. I'll be at [9,2] by turn ~4."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Confirmed. I'll move to [0,3] this turn, then gather at rn-west [0,5] next turn. I'll carry 3 and deliver to [6,5] for ms-supply. Let me know if you need help with cp-center."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Confirmed. I'll move to [4,1] heading toward cp-center [6,5] to secure it. I'll be there by turn ~3 and can hold it can hold it for the team. guild-1, you have cp-east covered for the hold mission. guild-2, keep the supply chain going."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [3, 3], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [0, 3], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [4, 1], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [3, 3], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [0, 3], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"to": [4, 1], "unit_id": "guild-u3"}, "kind": "unit_moved"}, {"data": {"turn": 2}, "kind": "turn_advanced"}, {"data": {"turn": 2}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 65951, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 63408, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 72558, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "3": [{"data": {"team_id": "guild", "text": "Scout (u1) -> cp-east hold mission. Harvester (u2) -> rn-west gather -> deliver to cp-center. Defender (u3) -> support as needed."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Plan: I (scout) will head to cp-east [9,2] for the hold mission. guild-u2 (harvester), please gather at rn-west [0,5] and deliver to [6,5] for the supply mission. guild-u3 (defender), you can support either — ideally help secure cp-east or assist with deliveries. I'll move toward [9,2] this turn."}, "kind": "message_sent"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Timeline: I reach cp-east by turn 4, hold turns 5-7 for the outpost mission. Harvester should start gathering rn-west ASAP."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Acknowledged. I'll move to rn-west [0,5] this turn, gather next turn, then head to [6,5] to deliver. Timeline: gather turn 3, arrive at deliver point turn 6. I'll need 2 trips (3 each) for the 6 supply mission. Suggest guild-u3 (defender) heads to cp-east [9,2] to support guild-u1 on the hold mission — we need 2 consecutive turns there."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Note: My move speed is 2 so deliveries will be slow. If guild-u1 finishes the hold mission early, could help with faster resource runs (scout move=3)."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Acknowledged. I'll move toward cp-east [9,2] to support the hold mission. Moving to [6,1] this turn, then [8,1] next turn, arriving at [9,2] by turn 4. I'll hold with guild-u1 to secure the outpost — we need 5 consecutive turns there (2 to capture + 3 for the mission). guild-u2, keep up the supply deliveries; I'll check back if the hold mission completes early."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [6, 3], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [0, 5], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [6, 1], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [6, 3], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [0, 5], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"to": [6, 1], "unit_id": "guild-u3"}, "kind": "unit_moved"}, {"data": {"turn": 3}, "kind": "turn_advanced"}, {"data": {"turn": 3}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 109212, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 77501, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 228507, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "4": [{"data": {"team_id": "guild", "text": "Scout (guild-u1): Hold cp-east [9,2] for 3 turns to complete ms-outpost. Harvester (guild-u2): Gather at rn-west [0,5], carry 3, deliver to cp-center [6,5]. Repeat for ms-supply (need 6 total). Defender (guild-u3): Support by holding cp-center or assisting supply chain."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Plan: I'm moving to cp-east [9,2] to start the hold mission (ms-outpost, 3 turns). guild-2 (harvester), gather at rn-west [0,5] and bring resources to cp-center [6,5] for ms-supply. guild-3 (defender), help secure cp-center or assist with supply relay. I'll hold cp-east for 3 turns to complete ms-outpost."}, "kind": "message_sent"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Turn 3: Moving to [9,2] to begin holding cp-east. This is turn 1 of 3 for the hold mission."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Turn 3: Gathering at rn-west [0,5]. I'll fill my carry (3) and head to cp-center [6,5] to deliver for ms-supply. guild-1, good call on cp-east hold. guild-3, can you position near cp-center to help secure it when I arrive?"}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Turn 3: Moving to [6,3] to position near cp-center [6,5]. I'll be there in 1 more turn to help secure it when guild-2 arrives with supplies. guild-1, good luck holding cp-east. guild-2, let me know when you're close to delivering so I can be at cp-center to support."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [9, 2], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "gather", "team_id": "guild", "to": [0, 5], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [6, 3], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"reason": "target beyond this role's move range", "team_id": "guild", "unit_id": "guild-u1"}, "kind": "action_rejected"}, {"data": {"to": [6, 3], "unit_id": "guild-u3"}, "kind": "unit_moved"}, {"data": {"amount": 3, "node_id": "rn-west", "unit_id": "guild-u2"}, "kind": "resource_gathered"}, {"data": {"turn": 4}, "kind": "turn_advanced"}, {"data": {"turn": 4}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 91644, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 41090, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 115436, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "5": [{"data": {"team_id": "guild", "text": "Priority 1: Complete ms-supply (deliver 6 to [6,5]). Harvester delivers 3 now, then gathers more. Priority 2: Hold cp-east [9,2] for ms-outpost. Scout holds cp-center [6,5] for now, then rotates to cp-east once deliver is progressing."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Moving to [6,5] to hold cp-center and cover the deliver point. Harvester, bring your 3 resources here when you can. I'll start the hold streak on cp-center."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "On it. I have 3 resources and am heading east to [6,5] to deliver. Should arrive in 2 more turns. Defender, can you start holding cp-east [9,2] for the outpost mission?"}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "On it. Moving to [7,2] toward cp-east [9,2]. I'll be there next turn to start the hold streak for ms-outpost. Scout, you've got cp-center covered. Harvester, deliver when you arrive and I'll lock down the east."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [6, 5], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [2, 5], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [7, 2], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [6, 5], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [2, 5], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"to": [7, 2], "unit_id": "guild-u3"}, "kind": "unit_moved"}, {"data": {"cp_id": "cp-center", "team_id": "guild", "turns": 1}, "kind": "control_point_held"}, {"data": {"turn": 5}, "kind": "turn_advanced"}, {"data": {"turn": 5}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 82230, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 40419, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 77391, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "6": [{"data": {"team_id": "guild", "text": "Turn 5+: guild-u1 (scout) → [8,4] → [9,2] to start hold mission at cp-east. guild-u2 (harvester, carrying 3) → [6,5] to deliver. guild-u3 (defender) → [9,2] to begin hold streak. If hold mission needs reinforcement, I'll gather from rn-east and deliver to [6,5] for ms-supply."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Plan: I'm moving toward cp-east [9,2] for the hold mission (ms-outpost). guild-u2, you're carrying 3 — head to [6,5] to deliver for ms-supply. guild-u3, please move to [9,2] to start the hold streak. I'll arrive at [9,2] in 2 turns to reinforce."}, "kind": "message_sent"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Priority: complete ms-outpost (hold cp-east 3 turns) and ms-supply (deliver 6 resources). I'll gather from rn-east if needed after securing the hold."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Acknowledged. I'm at [2,5] carrying 3 — moving to [4,5] this turn, then [6,5] next turn to deliver for ms-supply. That gets 3/6 delivered. After dropping off, I'll head to rn-west [0,5] to gather another 3 and bring them back. guild-u3, please hold [9,2] for ms-outpost — guild-u1 will reinforce you there."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Acknowledged. Moving to [9,2] (cp-east) this turn to begin the hold streak for ms-outpost. I'll hold position there — guild-u1, reinforce when you arrive. guild-u2, good luck with the delivery at [6,5]."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [8, 4], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [4, 5], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [9, 2], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [8, 4], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [4, 5], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"to": [9, 2], "unit_id": "guild-u3"}, "kind": "unit_moved"}, {"data": {"cp_id": "cp-center", "team_id": "", "turns": 0}, "kind": "control_point_held"}, {"data": {"cp_id": "cp-east", "team_id": "guild", "turns": 1}, "kind": "control_point_held"}, {"data": {"turn": 6}, "kind": "turn_advanced"}, {"data": {"turn": 6}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 142892, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 42888, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 58815, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "7": [{"data": {"team_id": "guild", "text": "Phase 1: guild-2 delivers 3 at cp-center; I gather at rn-east [11,4] then deliver. Phase 2: guild-3 holds cp-east for 2 more turns to complete ms-outpost. Repeat gather-deliver until ms-supply (6 resources) is met."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "guild-2: deliver your 3 resources at cp-center [6,5] this turn. guild-3: hold cp-east [9,2] — need 2 more turns for the hold mission."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Moving to [6,5] to deliver my 3 resources next turn. guild-1: can you gather from rn-east [11,4] and bring 3 more to cp-center? We need 6 total for ms-supply. guild-3: keep holding cp-east [9,2] — we're at 1/3 turns for ms-outpost."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Holding cp-east [9,2] — that's turn 2/3 for ms-outpost. guild-1: head to rn-east [11,4] and gather, then bring resources to cp-center [6,5]. We need 3 more for ms-supply. I'll keep cp-east secured."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [11, 4], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [6, 5], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "hold", "team_id": "guild", "to": [9, 2], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [11, 4], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [6, 5], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"cp_id": "cp-center", "team_id": "guild", "turns": 1}, "kind": "control_point_held"}, {"data": {"cp_id": "cp-east", "team_id": "guild", "turns": 2}, "kind": "control_point_held"}, {"data": {"cp_id": "cp-east", "team_id": "guild"}, "kind": "control_point_captured"}, {"data": {"cp_id": "cp-east", "team_id": "guild", "turns": 2}, "kind": "control_point_held"}, {"data": {"turn": 7}, "kind": "turn_advanced"}, {"data": {"turn": 7}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 73240, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 54214, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 41856, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "8": [{"data": {"team_id": "guild", "text": "Turn 7: u1 gather rn-east, u2 deliver at [6,5], u3 hold [9,2]. Next turns: u1 moves to [6,5] to deliver, u2 gathers more, u3 continues hold until ms-outpost done."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "Plan: u2 deliver 3 at cp-center [6,5] to complete capture. u3 hold [9,2] one more turn to finish ms-outpost (2/3). I'm gathering rn-east, then will march to [6,5] to deliver. We need 6 total for ms-supply - u2's 3 + my 1 + need 2 more from u2."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Delivering 3 at cp-center [6,5] now. Team resources go to 3/6 for ms-supply. u1, after you gather rn-east, bring 1 to [6,5] to deliver. Then I'll head to rn-west [0,5] to gather more - need 2 more resources total. u3, hold [9,2] to complete ms-outpost (2/3 -> 3/3)."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Holding [9,2] to complete ms-outpost (2/3 -> 3/3). This secures the 8pt reward. u2, after your deliver at [6,5], head to rn-west for more resources. u1, bring what you gather to [6,5] for delivery. We need 3 more resources for ms-supply (currently 0/6)."}, "kind": "message_sent"}, {"data": {"action": "gather", "team_id": "guild", "to": [11, 4], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "deliver", "team_id": "guild", "to": [6, 5], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "hold", "team_id": "guild", "to": [9, 2], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"amount": 1, "node_id": "rn-east", "unit_id": "guild-u1"}, "kind": "resource_gathered"}, {"data": {"amount": 3, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "resource_delivered"}, {"data": {"cp_id": "cp-center", "team_id": "guild", "turns": 2}, "kind": "control_point_held"}, {"data": {"cp_id": "cp-center", "team_id": "guild"}, "kind": "control_point_captured"}, {"data": {"cp_id": "cp-center", "team_id": "guild", "turns": 2}, "kind": "control_point_held"}, {"data": {"cp_id": "cp-east", "team_id": "guild", "turns": 3}, "kind": "control_point_held"}, {"data": {"turn": 8}, "kind": "turn_advanced"}, {"data": {"turn": 8}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 76273, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 102431, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 41115, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}], "9": [{"data": {"team_id": "guild", "text": "Priority 1: Complete ms-supply (need 3 more resources at [6,5]). Priority 2: Complete ms-outpost (hold cp-east 2 more turns). guild-u1 delivers 1 now, then returns to gather. guild-u2 (harvester, carry 3) should gather and deliver. guild-u3 holds cp-east."}, "kind": "plan_declared"}, {"data": {"from": "guild-1", "team_id": "guild", "text": "I'm carrying 1 resource, heading to deliver at [6,5]. Will arrive next turn. guild-2: please gather from rn-east [11,4] or rn-west [0,5] and bring to deliver point. guild-3: keep holding cp-east [9,2] for ms-outpost (need 2 more turns of hold)."}, "kind": "message_sent"}, {"data": {"from": "guild-2", "team_id": "guild", "text": "Moving toward rn-east [11,4] to gather. Will need 3 turns to reach it (6 distance / 2 move). guild-1: good, deliver your 1 when you arrive. guild-3: keep holding cp-east for ms-outpost. I'll bring resources to deliver point once gathered."}, "kind": "message_sent"}, {"data": {"from": "guild-3", "team_id": "guild", "text": "Holding cp-east [9,2] for ms-outpost. Current streak is 3 turns, need 5 total (2+3). This hold brings it to 4. One more turn after this completes the mission. guild-1: deliver your 1 at [6,5] when you arrive. guild-2: keep gathering and bringing resources for ms-supply (need 6 total, have 3)."}, "kind": "message_sent"}, {"data": {"action": "move", "team_id": "guild", "to": [9, 5], "unit_id": "guild-u1"}, "kind": "action_declared"}, {"data": {"action": "move", "team_id": "guild", "to": [8, 5], "unit_id": "guild-u2"}, "kind": "action_declared"}, {"data": {"action": "hold", "team_id": "guild", "to": [9, 2], "unit_id": "guild-u3"}, "kind": "action_declared"}, {"data": {"to": [9, 5], "unit_id": "guild-u1"}, "kind": "unit_moved"}, {"data": {"to": [8, 5], "unit_id": "guild-u2"}, "kind": "unit_moved"}, {"data": {"cp_id": "cp-center", "team_id": "", "turns": 0}, "kind": "control_point_held"}, {"data": {"cp_id": "cp-east", "team_id": "guild", "turns": 4}, "kind": "control_point_held"}, {"data": {"turn": 9}, "kind": "turn_advanced"}, {"data": {"turn": 9}, "kind": "turn_resolved"}, {"data": {"agent_id": "guild-1", "elapsed_ms": 82194, "team_id": "guild", "unit_id": "guild-u1"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-2", "elapsed_ms": 189137, "team_id": "guild", "unit_id": "guild-u2"}, "kind": "seat_latency"}, {"data": {"agent_id": "guild-3", "elapsed_ms": 43366, "team_id": "guild", "unit_id": "guild-u3"}, "kind": "seat_latency"}]}, "frames": [{"control_points": [{"hold": [], "id": "cp-center", "owner": null, "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": null, "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": [], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "open"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 12}, {"id": "rn-east", "pos": [11, 4], "remaining": 12}], "status": "pending", "teams": [{"id": "guild", "resources": 0}], "turn": 0, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [0, 0], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 0, "id": "guild-u2", "pos": [1, 0], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [0, 1], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [], "id": "cp-center", "owner": null, "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": null, "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": [], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "open"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 12}, {"id": "rn-east", "pos": [11, 4], "remaining": 12}], "status": "active", "teams": [{"id": "guild", "resources": 0}], "turn": 0, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [0, 0], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 0, "id": "guild-u2", "pos": [1, 0], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [0, 1], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [], "id": "cp-center", "owner": null, "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": null, "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": [], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "open"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 12}, {"id": "rn-east", "pos": [11, 4], "remaining": 12}], "status": "active", "teams": [{"id": "guild", "resources": 0}], "turn": 1, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [0, 3], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 0, "id": "guild-u2", "pos": [1, 2], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [2, 1], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [], "id": "cp-center", "owner": null, "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": null, "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": [], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "open"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 12}, {"id": "rn-east", "pos": [11, 4], "remaining": 12}], "status": "active", "teams": [{"id": "guild", "resources": 0}], "turn": 2, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [3, 3], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 0, "id": "guild-u2", "pos": [0, 3], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [4, 1], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [], "id": "cp-center", "owner": null, "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": null, "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": [], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "open"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 12}, {"id": "rn-east", "pos": [11, 4], "remaining": 12}], "status": "active", "teams": [{"id": "guild", "resources": 0}], "turn": 3, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [6, 3], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 0, "id": "guild-u2", "pos": [0, 5], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [6, 1], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [], "id": "cp-center", "owner": null, "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": null, "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": [], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "open"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 12}], "status": "active", "teams": [{"id": "guild", "resources": 0}], "turn": 4, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [6, 3], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 3, "id": "guild-u2", "pos": [0, 5], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [6, 3], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [["guild", 1]], "id": "cp-center", "owner": null, "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": null, "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": [], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "open"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 12}], "status": "active", "teams": [{"id": "guild", "resources": 0}], "turn": 5, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [6, 5], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 3, "id": "guild-u2", "pos": [2, 5], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [7, 2], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [], "id": "cp-center", "owner": null, "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [["guild", 1]], "id": "cp-east", "owner": null, "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": [], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "open"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 12}], "status": "active", "teams": [{"id": "guild", "resources": 0}], "turn": 6, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [8, 4], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 3, "id": "guild-u2", "pos": [4, 5], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [9, 2], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [["guild", 1]], "id": "cp-center", "owner": null, "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [["guild", 2]], "id": "cp-east", "owner": "guild", "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": [], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "open"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 12}], "status": "active", "teams": [{"id": "guild", "resources": 0}], "turn": 7, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [11, 4], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 3, "id": "guild-u2", "pos": [6, 5], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [9, 2], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [["guild", 2]], "id": "cp-center", "owner": "guild", "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [["guild", 3]], "id": "cp-east", "owner": "guild", "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": [], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "open"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 11}], "status": "active", "teams": [{"id": "guild", "resources": 3}], "turn": 8, "units": [{"agent": "guild-1", "alive": true, "carrying": 1, "id": "guild-u1", "pos": [11, 4], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 0, "id": "guild-u2", "pos": [6, 5], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [9, 2], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [], "id": "cp-center", "owner": "guild", "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [["guild", 4]], "id": "cp-east", "owner": "guild", "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": [], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "open"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 11}], "status": "active", "teams": [{"id": "guild", "resources": 3}], "turn": 9, "units": [{"agent": "guild-1", "alive": true, "carrying": 1, "id": "guild-u1", "pos": [9, 5], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 0, "id": "guild-u2", "pos": [8, 5], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [9, 2], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [["guild", 1]], "id": "cp-center", "owner": "guild", "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [["guild", 5]], "id": "cp-east", "owner": "guild", "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": ["guild"], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "completed"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 11}], "status": "active", "teams": [{"id": "guild", "resources": 3}], "turn": 10, "units": [{"agent": "guild-1", "alive": true, "carrying": 1, "id": "guild-u1", "pos": [6, 5], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 0, "id": "guild-u2", "pos": [10, 5], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [9, 2], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [["guild", 2]], "id": "cp-center", "owner": "guild", "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": "guild", "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": ["guild"], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "completed"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 11}], "status": "active", "teams": [{"id": "guild", "resources": 4}], "turn": 11, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [6, 5], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 0, "id": "guild-u2", "pos": [11, 4], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [11, 2], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [], "id": "cp-center", "owner": "guild", "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": "guild", "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": ["guild"], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "completed"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 8}], "status": "active", "teams": [{"id": "guild", "resources": 4}], "turn": 12, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [3, 5], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 3, "id": "guild-u2", "pos": [11, 4], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [11, 4], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [["guild", 1]], "id": "cp-center", "owner": "guild", "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": "guild", "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": ["guild"], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "completed"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 8}], "status": "active", "teams": [{"id": "guild", "resources": 4}], "turn": 13, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [6, 5], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 3, "id": "guild-u2", "pos": [9, 4], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [10, 3], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [], "id": "cp-center", "owner": "guild", "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": "guild", "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": ["guild"], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "completed"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 8}], "status": "active", "teams": [{"id": "guild", "resources": 4}], "turn": 14, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [3, 5], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 3, "id": "guild-u2", "pos": [8, 5], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 0, "id": "guild-u3", "pos": [11, 4], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [["guild", 1]], "id": "cp-center", "owner": "guild", "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": "guild", "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": [], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "open"}, {"amount": 3, "completed_by": ["guild"], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "completed"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 9}, {"id": "rn-east", "pos": [11, 4], "remaining": 7}], "status": "active", "teams": [{"id": "guild", "resources": 4}], "turn": 15, "units": [{"agent": "guild-1", "alive": true, "carrying": 0, "id": "guild-u1", "pos": [0, 5], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 3, "id": "guild-u2", "pos": [6, 5], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 1, "id": "guild-u3", "pos": [11, 4], "role": "defender", "team": "guild"}], "winner": null}, {"control_points": [{"hold": [["guild", 2]], "id": "cp-center", "owner": "guild", "pos": [6, 5]}, {"hold": [], "id": "cp-west", "owner": null, "pos": [3, 8]}, {"hold": [], "id": "cp-east", "owner": "guild", "pos": [9, 2]}], "missions": [{"amount": 6, "completed_by": ["guild"], "id": "ms-supply", "kind": "deliver", "pos": [6, 5], "reward": 10, "status": "completed"}, {"amount": 3, "completed_by": ["guild"], "id": "ms-outpost", "kind": "hold", "pos": [9, 2], "reward": 8, "status": "completed"}], "resource_nodes": [{"id": "rn-west", "pos": [0, 5], "remaining": 8}, {"id": "rn-east", "pos": [11, 4], "remaining": 7}], "status": "finished", "teams": [{"id": "guild", "resources": 7}], "turn": 16, "units": [{"agent": "guild-1", "alive": true, "carrying": 1, "id": "guild-u1", "pos": [0, 5], "role": "scout", "team": "guild"}, {"agent": "guild-2", "alive": true, "carrying": 0, "id": "guild-u2", "pos": [6, 5], "role": "harvester", "team": "guild"}, {"agent": "guild-3", "alive": true, "carrying": 1, "id": "guild-u3", "pos": [9, 4], "role": "defender", "team": "guild"}], "winner": "guild"}], "grid": {"height": 10, "width": 12}, "match_id": "m-colleague-coop", "mode": "cooperative", "scenario_id": "skirmish-1", "scores": {"cooperation": {"guild": {"score": 99, "signals": {"communication": 1.0, "delegation_spread": 1.0, "discipline": 0.9792, "plan_coherence": 1.0}}}, "match_id": "m-colleague-coop", "mode": "cooperative", "outcome": {"guild": {"control": 4, "missions": 18, "resources": 7, "total": 29}}, "scenario_id": "skirmish-1", "turns_played": 16, "winner": "guild"}, "seed": 20260710, "teams": [{"agents": [{"id": "guild-1", "model": "colleague-agent/qwen3.6-27b", "role": "scout"}, {"id": "guild-2", "model": "colleague-agent/qwen3.6-27b", "role": "harvester"}, {"id": "guild-3", "model": "colleague-agent/qwen3.6-27b", "role": "defender"}], "id": "guild", "name": "Colleague Guild"}], "turn_limit": 30}</script>
+<script>
+const M = JSON.parse(document.getElementById('match-data').textContent);
+const CELL = 44, PAD = 10;
+const teamIndex = {}; M.teams.forEach((t, i) => teamIndex[t.id] = i);
+const teamColor = id => `var(--team-${teamIndex[id] ?? 0})`;
+const GLYPH = { scout: 'S', harvester: 'H', defender: 'D', striker: 'K', support: 'U' };
+// Deterministic fan-out for units sharing a cell — nothing may ever be occluded.
+const STACK_OFFSETS = [
+  [[0, 0]],
+  [[-9, 0], [9, 0]],
+  [[0, -9], [-9, 8], [9, 8]],
+  [[-9, -9], [9, -9], [-9, 9], [9, 9]],
+];
+let frame = 0, playing = null;
+
+const $ = id => document.getElementById(id);
+$('meta-match').textContent = `${M.match_id} · ${M.scenario_id}`;
+$('meta-mode').textContent = M.mode;
+$('meta-seed').textContent = `seed ${M.seed}`;
+
+function svgEl(tag, attrs, text) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  if (text != null) el.textContent = text;
+  return el;
+}
+const cx = x => PAD + x * CELL + CELL / 2;
+const cy = y => PAD + y * CELL + CELL / 2;
+
+function drawBoard() {
+  const svg = $('board');
+  const w = M.grid.width * CELL + PAD * 2, h = M.grid.height * CELL + PAD * 2;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.innerHTML = '';
+  const f = M.frames[frame];
+  for (let x = 0; x <= M.grid.width; x++)
+    svg.appendChild(svgEl('line', { x1: PAD + x * CELL, y1: PAD, x2: PAD + x * CELL,
+      y2: h - PAD, stroke: 'var(--grid)', 'stroke-width': 1 }));
+  for (let y = 0; y <= M.grid.height; y++)
+    svg.appendChild(svgEl('line', { x1: PAD, y1: PAD + y * CELL, x2: w - PAD,
+      y2: PAD + y * CELL, stroke: 'var(--grid)', 'stroke-width': 1 }));
+  for (const n of f.resource_nodes) {
+    const g = svgEl('g', { transform: `translate(${cx(n.pos[0])},${cy(n.pos[1])})` });
+    g.appendChild(svgEl('rect', { x: -11, y: -11, width: 22, height: 22, rx: 6,
+      transform: 'rotate(45)', fill: 'var(--node)', opacity: n.remaining ? 0.92 : 0.25 }));
+    g.appendChild(svgEl('text', { y: 4, 'text-anchor': 'middle', 'font-size': 11,
+      'font-weight': 700, fill: '#fff' }, n.remaining));
+    svg.appendChild(g);
+  }
+  for (const m of f.missions) {
+    const done = m.status === 'completed' && m.completed_by.length > 0;
+    // Dual-award dead-heats list every winner; a shared win wears the
+    // neutral ink so neither team's color claims it.
+    const col = !done ? 'var(--muted)'
+      : m.completed_by.length === 1 ? teamColor(m.completed_by[0]) : 'var(--ink-2)';
+    if (m.kind === 'deliver') {
+      svg.appendChild(svgEl('circle', { cx: cx(m.pos[0]), cy: cy(m.pos[1]), r: 17,
+        fill: 'none', stroke: col,
+        'stroke-dasharray': '3 3', 'stroke-width': done ? 2 : 1 }));
+    }
+    svg.appendChild(svgEl('text', { x: cx(m.pos[0]), y: cy(m.pos[1]) + 28,
+      'text-anchor': 'middle', 'font-size': 9, fill: col },
+      done ? `${m.id} → ${m.completed_by.join(' + ')}` : `${m.id}: ${m.kind} ${m.amount}`));
+  }
+  for (const c of f.control_points) {
+    const owned = c.owner != null;
+    svg.appendChild(svgEl('circle', { cx: cx(c.pos[0]), cy: cy(c.pos[1]), r: 14,
+      fill: owned ? teamColor(c.owner) : 'var(--surface)',
+      'fill-opacity': owned ? 0.25 : 1,
+      stroke: owned ? teamColor(c.owner) : 'var(--line)', 'stroke-width': 2.5 }));
+    svg.appendChild(svgEl('text', { x: cx(c.pos[0]), y: cy(c.pos[1]) - 18,
+      'text-anchor': 'middle', 'font-size': 9, fill: 'var(--muted)' }, c.id));
+    if (c.hold.length) svg.appendChild(svgEl('text', { x: cx(c.pos[0]),
+      y: cy(c.pos[1]) + 4, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700,
+      fill: 'var(--ink-2)' }, c.hold[0][1]));
+  }
+  const byCell = new Map();
+  for (const u of f.units) {
+    if (!u.alive) continue;
+    const key = u.pos.join(',');
+    if (!byCell.has(key)) byCell.set(key, []);
+    byCell.get(key).push(u);
+  }
+  for (const stack of byCell.values()) {
+    const n = stack.length;
+    // Predefined aesthetic patterns cover 1-4; beyond that, place units evenly
+    // on a circle so no two ever land on the same offset (nothing is occluded
+    // no matter how many units share a cell — e.g. the deliver square doubling
+    // as a control point can stack a full 6-unit match there).
+    const offs = n <= STACK_OFFSETS.length ? STACK_OFFSETS[n - 1] : Array.from(
+      { length: n },
+      (_, i) => {
+        const angle = (2 * Math.PI * i) / n - Math.PI / 2;
+        return [Math.round(13 * Math.cos(angle)), Math.round(13 * Math.sin(angle))];
+      },
+    );
+    stack.forEach((u, i) => {
+      const [dx, dy] = offs[i];
+      const r = stack.length > 1 ? 9 : 12;
+      const g = svgEl('g',
+        { transform: `translate(${cx(u.pos[0]) + dx},${cy(u.pos[1]) + dy})` });
+      g.appendChild(svgEl('circle', { r, fill: teamColor(u.team),
+        stroke: 'var(--surface)', 'stroke-width': 2 }));
+      g.appendChild(svgEl('text', { y: r > 9 ? 4 : 3, 'text-anchor': 'middle',
+        'font-size': r > 9 ? 11 : 9, 'font-weight': 700, fill: '#fff' },
+        GLYPH[u.role] || u.role[0].toUpperCase()));
+      if (u.carrying > 0) {
+        const bx = r - 2, by = 2 - r;
+        g.appendChild(svgEl('circle', { cx: bx, cy: by, r: 6, fill: 'var(--node)',
+          stroke: 'var(--surface)', 'stroke-width': 1.5 }));
+        g.appendChild(svgEl('text', { x: bx, y: by + 3, 'text-anchor': 'middle',
+          'font-size': 8, 'font-weight': 700, fill: '#fff' }, u.carrying));
+      }
+      g.appendChild(svgEl('title', {}, `${u.id} (${u.role}, ${u.agent})`));
+      svg.appendChild(g);
+    });
+  }
+}
+
+function drawTeams() {
+  const f = M.frames[frame];
+  $('teams').innerHTML = M.teams.map(t => {
+    const res = f.teams.find(x => x.id === t.id).resources;
+    const done = f.missions.filter(m => m.completed_by.includes(t.id)).length;
+    return `<div class="team">
+      <div class="team-head"><span class="swatch" style="background:${teamColor(t.id)}"></span>
+        <span class="team-name">${esc(t.name)}</span></div>
+      <div class="team-stats"><span>resources <b>${esc(res)}</b></span>
+        <span>missions <b>${esc(done)}</b></span></div>
+      <div class="agents">${t.agents.map(a =>
+        `<span class="chip">${GLYPH[a.role] || '?'} ${esc(a.id)} · ${esc(a.model)}</span>`)
+        .join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+const FEED = {
+  match_started: () => ['&#9873;', 'big', 'match started'],
+  plan_declared: d => ['&#128220;', 'msg', `<span class="who">${esc(d.team_id)}</span>
+    <span class="body">plan: ${esc(d.text)}</span>`],
+  message_sent: d => ['&#128172;', 'msg', `<span class="who">${esc(d.from)}</span>
+    <span class="body">${esc(d.text)}</span>`],
+  action_declared: d => ['&#9998;', '', `${esc(d.unit_id)} declares ${esc(d.action)}${d.to ?
+    ' to ' + esc(d.to.join(',')) : ''}`],
+  action_rejected: d => ['&#10060;', 'reject',
+    `${esc(d.unit_id ?? '?')} rejected — ${esc(d.reason)}`],
+  unit_moved: d => ['&#8599;', '', `${esc(d.unit_id)} moves to ${esc(d.to.join(','))}`],
+  resource_gathered: d => ['&#9935;', '',
+    `${esc(d.unit_id)} gathers ${esc(d.amount)} from ${esc(d.node_id)}`],
+  resource_delivered: d => ['&#128230;', '', `${esc(d.unit_id)} delivers ${esc(d.amount)}`],
+  control_point_captured: d => ['&#127988;', 'big', `${esc(d.team_id)} captures ${esc(d.cp_id)}`],
+  control_point_held: d => d.turns ? ['&#9200;', '', `${esc(d.team_id)} holds ${esc(d.cp_id)}
+    (${esc(d.turns)})`] : null,
+  unit_defeated: d => ['&#128128;', 'big', `${esc(d.unit_id)} is down`],
+  mission_completed: d => ['&#127942;', 'big',
+    `${esc(d.team_id)} completes ${esc(d.mission_id)}`],
+  match_finished: d => ['&#127937;', 'big', d.winner ? `match over — ${esc(d.winner)} wins`
+    : 'match over'],
+  turn_advanced: () => null, turn_resolved: () => null,
+};
+function esc(s) { const d = document.createElement('i'); d.textContent = String(s);
+  return d.innerHTML; }
+
+function drawFeed() {
+  const f = M.frames[frame];
+  const evts = frame === 0 ? [] : (M.events_by_turn[String(f.turn)] || []);
+  const rows = evts.map(e => FEED[e.kind] ? FEED[e.kind](e.data) : null).filter(Boolean)
+    .map(([g, cls, html]) => `<div class="evt ${cls}"><span class="glyph">${g}</span>
+      <span>${html}</span></div>`);
+  $('feed').innerHTML = rows.length ? rows.join('')
+    : '<div class="empty">nothing happened this turn</div>';
+}
+
+function drawScores() {
+  const S = M.scores, box = $('scores');
+  const head = `<div class="score-grid"><span class="h"></span>` + M.teams.map(t =>
+    `<span class="h num" style="color:${teamColor(t.id)};font-weight:700">${esc(t.name)}</span>`)
+    .join('') + rows() + `</div>` + sigs();
+  function rows() {
+    const parts = ['missions', 'control', 'resources'];
+    let out = parts.map(p => `<span class="h">${p}</span>` + M.teams.map(t =>
+      `<span class="num">${S.outcome[t.id][p]}</span>`).join('')).join('');
+    out += `<span class="total">outcome</span>` + M.teams.map(t =>
+      `<span class="num total">${S.outcome[t.id].total}</span>`).join('');
+    out += `<span class="total">cooperation</span>` + M.teams.map(t =>
+      `<span class="num total">${S.cooperation[t.id].score}</span>`).join('');
+    return out;
+  }
+  function sigs() {
+    return `<div class="sig">` + M.teams.map(t => {
+      const sig = S.cooperation[t.id].signals;
+      return Object.entries(sig).map(([k, v]) => `<div class="sig-row">
+        <span class="lbl">${esc(t.id)} · ${esc(k.replace(/_/g, ' '))}</span>
+        <span class="bar"><i style="width:${Math.round(v * 100)}%;
+          background:${teamColor(t.id)}"></i></span>
+        <span class="val">${v.toFixed(2)}</span></div>`).join('');
+    }).join('') + `</div>`;
+  }
+  box.innerHTML = head;
+}
+
+function render() {
+  const f = M.frames[frame];
+  drawBoard(); drawTeams(); drawFeed();
+  $('turn-slider').value = frame;
+  $('turn-label').textContent = `turn ${f.turn} / ${M.turn_limit}`;
+  const last = M.frames[M.frames.length - 1];
+  if (last.status === 'finished') {
+    const w = $('meta-winner');
+    w.hidden = false;
+    w.textContent = last.winner ? (last.winner === 'draw' ? 'draw' : `${last.winner} wins`)
+      : 'unresolved';
+  }
+}
+function go(i) { frame = Math.max(0, Math.min(M.frames.length - 1, i)); render(); }
+function toggle() {
+  if (playing) { clearInterval(playing); playing = null; $('btn-play').innerHTML = '&#9654;'; }
+  else {
+    $('btn-play').innerHTML = '&#10073;&#10073;';
+    playing = setInterval(() => {
+      if (frame >= M.frames.length - 1) toggle(); else go(frame + 1);
+    }, 550);
+  }
+}
+$('turn-slider').max = M.frames.length - 1;
+$('turn-slider').addEventListener('input', e => go(+e.target.value));
+$('btn-first').onclick = () => go(0);
+$('btn-prev').onclick = () => go(frame - 1);
+$('btn-next').onclick = () => go(frame + 1);
+$('btn-last').onclick = () => go(M.frames.length - 1);
+$('btn-play').onclick = toggle;
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') go(frame - 1);
+  else if (e.key === 'ArrowRight') go(frame + 1);
+  else if (e.key === ' ') { e.preventDefault(); toggle(); }
+});
+$('theme-toggle').onclick = () => {
+  const root = document.documentElement;
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const cur = root.dataset.theme || (dark ? 'dark' : 'light');
+  root.dataset.theme = cur === 'dark' ? 'light' : 'dark';
+};
+// Deep link: replay.html#t7 opens on turn 7, so reviewers can point at a frame.
+const hashTurn = (location.hash.match(/^#t(\d+)$/) || [])[1];
+if (hashTurn != null) {
+  const idx = M.frames.findIndex(f => f.turn === +hashTurn);
+  if (idx >= 0) frame = idx;
+}
+drawScores(); render();
+</script>
+</body>
+</html>

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-07-07
+
+### Added
+
+- Live playtest: colleague guild in cooperative mode — three per-seat colleague-agent seats (local Qwen via lobes) finish the whole board by turn 16 with cooperation v1 = 99 (52/52 useful messages), where the same mind solo hit the turn-30 limit at 14 points; caveats (solo handicap, no opponent in cooperative mode) stated in the report
+
 ## [0.9.0] - 2026-07-07
 
 ### Added
