@@ -73,6 +73,34 @@ def test_arena_catalog_carries_skirmish_2_with_vision(arena, capsys) -> None:
     assert "vision" in text
 
 
+def test_arena_show_surfaces_recon_role_capabilities(arena, capsys) -> None:
+    """recon-1 fields the coding-reflective roles; `arena show` must surface
+    each role's capability contract (can_gather / can_capture / analog) so an
+    agent reading the board sees, before playing, that an explorer cannot
+    gather or hold points."""
+    assert main(["arena", "list"]) == 0
+    assert "recon-1" in capsys.readouterr().out.splitlines()
+
+    assert main(["arena", "show", "recon-1", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    roles = data["roles"]
+    assert set(roles) == {"explorer", "planner", "harvester", "defender"}
+
+    explorer = roles["explorer"]
+    assert explorer["can_gather"] is False
+    assert explorer["can_capture"] is False
+    assert explorer["analog"]  # documented software-work analog
+    # explorer reaches and sees farther than the executors.
+    assert explorer["move"] > roles["harvester"]["move"]
+    assert explorer["vision"] > roles["harvester"]["vision"]
+
+    assert roles["planner"]["can_gather"] is False
+    assert roles["planner"]["can_capture"] is False
+    # executors keep the default (True) capability contract.
+    assert roles["harvester"]["can_gather"] is True
+    assert roles["harvester"]["can_capture"] is True
+
+
 def test_team_register_is_dry_run_by_default(arena, capsys) -> None:
     assert main(_register("blue", "claude-sonnet-5")) == 0
     out = capsys.readouterr().out
