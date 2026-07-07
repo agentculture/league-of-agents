@@ -187,6 +187,7 @@ commits** — a stray call never silently advances the game.
     league match score <id> --json         # outcome + cooperation
     league match brief <id> [--team blue]  # markdown briefing (the agents' face)
     league match replay <id> > match.html  # self-contained human replay
+    league match tui <id> --frame N [--team blue] [--no-color]  # terminal view
 
 `brief` is the markdown face for agents, served from the agentfront faces
 registry (`league/faces/`): `--json` returns the SAME facts the markdown
@@ -297,6 +298,7 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("match", "score"): _MATCH,
     ("match", "brief"): _MATCH,
     ("match", "replay"): _MATCH,
+    ("match", "tui"): _MATCH,
     ("match", "rematch"): _MATCH,
     ("standings",): _STANDINGS,
     ("history",): _STANDINGS,
