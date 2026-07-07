@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026-07-07
+
+### Added
+
+- Cycle-4 spec (devague, converged): single-player mode vs house strategy bots, one-command mode presets (league play), and tempo as a third scored axis with substrate-fair conversion (user decisions: third axis; measurement separated from scoring)
+
 ## [0.7.2] - 2026-07-07
 
 ### Added
