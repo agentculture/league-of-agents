@@ -183,6 +183,38 @@ def test_from_jsonl_tolerates_logs_without_driver_kinds() -> None:
     path = _SEASON_0 / "orchestrator.log.jsonl"
     log = MatchLog.from_jsonl(path.read_text(encoding="utf-8"))
     assert log.driver_kinds == {}
+
+
+def test_map_read_and_unit_comms_default_empty_and_round_trip() -> None:
+    """Orchestrator mode's declared fairness axes (plan t6, spec c4/c6/h3/h5):
+    a team's map-read capability ('full'|'fog') and its unit-to-unit comms
+    flag ride in the header exactly like ``driver_kinds`` — metadata only,
+    never folded, defaulting cleanly on a log that predates them."""
+    bare = MatchLog(initial_state=initial_state(), events=sample_events())
+    assert bare.map_read == {}
+    assert bare.unit_comms == {}
+
+    log = MatchLog(
+        initial_state=initial_state(),
+        events=sample_events(),
+        map_read={"blue": "full", "red": "fog"},
+        unit_comms={"blue": False, "red": True},
+    )
+    payload = log.to_jsonl()
+    restored = MatchLog.from_jsonl(payload)
+    assert restored == log
+    assert restored.map_read == {"blue": "full", "red": "fog"}
+    assert restored.unit_comms == {"blue": False, "red": True}
+    # Metadata never leaks into the fold or the hash.
+    assert state_hash(restored.final_state()) == state_hash(bare.final_state())
+
+
+def test_from_jsonl_tolerates_logs_without_map_read_or_unit_comms() -> None:
+    """The committed season-0 logs predate these fields; they must still parse."""
+    path = _SEASON_0 / "orchestrator.log.jsonl"
+    log = MatchLog.from_jsonl(path.read_text(encoding="utf-8"))
+    assert log.map_read == {}
+    assert log.unit_comms == {}
     assert log.final_state().status == "finished"
 
 

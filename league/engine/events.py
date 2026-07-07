@@ -13,12 +13,20 @@ Two design rules (spec c11/h4, c12/h5):
   are built from them.
 
 The on-disk format is JSONL: line 1 is a header ``{"log_version", "initial_state",
-"driver_kinds"}``, every following line one event, all canonical JSON.
-``driver_kinds`` is a per-team ``{team_id: "bot"|"stateless"|"resident"}`` map —
-the declared residency fairness axis (spec c10/h7): *how* a team's minds were
-invoked. It is pure metadata about the harness, never game state — it does not
-touch ``MatchState``/``state_hash`` or the fold, and it defaults to ``{}`` so
-logs written before this field existed still parse.
+"driver_kinds", "map_read", "unit_comms"}``, every following line one event, all
+canonical JSON. ``driver_kinds`` is a per-team ``{team_id:
+"bot"|"stateless"|"resident"}`` map — the declared residency fairness axis
+(spec c10/h7): *how* a team's minds were invoked. ``map_read`` and
+``unit_comms`` are orchestrator mode's declared fairness axes (plan t6, spec
+c4/c6/h3/h5): ``map_read`` is a per-team ``{team_id: "full"|"fog"}`` map — the
+orchestrator/master's map-read capability under fog, a DECLARED
+information-asymmetry rule of the mode, never a hidden privilege; ``unit_comms``
+is a per-team ``{team_id: bool}`` map — whether that team's ground units may
+message each other directly (``True``) or are master-mediated only (``False``,
+orchestrator mode's default). All three fields are pure metadata about the
+harness, never game state — none of them touch ``MatchState``/``state_hash`` or
+the fold, and each defaults to ``{}`` so logs written before it existed still
+parse.
 """
 
 from __future__ import annotations
@@ -189,13 +197,16 @@ def fold_events(initial: MatchState, events: Iterable[Event]) -> MatchState:
 class MatchLog:
     """An initial state plus everything that happened — the whole match.
 
-    ``driver_kinds`` is header metadata only (see module docstring): a
-    per-team residency label, never folded and never part of ``state_hash``.
+    ``driver_kinds``/``map_read``/``unit_comms`` are header metadata only (see
+    module docstring): per-team declared-fairness labels, never folded and
+    never part of ``state_hash``.
     """
 
     initial_state: MatchState
     events: tuple[Event, ...]
     driver_kinds: dict[str, str] = field(default_factory=dict)
+    map_read: dict[str, str] = field(default_factory=dict)
+    unit_comms: dict[str, bool] = field(default_factory=dict)
 
     def final_state(self) -> MatchState:
         return fold_events(self.initial_state, self.events)
@@ -205,6 +216,8 @@ class MatchLog:
             "log_version": LOG_VERSION,
             "initial_state": self.initial_state.to_dict(),
             "driver_kinds": dict(self.driver_kinds),
+            "map_read": dict(self.map_read),
+            "unit_comms": dict(self.unit_comms),
         }
         lines = [json.dumps(header, sort_keys=True, separators=(",", ":"), ensure_ascii=False)]
         lines.extend(
@@ -225,4 +238,12 @@ class MatchLog:
         initial = MatchState.from_dict(header["initial_state"])
         events = tuple(Event.from_dict(json.loads(line)) for line in lines[1:])
         driver_kinds = dict(header.get("driver_kinds", {}))
-        return cls(initial_state=initial, events=events, driver_kinds=driver_kinds)
+        map_read = dict(header.get("map_read", {}))
+        unit_comms = dict(header.get("unit_comms", {}))
+        return cls(
+            initial_state=initial,
+            events=events,
+            driver_kinds=driver_kinds,
+            map_read=map_read,
+            unit_comms=unit_comms,
+        )

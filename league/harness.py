@@ -71,6 +71,25 @@ feed, which would otherwise leak enemy moves regardless of vision. A unit's
 own legal actions are always kept (they derive from its own position, never
 the board) — see :func:`_format_legal_actions`.
 
+Orchestrator mode for real (plan task t6, spec c4/c6/h3/h5) — a per-seat
+``command`` team's driver spec may add an optional ``"master"`` sub-driver:
+``{"argv": [...], "id": "<agent-id>", "timeout": N, "prompt": "..."}``. The
+master is invoked once per turn, BEFORE any ground seat, and commands no
+unit — its only tool is guidance messages, always attributed to its declared
+``id`` (default ``"<team>-master"``) regardless of what its own reply claims,
+the same discipline :func:`_fold_seat_reply` already applies to every seat's
+``from``. This is the mode's two declared fairness axes, echoed in the match
+config and log (``league match new --map-read``/``--unit-comms``, ``match
+show --json``'s ``map_read``/``unit_comms``) — never a hidden privilege:
+``map_read`` — ``"full"`` gives the master the plain (unfogged) board even
+though the match is fogged; ``"fog"`` (default) gives it the same fogged view
+every ground seat gets; and ``unit_comms`` — ``False`` (orchestrator mode's
+own default: master-mediated only) narrows what a LATER ground seat's
+briefing shows to messages ``from`` the master identity, dropping teammate
+chatter; ``True`` keeps today's unfiltered relay (master + teammates). Every
+seat's own messages still land in the match log either way — filtering only
+trims what a later seat is *shown*, never what is recorded.
+
 **Bot drivers stay full-information under fog, for now.** ``make_bot_driver``
 and the ``bot-file`` lane read scenario furniture (control points, missions,
 resource nodes) directly out of ``state``/``match show --json`` with no
@@ -342,6 +361,22 @@ one JSON object, no prose:
   "plan": "<optional; only if proposing/refreshing the team plan>"}}
 """
 
+_MASTER_PROMPT = """You are {master_id}, the {team_id} team's ORCHESTRATOR/MASTER. This is a
+DECLARED capability of orchestrator mode (spec c4/h3), never a hidden
+privilege — it is recorded in the match config and log. You command no unit
+directly: your only tool is guidance messages relayed to your ground units.
+{rules}
+{extra}
+Scenario: {scenario}
+Current match state (JSON):
+{state}
+
+{comms_note}
+Reply with ONLY one JSON object, no prose:
+{{"messages": [{{"from": "{master_id}", "text": "..."}}],
+  "plan": "<optional standing plan>"}}
+"""
+
 
 # -- rejection feedback + legal-actions citation (spec c8/h5) ---------------
 #
@@ -512,7 +547,7 @@ def _run_command(argv: list[str], prompt: str, timeout: float, who: str) -> dict
 
 
 def make_command_driver(
-    spec: Mapping[str, Any], scenario: dict[str, Any], *, fog: bool = False
+    spec: Mapping[str, Any], scenario: dict[str, Any], *, fog: bool = False, map_read: str = "fog"
 ) -> Driver:
     argv = list(spec["argv"])
     timeout = float(spec.get("timeout", 300))
@@ -534,16 +569,26 @@ def make_command_driver(
     ) -> dict[str, Any]:
         context = context or {}
         my_unit_ids = [u["id"] for u in state.get("units", []) if u.get("team_id") == team_id]
+        briefing_state, briefing_scenario = state, scenario_for_prompt
+        if fog and map_read == "full":
+            # Orchestrator mode's declared capability (plan t6, spec c4/h3):
+            # this team's single commander mind reads the whole board even
+            # though the match is fogged — a recorded exception (the match
+            # log's `map_read`), never a silent one.
+            match_id = str(state.get("match_id") or "")
+            if match_id:
+                briefing_state = _cli_json(["match", "show", match_id])["state"]
+            briefing_scenario = scenario
         prompt = _PROMPT.format(
             team_id=team_id,
             rules=rules,
             extra=(_SOLO_NOTE if solo else "") + (f"\n{extra}\n" if extra else ""),
-            scenario=json.dumps(scenario_for_prompt, sort_keys=True),
+            scenario=json.dumps(briefing_scenario, sort_keys=True),
             rejections=_format_rejections(
                 _rejections_for(context.get("rejections", []), team_id=team_id)
             ),
             legal_actions=_format_legal_actions(context.get("legal_actions", {}), my_unit_ids),
-            state=json.dumps(state, sort_keys=True),
+            state=json.dumps(briefing_state, sort_keys=True),
         )
         try:
             result = _run_command(argv, prompt, timeout, team_id)
@@ -581,6 +626,8 @@ def make_per_seat_driver(
     agents: list[dict[str, Any]],
     *,
     fog: bool = False,
+    map_read: str = "fog",
+    unit_comms: bool = True,
 ) -> Driver:
     """One independent mind per seat, coordinating only through messages.
 
@@ -592,6 +639,22 @@ def make_per_seat_driver(
     the once-per-turn scenario block drops map furniture too — see
     :func:`_fogged_scenario`. Per-unit legal actions are unaffected: they
     always derive from that unit's own position, fog or not.
+
+    Orchestrator mode for real (plan t6, spec c4/c6/h3/h5): an optional
+    ``spec["master"]`` — ``{"argv": [...], "id": "<agent-id>", "timeout": N,
+    "prompt": "..."}`` — runs once per turn, BEFORE any ground seat, and
+    commands no unit; its messages are always attributed to its declared
+    ``id`` (default ``f"{team_id}-master"``) regardless of what its own reply
+    claims, mirroring :func:`_fold_seat_reply`'s discipline for every other
+    seat's ``from``. Its briefing is this team's usual view UNLESS
+    ``map_read`` is ``"full"`` *and* the match is fogged, in which case it
+    fetches the plain (unfogged) board itself — a declared exception (spec
+    c4/h3), never a silent one. ``unit_comms`` decides what a LATER ground
+    seat's "teammates already sent" block is filtered to: ``False``
+    (orchestrator mode's own default) keeps only messages ``from`` the master
+    identity, dropping teammate chatter; ``True`` keeps today's unfiltered
+    relay. Every seat's own messages still land in the match log either way —
+    filtering only trims what a later seat is *shown*.
     """
     argv = list(spec["argv"])
     timeout = float(spec.get("timeout", 300))
@@ -599,6 +662,16 @@ def make_per_seat_driver(
     rules = _RULES.format(capture=scenario["capture_hold_turns"])
     scenario_for_prompt = _fogged_scenario(scenario) if fog else scenario
     seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
+
+    master_spec = spec.get("master")
+    master_argv = list(master_spec["argv"]) if master_spec else None
+    master_timeout = float(master_spec.get("timeout", timeout)) if master_spec else timeout
+    master_extra = str(master_spec.get("prompt", "")) if master_spec else ""
+    _comms_note = (
+        "Unit-to-unit messaging is OFF this match — you are their only channel."
+        if not unit_comms
+        else "Units can also message each other directly this match."
+    )
 
     def orders(
         state: dict[str, Any],
@@ -613,11 +686,46 @@ def make_per_seat_driver(
             u["agent_id"]: u for u in state["units"] if u["team_id"] == team_id and u["alive"]
         }
         combined: dict[str, Any] = {"actions": [], "messages": []}
+
+        master_id = None
+        if master_argv is not None:
+            master_id = str(master_spec.get("id") or f"{team_id}-master")
+            master_state, master_scenario = state, scenario_for_prompt
+            if fog and map_read == "full":
+                match_id = str(state.get("match_id") or "")
+                if match_id:
+                    master_state = _cli_json(["match", "show", match_id])["state"]
+                master_scenario = scenario
+            master_prompt = _MASTER_PROMPT.format(
+                master_id=master_id,
+                team_id=team_id,
+                rules=rules,
+                extra=f"\n{master_extra}\n" if master_extra else "",
+                scenario=json.dumps(master_scenario, sort_keys=True),
+                state=json.dumps(master_state, sort_keys=True),
+                comms_note=_comms_note,
+            )
+            try:
+                result = _run_command(master_argv, master_prompt, master_timeout, master_id)
+            except RuntimeError as err:
+                print(f"[harness] master {master_id} idles this turn: {err}", file=sys.stderr)
+            else:
+                for message in result.get("messages", []) or []:
+                    if isinstance(message, dict) and message.get("text"):
+                        combined["messages"].append(
+                            {"from": master_id, "text": str(message["text"])}
+                        )
+
         for agent in agents:
             unit = my_units.get(agent["id"])
             if unit is None:
                 continue
             seat_extra = "\n".join(part for part in (extra, seat_prompts[agent["id"]]) if part)
+            visible_messages = (
+                combined["messages"]
+                if unit_comms
+                else [m for m in combined["messages"] if m.get("from") == master_id]
+            )
             prompt = _SEAT_PROMPT.format(
                 agent_id=agent["id"],
                 team_id=team_id,
@@ -629,7 +737,7 @@ def make_per_seat_driver(
                 rejections=_format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
                 legal_actions=_format_legal_actions(legal_actions, [unit["id"]]),
                 state=json.dumps(state, sort_keys=True),
-                team_messages=json.dumps(combined["messages"], sort_keys=True) or "[]",
+                team_messages=json.dumps(visible_messages, sort_keys=True) or "[]",
             )
             try:
                 result = _run_command(argv, prompt, timeout, agent["id"])
@@ -1027,10 +1135,16 @@ def build_driver(
     agents: list[dict[str, Any]] | None = None,
     *,
     fog: bool = False,
+    map_read: str = "fog",
+    unit_comms: bool = True,
 ) -> Driver:
     """``fog`` only reaches the ``command``/``resident`` factories — bot and
     bot-file drivers stay full-information regardless (documented asymmetry,
-    see the module docstring's "Fog of war" section)."""
+    see the module docstring's "Fog of war" section). ``map_read``/
+    ``unit_comms`` are orchestrator mode's declared fairness axes (plan t6,
+    spec c4/c6/h3/h5) and only reach a ``command`` driver (plain or
+    per-seat) — see :func:`make_command_driver`/:func:`make_per_seat_driver`.
+    """
     kind = spec.get("type")
     if spec.get("per_seat") and kind not in ("command", "resident"):
         raise ValueError("per_seat is only supported for 'command' and 'resident' drivers")
@@ -1041,9 +1155,11 @@ def build_driver(
     if kind == "resident":  # per-seat by definition
         return make_resident_driver(spec, scenario, agents or [], fog=fog)
     if kind == "command" and spec.get("per_seat"):
-        return make_per_seat_driver(spec, scenario, agents or [], fog=fog)
+        return make_per_seat_driver(
+            spec, scenario, agents or [], fog=fog, map_read=map_read, unit_comms=unit_comms
+        )
     if kind == "command":
-        return make_command_driver(spec, scenario, fog=fog)
+        return make_command_driver(spec, scenario, fog=fog, map_read=map_read)
     raise ValueError(
         f"unknown driver type {kind!r}; expected 'bot', 'bot-file', 'command' or 'resident'"
     )
@@ -1129,11 +1245,27 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
             new_argv += ["--id", match_cfg["id"]]
         for team in config["teams"]:
             new_argv += ["--driver", f"{team['id']}:{driver_kind(team['driver'])}"]
+            # Orchestrator mode's two declared fairness axes (plan t6, spec
+            # c4/c6/h3/h5): only echoed when a team's config actually opts
+            # in — same "omit it and it's simply unrecorded" contract
+            # ``--driver`` already has.
+            if "map_read" in team:
+                new_argv += ["--map-read", f"{team['id']}:{team['map_read']}"]
+            if "unit_comms" in team:
+                comms = "on" if team["unit_comms"] else "off"
+                new_argv += ["--unit-comms", f"{team['id']}:{comms}"]
         created = _cli_json(new_argv + ["--apply"])
         match_id = created["match_id"]
 
     drivers = {
-        t["id"]: build_driver(t["driver"], scenario, t.get("agents"), fog=fog)
+        t["id"]: build_driver(
+            t["driver"],
+            scenario,
+            t.get("agents"),
+            fog=fog,
+            map_read=t.get("map_read", "fog"),
+            unit_comms=t.get("unit_comms", True),
+        )
         for t in config["teams"]
     }
     driver_types = {t["id"]: t["driver"].get("type") for t in config["teams"]}
