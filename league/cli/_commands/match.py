@@ -683,10 +683,10 @@ def _color_enabled(args: argparse.Namespace) -> bool:
 def cmd_match_tui(args: argparse.Namespace) -> int:
     """Replay-stepping terminal view: ground truth, or a team's fogged knowledge.
 
-    ``--frame N`` (or a non-tty stdout) renders one frame to stdout and
-    exits — the path the tests and pipes drive. With a tty and no ``--frame``,
-    it launches the curses shell instead (arrow keys step frames, Tab toggles
-    the team).
+    ``--frame N`` (or a non-tty stdin/stdout) renders one frame to stdout and
+    exits — the path the tests and pipes drive. With both stdin and stdout as
+    ttys and no ``--frame``, it launches the curses shell instead (arrow keys
+    step frames, Tab toggles the team).
     """
     store = Store()
     log = _load(store, args.match_id)
@@ -704,7 +704,7 @@ def cmd_match_tui(args: argparse.Namespace) -> int:
         scenario = get_scenario(log.initial_state.scenario_id)
         knowledge = knowledge_by_turn(log, scenario)
 
-    if args.frame is None and sys.stdout.isatty():
+    if args.frame is None and sys.stdin.isatty() and sys.stdout.isatty():
         run_interactive_shell(data, knowledge, initial_team=args.team)
         return 0
 

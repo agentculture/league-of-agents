@@ -19,10 +19,12 @@ Criteria under test:
 from __future__ import annotations
 
 import re
+import sys
 
 import pytest
 
 from league.cli import main
+from league.cli._commands import match as match_module
 from league.engine.knowledge import SOURCE_SEEN, SOURCE_TOLD, knowledge_by_turn
 from league.harness import run_match
 from league.replay import build_replay_data, render_frame
@@ -324,6 +326,27 @@ def test_cli_tui_color_enabled_by_default(arena, capsys) -> None:
     capsys.readouterr()
     assert main(["match", "tui", "m-tui-6", "--frame", "0"]) == 0
     assert "\x1b[" in capsys.readouterr().out
+
+
+def test_cli_tui_stdin_not_a_tty_falls_back_to_non_interactive(arena, capsys, monkeypatch) -> None:
+    """curses needs both stdin and stdout as ttys; a tty stdout with stdin
+    redirected (CI, pipes) must fall back to the non-interactive render
+    instead of launching the curses shell — regression for Qodo comment
+    3534476063."""
+    run_match(_bot_config("m-tui-7"))
+    capsys.readouterr()
+
+    def _boom(*_args, **_kwargs):
+        raise AssertionError("run_interactive_shell must not be called when stdin is not a tty")
+
+    monkeypatch.setattr(match_module, "run_interactive_shell", _boom)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
+
+    assert main(["match", "tui", "m-tui-7"]) == 0
+    out = capsys.readouterr().out
+    assert "m-tui-7" in out
+    assert "Board:" in out
 
 
 def test_cli_tui_unknown_match_id_is_a_user_error(arena, capsys) -> None:
