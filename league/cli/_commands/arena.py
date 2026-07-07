@@ -13,6 +13,18 @@ from league.cli._output import emit_result
 from league.engine.scenario import Scenario, get_scenario, scenario_ids
 
 
+def _role_caps(st) -> str:
+    """Compact human note of a role's capability restrictions (h11): only the
+    *withheld* capabilities are shown, so an unrestricted executor reads clean
+    while an explorer/planner announces what it cannot do."""
+    flags = []
+    if not st.can_gather:
+        flags.append("no-gather")
+    if not st.can_capture:
+        flags.append("no-capture")
+    return f", {', '.join(flags)}" if flags else ""
+
+
 def _scenario_dict(s: Scenario) -> dict[str, object]:
     return {
         "id": s.id,
@@ -23,7 +35,14 @@ def _scenario_dict(s: Scenario) -> dict[str, object]:
         "modes": list(s.modes),
         "capture_hold_turns": s.capture_hold_turns,
         "roles": {
-            name: {"move": st.move, "carry": st.carry, "vision": st.vision}
+            name: {
+                "move": st.move,
+                "carry": st.carry,
+                "vision": st.vision,
+                "can_gather": st.can_gather,
+                "can_capture": st.can_capture,
+                "analog": st.analog,
+            }
             for name, st in s.role_stats
         },
         "control_points": [{"id": c.id, "pos": list(c.pos)} for c in s.control_points],
@@ -89,7 +108,7 @@ def cmd_arena_show(args: argparse.Namespace) -> int:
             f"turn limit {scenario.turn_limit}, modes: {', '.join(scenario.modes)}",
             "roles: "
             + ", ".join(
-                f"{n} (move {s.move}, carry {s.carry}, vision {s.vision})"
+                f"{n} (move {s.move}, carry {s.carry}, vision {s.vision}{_role_caps(s)})"
                 for n, s in scenario.role_stats
             ),
             f"control points: {', '.join(c.id for c in scenario.control_points)}",

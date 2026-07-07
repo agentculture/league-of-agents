@@ -19,6 +19,11 @@ v0 resolution rules (documented here, exercised in tests):
   ``deliver`` (on the deliver-mission square: unload into team resources), or
   ``hold`` (stay put). Invalid orders become ``action_rejected`` events and do
   nothing — a stray call never silently advances the game.
+* Roles are engine-enforced capability contracts (spec h11). A role with
+  ``can_gather=False`` (explorer/planner) has its ``gather`` rejected outright;
+  a role with ``can_capture=False`` never counts as a control-point occupant,
+  so it neither builds nor contests a capture streak. Both default ``True`` —
+  scout/harvester/defender are unchanged.
 * Messages and a per-team plan are free, observational, and on the record —
   coordination is played *through* the engine so cooperation can be scored.
 * Control points: sole occupancy builds a streak (``hold``). A non-owner's
@@ -182,11 +187,19 @@ def resolve_turn(
             moves.append((unit.id, to))
             continue
         if verb == "gather":
+            role_stats = scenario.stats_for(unit.role)
+            # Role capability comes first, so the rejection names the true
+            # reason (an explorer/planner cannot gather at all) rather than an
+            # incidental capacity/position fact. Mirrors legal_actions, which
+            # reports gather=False for any role that can_gather=False.
+            if not role_stats.can_gather:
+                reject(team_id, action, "this role cannot gather resources")
+                continue
             node = next((n for n in state.resource_nodes if n.pos == unit.pos), None)
             if node is None:
                 reject(team_id, action, "not standing on a resource node")
                 continue
-            if unit.carrying >= scenario.stats_for(unit.role).carry:
+            if unit.carrying >= role_stats.carry:
                 reject(team_id, action, "already carrying to capacity")
                 continue
             gathers.append(unit.id)
@@ -234,9 +247,20 @@ def resolve_turn(
     mid = fold_events(state, tuple(events))
 
     # 7. Control points: streaks, contests, captures.
+    #
+    # A role with can_capture=False (the explorer/planner) never counts as an
+    # occupant here: its presence neither builds a capture streak nor contests
+    # another team's — an explorer standing alone on a point leaves it
+    # effectively unoccupied for capture purposes. There is no "capture" order,
+    # so this occupancy filter IS the enforcement; legal_actions mirrors it via
+    # the can_capture flag (spec h11).
     for cp in mid.control_points:
         occupants = {
-            u.team_id for u in mid.units if u.alive and positions.get(u.id, u.pos) == cp.pos
+            u.team_id
+            for u in mid.units
+            if u.alive
+            and scenario.stats_for(u.role).can_capture
+            and positions.get(u.id, u.pos) == cp.pos
         }
         if len(occupants) != 1:
             if cp.hold:

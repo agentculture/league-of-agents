@@ -9,6 +9,30 @@ deliberately lopsided (fast scouts carry little, harvesters lumber), control
 points outnumber what one unit can occupy, and the turn limit sits below the
 best possible solo run — the tradeoff arithmetic is asserted in tests, not
 just claimed.
+
+Roles are **capability contracts, mirroring real coding work** (cycle-6 task
+C6-t3, spec honesty h11 — the difference lives in engine data + legality, never
+in prompt convention). Each role's software-work analog, documented next to its
+stats below and in ``docs/roles.md``:
+
+* **explorer** — *reconnaissance / code-reading*: extended vision and reach,
+  ``carry=0``, ``can_gather=False``, ``can_capture=False``. It maps the board
+  and hands intel to the planner; it never touches the economy and its
+  occupancy never builds or contests a control-point streak (see
+  :mod:`league.engine.tick` step 7 and :mod:`league.engine.legal`).
+* **planner** — *architect / tech-lead*: ``move=1``, ``carry=0``, baseline
+  vision, ``can_gather=False``, ``can_capture=False``. Weak on the board alone
+  by design — it wins by coordinating through the existing plan/message
+  channels (no new engine mechanic), so fielding one is a real tradeoff.
+* **scout** — *quick reconnaissance pass*: fast, wide sight, light carry.
+* **harvester** / **defender** — *implementers (executor class)*: they run the
+  economy and hold objectives (``can_gather``/``can_capture`` both ``True``).
+
+The two capability booleans default to ``True`` so every pre-existing role
+(scout / harvester / defender) keeps its exact behaviour — the new roles are a
+JOIN, not a replace (plan risk r4), and ``RoleStats`` is scenario config that
+never enters ``MatchState``/``state_hash``, so adding these fields cannot
+perturb the committed determinism fixture.
 """
 
 from __future__ import annotations
@@ -29,17 +53,33 @@ from league.engine.state import (
 
 @dataclass(frozen=True)
 class RoleStats:
-    """Per-role movement/carry/vision stats — the specialization lever.
+    """Per-role capability contract — the specialization lever.
 
-    ``vision`` is the Manhattan radius a unit of this role can see
-    (consumed by :mod:`league.engine.vision`); scouts see farther than
-    anyone else, the visibility axis issue #1 names. Vision never affects
-    movement or tick resolution — it only bounds what a unit *knows*.
+    ``move``/``carry``/``vision`` are the quantitative levers; ``vision`` is
+    the Manhattan radius a unit of this role can see (consumed by
+    :mod:`league.engine.vision`). Vision never affects movement or tick
+    resolution — it only bounds what a unit *knows*.
+
+    ``can_gather`` and ``can_capture`` are **engine-enforced capability
+    booleans** (spec honesty h11): a role with ``can_gather=False`` has its
+    ``gather`` orders rejected by the tick and absent from ``legal_actions``;
+    a role with ``can_capture=False`` never counts as an occupant of a control
+    point, so its presence neither builds nor contests a capture streak. Both
+    default to ``True`` so pre-existing roles are unchanged (the new roles are
+    additive — a JOIN, not a replace).
+
+    ``analog`` records the role's software-work analog (explorer =
+    reconnaissance/code-reading, planner = architect/tech-lead, harvester /
+    defender = implementers/executors) right next to the stats it explains —
+    the same mapping ``docs/roles.md`` documents at length.
     """
 
     move: int
     carry: int
     vision: int
+    can_gather: bool = True
+    can_capture: bool = True
+    analog: str = ""
 
 
 @dataclass(frozen=True)
@@ -176,7 +216,111 @@ def _skirmish_2() -> Scenario:
     )
 
 
-_SCENARIOS = {s.id: s for s in (_skirmish_1(), _skirmish_2())}
+def _recon_1() -> Scenario:
+    """RECON-1 — the coding-reflective roster (cycle-6 task C6-t3).
+
+    The first scenario to field the new capability-contract roles alongside the
+    executor class: an **explorer** (recon/code-reading) that sees and reaches
+    far but cannot touch the economy or hold a point, a **planner**
+    (architect/tech-lead) that is near-helpless on the board yet coordinates the
+    team through the plan/message channels, and two **implementers** — a
+    harvester and a defender — that actually run the relay and hold the beacon.
+
+    skirmish-1/2 are untouched by this addition; recon-1 simply coexists in the
+    catalog. Geometry echoes skirmish-2 (a fogged crossing) so the board reads
+    familiarly while the roster is what is new.
+    """
+    return Scenario(
+        id="recon-1",
+        name="Recon 1 — Read, Plan, Execute",
+        description=(
+            "A 14x12 crossing fielding the coding-reflective roster: an explorer "
+            "(reconnaissance/code-reading) that ranges far but cannot gather or "
+            "hold points, a planner (architect/tech-lead) that is weak on the "
+            "board but coordinates through plan and messages, and two implementer "
+            "executors (harvester + defender) that run the relay and hold the "
+            "beacon. Roles are engine-enforced capability contracts, not prompt "
+            "convention."
+        ),
+        grid_width=14,
+        grid_height=12,
+        turn_limit=20,
+        modes=("cooperative", "competitive"),
+        capture_hold_turns=2,
+        unit_roles=("explorer", "planner", "harvester", "defender"),
+        role_stats=(
+            # explorer — reconnaissance / code-reading: strictly the farthest
+            # sight AND reach on this board, but carry 0 and no economy/capture
+            # rights (enforced in tick + legal, not by convention).
+            (
+                "explorer",
+                RoleStats(
+                    move=4,
+                    carry=0,
+                    vision=6,
+                    can_gather=False,
+                    can_capture=False,
+                    analog="reconnaissance / code-reading: ranges far and sees far, "
+                    "produces nothing directly and holds no ground",
+                ),
+            ),
+            # planner — architect / tech-lead: crawls (move 1), carries nothing,
+            # only baseline sight; its edge is coordinating the others through
+            # the plan/message channels, so fielding it is a real tradeoff.
+            (
+                "planner",
+                RoleStats(
+                    move=1,
+                    carry=0,
+                    vision=2,
+                    can_gather=False,
+                    can_capture=False,
+                    analog="architect / tech-lead: coordinates via plan + messages, "
+                    "weak on the board alone",
+                ),
+            ),
+            # harvester / defender — implementers (executor class): they run the
+            # economy and hold objectives, the default capability contract.
+            (
+                "harvester",
+                RoleStats(
+                    move=2,
+                    carry=3,
+                    vision=2,
+                    analog="implementer (executor class): hauls and delivers the payload",
+                ),
+            ),
+            (
+                "defender",
+                RoleStats(
+                    move=2,
+                    carry=1,
+                    vision=2,
+                    analog="implementer (executor class): captures and holds objectives",
+                ),
+            ),
+        ),
+        spawns=(
+            ((0, 0), (1, 0), (0, 1), (1, 1)),
+            ((13, 11), (12, 11), (13, 10), (12, 10)),
+        ),
+        control_points=(
+            ControlPoint(id="cp-alpha", pos=(7, 5)),
+            ControlPoint(id="cp-beacon", pos=(12, 0)),
+            ControlPoint(id="cp-well", pos=(1, 11)),
+        ),
+        missions=(
+            Mission(id="ms-relay", kind="deliver", pos=(6, 6), amount=6, reward=10),
+            Mission(id="ms-signal", kind="hold", pos=(12, 0), amount=3, reward=8),
+        ),
+        resource_nodes=(
+            ResourceNode(id="rn-low", pos=(5, 5), remaining=12),
+            ResourceNode(id="rn-high", pos=(8, 6), remaining=12),
+        ),
+    )
+
+
+_SCENARIOS = {s.id: s for s in (_skirmish_1(), _skirmish_2(), _recon_1())}
 
 
 def scenario_ids() -> tuple[str, ...]:
@@ -184,12 +328,32 @@ def scenario_ids() -> tuple[str, ...]:
 
 
 def get_scenario(scenario_id: str) -> Scenario:
+    """Resolve a scenario id to its definition.
+
+    Hand-authored scenarios (``skirmish-1``/``-2``) come from the bundled
+    registry; a ``gen-<seed>-<token>`` id is re-derived on the fly by the
+    seeded generator (``league.engine.genscenario``), whose id fully encodes
+    seed+params — so the whole CLI/harness/replay stack resolves a generated
+    board from its id (and hence from a match log) with no other change. A
+    generated id whose params are out of range raises the generator's own
+    precise ``ValueError`` (e.g. "grid_width must be odd"), not the generic
+    unknown-scenario error.
+    """
     try:
         return _SCENARIOS[scenario_id]
     except KeyError:
-        raise ValueError(
-            f"unknown scenario {scenario_id!r}; known: {', '.join(scenario_ids())}"
-        ) from None
+        pass
+    # Lazy import breaks the scenario <-> genscenario module cycle (genscenario
+    # imports Scenario/RoleStats from here at load time).
+    from league.engine import genscenario
+
+    parsed = genscenario.parse_generated_id(scenario_id)
+    if parsed is not None:
+        seed, params = parsed
+        return genscenario.generate(seed, params)
+    raise ValueError(
+        f"unknown scenario {scenario_id!r}; known: {', '.join(scenario_ids())}"
+    ) from None
 
 
 def instantiate(
@@ -206,6 +370,14 @@ def instantiate(
     play needs exactly two sides, cooperative exactly one. Every agent roster
     must match the scenario's unit roles one-to-one — the roster *is* the
     role composition being compared across matches (spec c14/h7).
+
+    A scenario's ``unit_roles`` may repeat a role name (cycle-6 task C6-t2's
+    roster-scale knob, e.g. two harvester slots) — the ``sorted(...) ==
+    sorted(...)`` check above is already a MULTISET comparison, so counts per
+    role must match, not just the set of names. The assignment below walks a
+    per-role QUEUE of roster agents (in roster order) rather than a single
+    dict keyed by role, so N agents sharing a role each get their own unit,
+    deterministically, instead of a dict silently collapsing to the last one.
     """
     if mode not in scenario.modes:
         raise ValueError(f"scenario {scenario.id!r} does not support mode {mode!r}")
@@ -223,10 +395,17 @@ def instantiate(
             )
         team_states.append(TeamState(id=team_id, name=team_name, resources=0, agents=agents))
         spawn = scenario.spawns[side]
-        # Deterministic assignment: scenario role order, spawn slot order.
-        by_role = {a.role: a for a in agents}
+        # Deterministic assignment: scenario role order, spawn slot order,
+        # roster order per role (a per-role queue, not a role->agent dict —
+        # see the docstring note on duplicate-role scenarios).
+        by_role: dict[str, list[AgentSlot]] = {}
+        for agent in agents:
+            by_role.setdefault(agent.role, []).append(agent)
+        next_index = {role: 0 for role in by_role}
         for i, role in enumerate(scenario.unit_roles):
-            agent = by_role[role]
+            index = next_index[role]
+            agent = by_role[role][index]
+            next_index[role] = index + 1
             units.append(
                 Unit(
                     id=f"{team_id}-u{i + 1}",

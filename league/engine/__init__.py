@@ -12,6 +12,13 @@ observable-arena-s.md):
 """
 
 from league.engine.events import Event, MatchLog, apply_event, fold_events
+from league.engine.genscenario import (
+    DEFAULT_PARAMS,
+    GenParams,
+    generate,
+    parse_generated_id,
+)
+from league.engine.genscenario import scenario_id as generated_scenario_id
 from league.engine.scenario import Scenario, get_scenario, instantiate, scenario_ids
 from league.engine.state import (
     AgentSlot,
@@ -29,7 +36,9 @@ from league.engine.state import (
 __all__ = [
     "AgentSlot",
     "ControlPoint",
+    "DEFAULT_PARAMS",
     "Event",
+    "GenParams",
     "MatchLog",
     "MatchState",
     "Mission",
@@ -39,8 +48,11 @@ __all__ = [
     "Unit",
     "apply_event",
     "fold_events",
+    "generate",
+    "generated_scenario_id",
     "get_scenario",
     "instantiate",
+    "parse_generated_id",
     "scenario_ids",
     "state_from_json",
     "state_hash",
