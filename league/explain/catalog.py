@@ -201,6 +201,12 @@ team's minds were invoked — a declared fairness axis (spec c10/h7), not game
 state. It lives in the match log header and `match show --json`'s
 `driver_kinds`, never in engine state; omit it and the team's kind is simply
 unrecorded.
+
+`show --json` also includes `last_turn_rejections`: every `action_rejected`
+event from the turn just resolved (`{team_id, unit_id, reason}`), so a caller
+can see *why* an order failed without scraping the whole log. The harness
+folds this into each agent's next briefing (spec c8/h5) — a seat that never
+learns the reason otherwise repeats the mistake for the whole match.
 """
 
 

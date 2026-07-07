@@ -49,7 +49,7 @@ from typing import Any, Callable, Mapping
 
 from league.cli import main as cli_main
 
-Driver = Callable[[dict[str, Any], str, int], dict[str, Any]]
+Driver = Callable[[dict[str, Any], str, int, Mapping[str, Any] | None], dict[str, Any]]
 
 
 def _cli_json(argv: list[str]) -> Any:
@@ -87,7 +87,12 @@ def make_bot_driver(scenario: dict[str, Any]) -> Driver:
     roles = scenario["roles"]
     grid = scenario["grid"]
 
-    def orders(state: dict[str, Any], team_id: str, turn: int) -> dict[str, Any]:
+    def orders(
+        state: dict[str, Any],
+        team_id: str,
+        turn: int,
+        context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         my_units = [u for u in state["units"] if u["team_id"] == team_id and u["alive"]]
         deliver = next((m for m in state["missions"] if m["kind"] == "deliver"), None)
         nodes = [n for n in state["resource_nodes"] if n["remaining"] > 0]
@@ -167,7 +172,7 @@ _PROMPT = """You are the {team_id} team commander in a League of Agents match.
 {rules}
 {extra}
 Scenario: {scenario}
-
+{rejections}{legal_actions}
 Current match state (JSON):
 {state}
 
@@ -189,7 +194,7 @@ League of Agents match. You control ONLY unit {unit_id} (role: {role}).
 {rules}
 {extra}
 Scenario: {scenario}
-
+{rejections}{legal_actions}
 Current match state (JSON):
 {state}
 
@@ -203,6 +208,72 @@ one JSON object, no prose:
   "messages": [{{"from": "{agent_id}", "text": "..."}}],
   "plan": "<optional; only if proposing/refreshing the team plan>"}}
 """
+
+
+# -- rejection feedback + legal-actions citation (spec c8/h5) ---------------
+#
+# Without this, a seat whose order is rejected never learns why: the engine
+# emits an ``action_rejected`` event with a plain-English ``reason``, but that
+# reason never made it into the next briefing — a weak model just repeats the
+# same illegal move for the whole match (19 of 53 orders in the season-0
+# coordination playtest). ``run_match`` reads ``last_turn_rejections`` and
+# ``legal_actions`` off ``match show --json`` (league/engine/legal.py, wired
+# in ``match show`` by task t1) each turn and hands both to every driver as a
+# ``context`` mapping, so a seat can both see *why* its last order failed and
+# check what is legal *before* declaring the next one.
+
+
+def _rejections_for(
+    rejections: list[Mapping[str, Any]],
+    *,
+    team_id: str | None = None,
+    unit_id: str | None = None,
+) -> list[Mapping[str, Any]]:
+    """Narrow last-turn ``action_rejected`` rows to one team and/or unit."""
+    return [
+        r
+        for r in rejections
+        if (team_id is None or r.get("team_id") == team_id)
+        and (unit_id is None or r.get("unit_id") == unit_id)
+    ]
+
+
+def _format_rejections(rejections: list[Mapping[str, Any]]) -> str:
+    """A REJECTIONS section citing the engine's own reason text verbatim."""
+    if not rejections:
+        return ""
+    lines = "\n".join(f"- {r.get('unit_id')}: {r.get('reason')}" for r in rejections)
+    return (
+        "\nREJECTIONS from your last turn — the engine's own reason, so you "
+        f"don't repeat it:\n{lines}\n"
+    )
+
+
+def _format_move_targets(moves: list[Any]) -> str:
+    """Keep the legal-actions line short even for a wide-ranging role."""
+    if len(moves) <= 8:
+        return json.dumps(moves)
+    xs = [m[0] for m in moves]
+    ys = [m[1] for m in moves]
+    return f"{len(moves)} cells, x in [{min(xs)}, {max(xs)}], y in [{min(ys)}, {max(ys)}]"
+
+
+def _format_legal_actions(legal_actions: Mapping[str, Any], unit_ids: list[str]) -> str:
+    """A compact 'legal now' line per unit — checkable before declaring, not
+    just discovered after the engine rejects it."""
+    lines = []
+    for unit_id in unit_ids:
+        legal = legal_actions.get(unit_id)
+        if legal is None:
+            continue
+        lines.append(
+            f"- {unit_id}: move to {_format_move_targets(legal.get('move', []))}; "
+            f"gather: {'yes' if legal.get('gather') else 'no'}; "
+            f"deliver: {'yes' if legal.get('deliver') else 'no'}; hold: yes"
+        )
+    if not lines:
+        return ""
+    return "\nLegal actions right now:\n" + "\n".join(lines) + "\n"
 
 
 def _extract_json(text: str) -> dict[str, Any]:
@@ -255,12 +326,23 @@ def make_command_driver(spec: Mapping[str, Any], scenario: dict[str, Any]) -> Dr
     extra = str(spec.get("prompt", ""))
     rules = _RULES.format(capture=scenario["capture_hold_turns"])
 
-    def orders(state: dict[str, Any], team_id: str, turn: int) -> dict[str, Any]:
+    def orders(
+        state: dict[str, Any],
+        team_id: str,
+        turn: int,
+        context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        context = context or {}
+        my_unit_ids = [u["id"] for u in state.get("units", []) if u.get("team_id") == team_id]
         prompt = _PROMPT.format(
             team_id=team_id,
             rules=rules,
             extra=(_SOLO_NOTE if solo else "") + (f"\n{extra}\n" if extra else ""),
             scenario=json.dumps(scenario, sort_keys=True),
+            rejections=_format_rejections(
+                _rejections_for(context.get("rejections", []), team_id=team_id)
+            ),
+            legal_actions=_format_legal_actions(context.get("legal_actions", {}), my_unit_ids),
             state=json.dumps(state, sort_keys=True),
         )
         try:
@@ -291,7 +373,15 @@ def make_per_seat_driver(
     rules = _RULES.format(capture=scenario["capture_hold_turns"])
     seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
 
-    def orders(state: dict[str, Any], team_id: str, turn: int) -> dict[str, Any]:
+    def orders(
+        state: dict[str, Any],
+        team_id: str,
+        turn: int,
+        context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        context = context or {}
+        legal_actions = context.get("legal_actions", {})
+        rejections = context.get("rejections", [])
         my_units = {
             u["agent_id"]: u for u in state["units"] if u["team_id"] == team_id and u["alive"]
         }
@@ -309,6 +399,8 @@ def make_per_seat_driver(
                 rules=rules,
                 extra=f"\n{seat_extra}\n" if seat_extra else "",
                 scenario=json.dumps(scenario, sort_keys=True),
+                rejections=_format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
+                legal_actions=_format_legal_actions(legal_actions, [unit["id"]]),
                 state=json.dumps(state, sort_keys=True),
                 team_messages=json.dumps(combined["messages"], sort_keys=True) or "[]",
             )
@@ -432,9 +524,17 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
         if state["status"] != "active":
             break
         turn = state["turn"] + 1
+        # Rejection feedback + legal-actions citation (spec c8/h5): every
+        # driver gets the prior turn's rejections and the current legal-move
+        # surface, straight off the public `match show --json` projection —
+        # no bypassing the CLI to read the log directly.
+        context = {
+            "legal_actions": shown.get("legal_actions", {}),
+            "rejections": shown.get("last_turn_rejections", []),
+        }
         for team in config["teams"]:
             team_id = team["id"]
-            orders = drivers[team_id](state, team_id, turn)
+            orders = drivers[team_id](state, team_id, turn, context)
             acted = _cli_json(
                 [
                     "match",
