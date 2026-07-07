@@ -85,6 +85,31 @@ def test_user_controlled_fields_are_escaped_in_the_template() -> None:
         assert raw not in _TEMPLATE, f"unescaped interpolation {raw!r} in replay template"
 
 
+def test_stacked_units_fan_out_instead_of_occluding() -> None:
+    """Human-review regression (season-0 h15): co-located units must all stay
+    visible — the reviewer lost the scout under a defender and both carrying
+    harvesters under the defenders parked on the shared delivery cell."""
+    from league.replay.html import _TEMPLATE
+
+    assert "STACK_OFFSETS" in _TEMPLATE
+    # The renderer must group living units per cell before drawing.
+    assert "byCell" in _TEMPLATE
+    # Solitary units keep the full 12px radius; stacked ones shrink, never hide.
+    assert "stack.length > 1 ? 9 : 12" in _TEMPLATE
+
+
+def test_mission_targets_are_labeled_with_owner_on_completion() -> None:
+    """Human-review regression (season-0 h15): the delivery square sits on a
+    capturable control point, so an unlabeled drop ring read as 'delivering to
+    the enemy base'. Every mission is labeled, and a completed one names and
+    wears the color of the team that actually earned it."""
+    from league.replay.html import _TEMPLATE
+
+    assert "${m.id}: ${m.kind} ${m.amount}" in _TEMPLATE
+    assert "${m.id} → ${m.completed_by}" in _TEMPLATE
+    assert "teamColor(m.completed_by)" in _TEMPLATE
+
+
 def test_both_themes_ship() -> None:
     html = render_html(_play_match())
     assert "prefers-color-scheme: dark" in html

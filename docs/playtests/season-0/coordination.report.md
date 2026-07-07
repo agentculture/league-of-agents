@@ -46,6 +46,26 @@ observability plus no action-bandwidth pressure on the map let one competent
 mind with one action per turn beat three coordinated-but-weaker minds. This
 was pre-registered as plan risk r3 ("the scenario will likely need tuning").
 
+## Human review (h15)
+
+The human reviewer (Ori) read the replay as *"blue only takes resources to the
+enemy base"* — and the board earned that misreading: the ms-supply delivery
+square **is** cp-center (6,5), the swarm owned that control point from turn 6,
+so blue's harvester kept dropping resources onto a red-tinted circle with no
+label saying what the square was or who got credit. (Scoring was correct —
+deliveries always credit the delivering team — but a replay that needs the
+scoring code to be believed fails h15.) **Fixed:** mission squares are labeled
+with kind and amount, and on completion the label becomes
+`ms-supply → solo` in the earning team's color; stacked units fan out instead
+of occluding; `#t7`-style deep links let a reviewer cite the exact frame.
+
+The review also produced a **user directive for the next cycle**: illegal
+moves shouldn't be possible in the first place, and when an order is refused
+the agent must get textual guidance on why. Today the engine logs a
+`reason` on every `action_rejected` event, but the harness never feeds it back
+— a seat that misjudged move range never learns why its unit stood still,
+which is exactly how the swarm burned 19 orders.
+
 ## Findings → next cycle
 
 1. **Coordination pressure is too weak.** Candidates: per-role fog of war
@@ -54,7 +74,9 @@ was pre-registered as plan risk r3 ("the scenario will likely need tuning").
 2. **Cooperation heuristic needs its refinement cycle** (parked v1): weight
    rejected actions inside delegation_spread; score message *content* utility,
    not cadence; distinguish one-mind pseudo-coordination from real delegation.
-3. **Rejection rate is a capability signature** — surface legal moves in
-   `match show --json` (issue #2 explicitly wanted "legal moves" readable) so
-   weaker models waste less and the game measures strategy, not geometry
-   arithmetic.
+3. **Illegal orders must become impossible-by-construction** *(upgraded to a
+   user requirement by the h15 review)*: surface per-unit legal actions in
+   `match show --json` (issue #2 explicitly wanted "legal moves" readable),
+   and feed each seat its own previous-turn rejections *with the engine's
+   reason text* so weaker models stop repeating the same geometry mistakes
+   and the game measures strategy, not arithmetic.

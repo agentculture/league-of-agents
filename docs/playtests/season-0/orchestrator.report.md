@@ -35,6 +35,30 @@ rule (larger total, then lexicographic team id) awarded ms-supply to
 would have been 26–6 Fable. The engine documented this bias as "deliberately
 rare"; it decided the second match of the season.
 
+## Human review (h15)
+
+The human reviewer (Ori) reconstructed the match from the replay alone and
+caught two things the log knew but the board hid:
+
+- **Turn 3:** the baseline scout "disappeared" — it shared (6,7) with the
+  baseline defender, and the renderer drew units at cell centers in state
+  order, so the last-drawn unit fully occluded the rest.
+- **Turn 7:** both carrying harvesters ("H3", blue *and* red) vanished — four
+  units stacked on (6,5), the shared delivery square, with only the top one
+  visible.
+
+Both were the same defect: co-located units occluded each other. **Fixed** —
+stacked units now fan out inside the cell (nothing is ever occluded), mission
+squares are labeled (`ms-supply: deliver 6`, then `ms-supply → <team>` in the
+earning team's color on completion), and replays accept `#t7`-style deep links
+so a reviewer can point at the exact frame. The committed replay was
+regenerated from this same log; the log itself is untouched.
+
+The reviewer also noted agents standing in place: the two defenders parked on
+(6,5) from turn 5 to the end. That one is real doctrine — both sides screened
+the delivery square — and mutual occupancy kept cp-center contested all match,
+which is a visible multi-turn consequence, not a rendering error.
+
 ## Findings → next cycle
 
 1. **Dead-heat mission resolution needs a fair rule** — split the reward,
