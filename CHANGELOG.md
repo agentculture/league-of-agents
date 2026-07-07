@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-07-07
+
+### Added
+
+- Cycle-6 closure: the long-horizon memory playtest (resident sonnet 56-16 over gold on a generated 21x17/60-turn board; first perfect cooperation v1; residency measured as a 6.5x tempo lever), the two-mind span-of-control comparison (sonnet 100 vs colleague 98 on the same fogged board; commanding costs ~3x obeying on the colleague substrate), the first human review through the new stack (7 findings recorded verbatim, 3 already commissioned), and the closure ledger mapping every announcement thread to its artifact
+
 ## [0.10.0] - 2026-07-07
 
 ### Added
