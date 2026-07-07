@@ -3,10 +3,17 @@
 Every driver interacts with the arena **only** via the public CLI surface
 (``league match show --json`` → orders → ``league match act --orders-json
 --apply``), so whatever plays here plays exactly what any external agent
-would (spec c2/h13). Three driver types ship:
+would (spec c2/h13). Four driver types ship:
 
 * ``bot`` — a deterministic greedy policy (stdlib only). The baseline
   opponent and the harness's own test double.
+* ``bot-file`` — the coded-strategy bot lane (plan task t2, spec c3/h2):
+  loads a committed strategy module from ``bots/<name>.py`` (contract in
+  ``bots/README.md``; reference strategy ``bots/rusher.py``) and calls its
+  ``decide(show_json, team_id)`` with EXACTLY the dict ``league match show
+  --json`` returns. Unlike ``bot``, the strategy never sees ``state`` or
+  ``context`` directly and never imports ``league.engine``/``league.store``
+  — it is honest opposition, not a hidden engine privilege.
 * ``command`` — any external agent as a subprocess: the harness feeds a
   prompt (rules + full state JSON) on stdin and parses the first JSON object
   from stdout as the team's orders. A colleague-backend model, a Sonnet
@@ -54,6 +61,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -63,10 +71,11 @@ import re
 import subprocess  # nosec B404
 import sys
 import urllib.request
+from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from league.cli import main as cli_main
-from league.store import Store
+from league.store import Store, validate_id
 
 Driver = Callable[[dict[str, Any], str, int, Mapping[str, Any] | None], dict[str, Any]]
 
@@ -172,6 +181,69 @@ def make_bot_driver(scenario: dict[str, Any]) -> Driver:
         if messages:
             result["messages"] = messages
         return result
+
+    return orders
+
+
+# -- coded-strategy bots: bots/<name>.py, loaded as trusted repo source -----
+#
+# The "bot-file" lane (plan task t2, spec c3/h2) is deliberately NOT another
+# in-harness policy function like ``make_bot_driver`` above. A strategy is a
+# committed, readable file under ``bots/`` (contract: ``bots/README.md``);
+# the driver's job is only to load it and hand it the exact JSON dict any
+# external bot process would get from ``league match show --json`` — never
+# the engine's own objects, never anything the CLI itself doesn't expose.
+
+_BOTS_DIR = Path(__file__).resolve().parent.parent / "bots"
+
+
+def _load_bot_strategy(name: str) -> Callable[[dict[str, Any], str], dict[str, Any]]:
+    """Load ``bots/<name>.py``'s ``decide(show_json, team_id)`` function.
+
+    ``validate_id`` — the store's own path-traversal defense — rejects any
+    name that could escape ``bots/`` (``..``, path separators, a leading
+    dot) before it ever reaches the filesystem: strategies are trusted repo
+    code, but only from this one directory, by this one name pattern.
+    """
+    validate_id(name, what="bot strategy name")
+    path = _BOTS_DIR / f"{name}.py"
+    if not path.is_file():
+        raise ValueError(f"unknown bot strategy {name!r}: no such file {path}")
+    spec = importlib.util.spec_from_file_location(f"league_bots_{name}", path)
+    if spec is None or spec.loader is None:  # pragma: no cover - defensive
+        raise ValueError(f"could not load bot strategy {name!r} from {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    decide = getattr(module, "decide", None)
+    if not callable(decide):
+        raise ValueError(f"bots/{name}.py has no callable decide(show_json, team_id)")
+    return decide
+
+
+def make_bot_file_driver(spec: Mapping[str, Any]) -> Driver:
+    """A coded strategy played through the public JSON surface only.
+
+    The returned ``orders`` closure ignores the ``state``/``context`` the
+    run loop hands every driver and instead calls ``match show --json``
+    itself (the same ``_cli_json`` path every other driver uses) — exactly
+    what a subprocess bot would have to do — then passes ONLY that parsed
+    dict (plus ``team_id``) to the strategy's ``decide``. No scenario, no
+    engine dataclass, ever crosses into strategy code.
+    """
+    name = spec.get("strategy")
+    if not name:
+        raise ValueError("bot-file driver requires a 'strategy' name (bots/<name>.py)")
+    decide = _load_bot_strategy(str(name))
+
+    def orders(
+        state: dict[str, Any],
+        team_id: str,
+        turn: int,
+        context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        match_id = str(state.get("match_id") or "")
+        show_json = _cli_json(["match", "show", match_id])
+        return decide(show_json, team_id)
 
     return orders
 
@@ -801,13 +873,17 @@ def build_driver(
         raise ValueError("per_seat is only supported for 'command' and 'resident' drivers")
     if kind == "bot":
         return make_bot_driver(scenario)
+    if kind == "bot-file":
+        return make_bot_file_driver(spec)
     if kind == "resident":  # per-seat by definition
         return make_resident_driver(spec, scenario, agents or [])
     if kind == "command" and spec.get("per_seat"):
         return make_per_seat_driver(spec, scenario, agents or [])
     if kind == "command":
         return make_command_driver(spec, scenario)
-    raise ValueError(f"unknown driver type {kind!r}; expected 'bot', 'command' or 'resident'")
+    raise ValueError(
+        f"unknown driver type {kind!r}; expected 'bot', 'bot-file', 'command' or 'resident'"
+    )
 
 
 # -- residency: the declared fairness axis (spec c10/h7) --------------------
@@ -819,15 +895,18 @@ def driver_kind(spec: Mapping[str, Any]) -> str:
     """The residency label recorded for a team's driver — metadata about HOW its
     minds were invoked, never game state (it never touches ``MatchState``).
 
-    ``bot`` drivers are always ``"bot"``. ``resident`` drivers are always
-    ``"resident"`` — one persistent session per seat for the whole match
+    ``bot`` drivers are always ``"bot"``; ``bot-file`` drivers (coded
+    strategies loaded from ``bots/``) are ALSO ``"bot"`` — same fairness
+    axis, just a different, committed-source policy instead of the in-harness
+    greedy one. ``resident`` drivers are always ``"resident"`` — one
+    persistent session per seat for the whole match
     (:func:`make_resident_driver`). ``command`` drivers default to
     ``"stateless"`` (fresh subprocess per turn) unless the spec declares
     ``"residency": "resident"`` — e.g. a command whose own process holds
     per-seat sessions.
     """
     kind = spec.get("type")
-    if kind == "bot":
+    if kind in ("bot", "bot-file"):
         return "bot"
     if kind == "resident":
         return "resident"
@@ -839,7 +918,9 @@ def driver_kind(spec: Mapping[str, Any]) -> str:
                 "expected 'stateless' or 'resident'"
             )
         return residency
-    raise ValueError(f"unknown driver type {kind!r}; expected 'bot', 'command' or 'resident'")
+    raise ValueError(
+        f"unknown driver type {kind!r}; expected 'bot', 'bot-file', 'command' or 'resident'"
+    )
 
 
 # -- the run loop -----------------------------------------------------------
