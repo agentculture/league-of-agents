@@ -19,6 +19,7 @@ from typing import Any
 from league.cli._errors import EXIT_USER_ERROR, CliError
 from league.cli._output import emit_result
 from league.engine.events import MatchLog
+from league.engine.legal import legal_actions
 from league.engine.scenario import get_scenario, instantiate
 from league.engine.scoring import score_match
 from league.engine.tick import resolve_turn, start_match
@@ -189,7 +190,14 @@ def cmd_match_show(args: argparse.Namespace) -> int:
     state = log.final_state()
     pending = sorted(store.pending_orders(args.match_id))
     if json_mode:
-        emit_result({"state": state.to_dict(), "staged_teams": pending}, json_mode=True)
+        scenario = get_scenario(state.scenario_id)
+        living_actions = {
+            unit.id: legal_actions(state, scenario, unit.id) for unit in state.units if unit.alive
+        }
+        emit_result(
+            {"state": state.to_dict(), "staged_teams": pending, "legal_actions": living_actions},
+            json_mode=True,
+        )
         return 0
     lines = [
         f"{state.match_id}: {state.status} — turn {state.turn}/{state.turn_limit} "

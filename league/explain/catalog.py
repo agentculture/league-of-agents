@@ -187,6 +187,13 @@ commits** — a stray call never silently advances the game.
 
 Orders can also be one JSON object: `--orders-json '{"plan": ..., "messages":
 [...], "actions": [...]}'`.
+
+`show --json` also includes `legal_actions`: for every living unit, its move
+targets in range plus gather/deliver/hold applicability — computed straight
+from state + scenario (deterministic, sorted, no engine mutation). Check it
+before declaring an order; the season-0 coordination playtest burned 19 of 53
+orders on exactly the misses this closes (10 beyond-move-range moves, 6
+off-square delivers).
 """
 
 
