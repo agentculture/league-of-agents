@@ -7,21 +7,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.7.2] - 2026-07-07
 
-### Changed
+### Added
 
-- Cycle-3 fog+faces frame converged (user confirmations): all claims/honesty conditions confirmed, v4 resolved by user decision c17 (agentfront runtime import); converged spec + 10-task/6-wave plan exported, superseding the parked draft
+- Cycle-3 spec + plan (devague): AgentFront audience-typed faces (markdown/TUI+HTML/JSON), fog of war with per-role line of sight, orchestrator as a real game mode, coded-strategy bots as opponents — frame converged on user confirmations, with the agentfront dependency unknown resolved by user decision c17 (runtime import); the earlier parked draft of this frame is superseded by the converged spec + 10-task/6-wave plan
 
 ## [0.7.1] - 2026-07-07
 
 ### Added
 
-- Parked cycle-3 spec draft: AgentFront audience-typed faces (markdown/TUI+HTML/JSON), fog of war with per-role line of sight, orchestrator as a real game mode, coded-strategy bots as opponents; devague frame parked with a deliberate blocking unknown on the agentfront dependency policy
+- Cycle-2 spec + plan (devague): seats become resident minds — one persistent session per seat with delta briefings; legal-by-construction orders (legal-actions surface + rejection feedback); dual-award dead-heat rule (user decision); residency as a declared fairness axis; resident-vs-stateless comparison as the success signal
 
 ## [0.7.0] - 2026-07-07
 
 ### Added
 
-- Cycle-2 spec + plan (devague): seats become resident minds — one persistent cultureagent-anchored session per seat with delta briefings; legal-by-construction orders (legal-actions surface + rejection feedback); dual-award dead-heat rule (user decision); residency as a declared fairness axis; resident-vs-stateless comparison as the success signal
+- Season-0 playtest wave complete: opener (Sonnet 23-10 Qwen, h17/h18 verified), coordination-necessity (h9 not demonstrated, recorded), orchestrator subagent mode (h8 demonstrated, dead-heat finding); resilient live-driver harness (per-seat minds, solo handicap, retry-and-idle); colleague_driver.py fields colleague as an agent; replay legibility fixes from human review (stacked-unit fan-out, mission labels, #tN deep links)
+
+### Fixed
+
+- replay: co-located units no longer occlude each other; mission squares labeled with completion credit; playtests branch rebased to include the PR #5 XSS/traversal fixes
 
 ## [0.6.0] - 2026-07-07
 

@@ -70,6 +70,19 @@ SOLO_AGENT = (
     "{'unit_id': 'blue-u3', 'action': 'hold'}]}))"
 )
 
+# Malformed driver output: valid JSON, but "actions" is a dict instead of a
+# list — Qodo review comment 3534115611 (`actions[:1]` raised TypeError).
+MALFORMED_ACTIONS_AGENT = (
+    "import sys, json; sys.stdin.read(); print(json.dumps({'actions': {'unit': 'u1'}}))"
+)
+
+# Malformed driver output: "messages" is a bare string instead of a list.
+MALFORMED_MESSAGES_AGENT = (
+    "import sys, json; sys.stdin.read(); "
+    "print(json.dumps({'action': {'unit_id': 'spoofed', 'action': 'hold'}, "
+    "'messages': 'hi'}))"
+)
+
 
 def test_per_seat_minds_coordinate_via_messages() -> None:
     agents = [
@@ -101,3 +114,43 @@ def test_solo_handicap_is_enforced_not_asked() -> None:
 def test_per_seat_requires_command_type() -> None:
     with pytest.raises(ValueError):
         build_driver({"type": "bot", "per_seat": True, "argv": []}, SCENARIO, [])
+
+
+def test_command_driver_survives_non_list_actions() -> None:
+    """A driver returning ``actions`` as a dict, not a list, must not raise —
+    the team idles this turn instead of aborting the match (Qodo 3534115611)."""
+    driver = build_driver(
+        {"type": "command", "argv": [sys.executable, "-c", MALFORMED_ACTIONS_AGENT]},
+        SCENARIO,
+    )
+    orders = driver(STATE, "blue", 1)
+    assert orders["actions"] == []
+
+
+def test_solo_command_driver_survives_non_list_actions() -> None:
+    """Same hazard, solo mode: ``actions[:1]`` on a dict used to raise TypeError."""
+    driver = build_driver(
+        {"type": "command", "solo": True, "argv": [sys.executable, "-c", MALFORMED_ACTIONS_AGENT]},
+        SCENARIO,
+    )
+    orders = driver(STATE, "blue", 1)
+    assert orders["actions"] == []
+
+
+def test_per_seat_driver_survives_non_list_messages() -> None:
+    """A driver returning ``messages`` as a bare string must not crash the
+    per-seat loop — the malformed field is dropped, the seat's own action
+    still lands."""
+    agents = [{"id": "blue-1", "model": "test", "role": "scout"}]
+    driver = build_driver(
+        {
+            "type": "command",
+            "per_seat": True,
+            "argv": [sys.executable, "-c", MALFORMED_MESSAGES_AGENT],
+        },
+        SCENARIO,
+        agents,
+    )
+    orders = driver(STATE, "blue", 1)
+    assert orders["actions"] == [{"unit_id": "blue-u1", "action": "hold"}]
+    assert "messages" not in orders

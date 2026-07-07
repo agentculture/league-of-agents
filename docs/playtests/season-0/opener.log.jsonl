@@ -1,0 +1,599 @@
+{"initial_state":{"control_points":[{"hold":[],"id":"cp-center","owner":null,"pos":[6,5]},{"hold":[],"id":"cp-west","owner":null,"pos":[3,8]},{"hold":[],"id":"cp-east","owner":null,"pos":[9,2]}],"grid_height":10,"grid_width":12,"match_id":"m-season0-opener","missions":[{"amount":6,"completed_by":null,"completed_turn":null,"id":"ms-supply","kind":"deliver","pos":[6,5],"reward":10,"status":"open"},{"amount":3,"completed_by":null,"completed_turn":null,"id":"ms-outpost","kind":"hold","pos":[9,2],"reward":8,"status":"open"}],"mode":"competitive","resource_nodes":[{"id":"rn-west","pos":[0,5],"remaining":12},{"id":"rn-east","pos":[11,4],"remaining":12}],"scenario_id":"skirmish-1","seed":20260707,"status":"pending","teams":[{"agents":[{"id":"blue-1","model":"claude-sonnet-5","role":"scout"},{"id":"blue-2","model":"claude-sonnet-5","role":"harvester"},{"id":"blue-3","model":"claude-sonnet-5","role":"defender"}],"id":"blue","name":"Sonnet Foundry","resources":0},{"agents":[{"id":"red-1","model":"colleague/qwen3.6-27b","role":"scout"},{"id":"red-2","model":"colleague/qwen3.6-27b","role":"harvester"},{"id":"red-3","model":"colleague/qwen3.6-27b","role":"defender"}],"id":"red","name":"Qwen Relay","resources":0}],"turn":0,"turn_limit":30,"units":[{"agent_id":"blue-1","alive":true,"carrying":0,"id":"blue-u1","pos":[0,0],"role":"scout","team_id":"blue"},{"agent_id":"blue-2","alive":true,"carrying":0,"id":"blue-u2","pos":[1,0],"role":"harvester","team_id":"blue"},{"agent_id":"blue-3","alive":true,"carrying":0,"id":"blue-u3","pos":[0,1],"role":"defender","team_id":"blue"},{"agent_id":"red-1","alive":true,"carrying":0,"id":"red-u1","pos":[11,9],"role":"scout","team_id":"red"},{"agent_id":"red-2","alive":true,"carrying":0,"id":"red-u2","pos":[10,9],"role":"harvester","team_id":"red"},{"agent_id":"red-3","alive":true,"carrying":0,"id":"red-u3","pos":[11,8],"role":"defender","team_id":"red"}],"winner":null},"log_version":1}
+{"data":{},"kind":"match_started","seq":0,"turn":0}
+{"data":{"team_id":"blue","text":"u1 (scout) rushes cp-west for a likely-uncontested capture. u2 (harvester) runs rn-west -> ms-supply (cp-center) for the 10pt deliver mission. u3 (defender) stages near cp-center/rn-west, ready to reinforce delivery, help hold cp-center once captured, or pivot toward contesting cp-east/ms-outpost depending on red's moves."},"kind":"plan_declared","seq":1,"turn":1}
+{"data":{"from":"blue-1","team_id":"blue","text":"Heading toward cp-west (3,8) to attempt an uncontested capture - it's not tied to either mission so red may not prioritize it. u2: suggest gather rn-west (0,5) and haul to ms-supply at cp-center (6,5), our biggest guaranteed reward (10). u3: hold near cp-center/rn-west this turn, redirect once we see red's opening moves - possibly push to contest ms-outpost at cp-east (9,2) later if we want to deny red's home-turf hold mission. Will report if red beats me to cp-west."},"kind":"message_sent","seq":2,"turn":1}
+{"data":{"from":"blue-2","team_id":"blue","text":"Copy, heading to rn-west (0,5) to gather, then hauling to cp-center for ms-supply. Moving to (0,1) this turn, will reach the node in ~2 more turns."},"kind":"message_sent","seq":3,"turn":1}
+{"data":{"from":"blue-3","team_id":"blue","text":"Moving to (1,2) this turn - it's roughly equidistant (8) from all three control points and close to rn-west, so I stay flexible until we see red's opening. Will commit next turn: likely swing to cp-center to guard u2's delivery run, or push toward cp-east if red looks slow to contest ms-outpost."},"kind":"message_sent","seq":4,"turn":1}
+{"data":{"team_id":"red","text":"Red-1 secures cp-east for hold mission. Red-2 handles rn-east -> cp-center delivery. Red-3 supports logistics/defense."},"kind":"plan_declared","seq":5,"turn":1}
+{"data":{"from":"red-1","team_id":"red","text":"Heading to cp-east [9, 2] to start the hold mission. Red-2, gather at rn-east [11, 4] and deliver to cp-center [6, 5]. Red-3, assist with delivery or secure cp-center."},"kind":"message_sent","seq":6,"turn":1}
+{"data":{"from":"red-2","team_id":"red","text":"Acknowledged. Moving toward rn-east [11, 4] to gather. Will deliver to cp-center once full."},"kind":"message_sent","seq":7,"turn":1}
+{"data":{"from":"red-3","team_id":"red","text":"Acknowledged. Advancing toward cp-center [6, 5] to secure the point and support the supply delivery. I'll coordinate with Red-2 on the relay and watch for blue interference."},"kind":"message_sent","seq":8,"turn":1}
+{"data":{"action":"move","team_id":"blue","to":[1,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":9,"turn":1}
+{"data":{"action":"move","team_id":"blue","to":[0,1],"unit_id":"blue-u2"},"kind":"action_declared","seq":10,"turn":1}
+{"data":{"action":"move","team_id":"blue","to":[1,2],"unit_id":"blue-u3"},"kind":"action_declared","seq":11,"turn":1}
+{"data":{"action":"move","team_id":"red","to":[9,8],"unit_id":"red-u1"},"kind":"action_declared","seq":12,"turn":1}
+{"data":{"action":"move","team_id":"red","to":[10,7],"unit_id":"red-u2"},"kind":"action_declared","seq":13,"turn":1}
+{"data":{"action":"move","team_id":"red","to":[10,7],"unit_id":"red-u3"},"kind":"action_declared","seq":14,"turn":1}
+{"data":{"to":[1,2],"unit_id":"blue-u1"},"kind":"unit_moved","seq":15,"turn":1}
+{"data":{"to":[0,1],"unit_id":"blue-u2"},"kind":"unit_moved","seq":16,"turn":1}
+{"data":{"to":[1,2],"unit_id":"blue-u3"},"kind":"unit_moved","seq":17,"turn":1}
+{"data":{"to":[9,8],"unit_id":"red-u1"},"kind":"unit_moved","seq":18,"turn":1}
+{"data":{"to":[10,7],"unit_id":"red-u2"},"kind":"unit_moved","seq":19,"turn":1}
+{"data":{"to":[10,7],"unit_id":"red-u3"},"kind":"unit_moved","seq":20,"turn":1}
+{"data":{"turn":1},"kind":"turn_advanced","seq":21,"turn":1}
+{"data":{"turn":1},"kind":"turn_resolved","seq":22,"turn":1}
+{"data":{"team_id":"blue","text":"Focus blue on the deliver mission (ms-supply @ cp-center) via blue-2 gathering from rn-west, with blue-1 and blue-3 converging on cp-center to contest/hold it; cede the cp-east hold mission (favors red's spawn) and opportunistically grab cp-west if uncontested."},"kind":"plan_declared","seq":23,"turn":2}
+{"data":{"from":"blue-1","team_id":"blue","text":"Distances are symmetric-ish but red's scout/units sit ~2 closer to every CP (6 vs our 8), so we won't win a solo footrace to any point. I'm pushing toward cp-center (6,5) to contest it and back up ms-supply delivery there. blue-2: head to rn-west (0,5), gather, then run resources to cp-center for ms-supply (6 needed, reward 10) — that's a marathon not a race, we're even with red on that. blue-3: escort blue-2 toward cp-center or swing to cp-west (3,8) to grab an uncontested point since red likely commits to cp-east for the hold mission (ms-outpost, closer to their spawn). Let's not chase cp-east — bad trade for us."},"kind":"message_sent","seq":24,"turn":2}
+{"data":{"from":"blue-2","team_id":"blue","text":"Copy, heading to rn-west now. At (0,1), moving to (0,3) this turn, will reach (0,5) next turn and start gathering. Will haul toward cp-center for ms-supply after that."},"kind":"message_sent","seq":25,"turn":2}
+{"data":{"from":"blue-3","team_id":"blue","text":"Agreed, heading to cp-west (3,8) — it's the one point where red isn't closer than us, so first-mover wins it uncontested while they likely split toward cp-center/cp-east. Moving (1,2)->(2,3) this turn, will keep closing the gap. No combat mechanic exists so once I'm sole occupant for 2 turns it's ours — will hold once I arrive."},"kind":"message_sent","seq":26,"turn":2}
+{"data":{"team_id":"red","text":"red-1 secures cp-east [9, 2] for ms-outpost. red-2 gathers rn-east and delivers to cp-center [6, 5] for ms-supply. red-3 provides cover/defense."},"kind":"plan_declared","seq":27,"turn":2}
+{"data":{"from":"red-2","team_id":"red","text":"I'm moving to rn-east [11, 4] to gather resources. red-1, please head to cp-east [9, 2] to start the hold mission. red-3, support red-1 or secure cp-center [6, 5] for deliveries. I'll bring resources to cp-center once my carry is full."},"kind":"message_sent","seq":28,"turn":2}
+{"data":{"from":"red-3","team_id":"red","text":"Acknowledged. I'm moving to [10, 5] to approach cp-east. red-1, please head to [9, 4] this turn so we can alternate occupying cp-east [9, 2] for the hold streak. red-2, proceed to rn-east and deliver to cp-center when full."},"kind":"message_sent","seq":29,"turn":2}
+{"data":{"action":"move","team_id":"blue","to":[4,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":30,"turn":2}
+{"data":{"action":"move","team_id":"blue","to":[0,3],"unit_id":"blue-u2"},"kind":"action_declared","seq":31,"turn":2}
+{"data":{"action":"move","team_id":"blue","to":[2,3],"unit_id":"blue-u3"},"kind":"action_declared","seq":32,"turn":2}
+{"data":{"action":"move","team_id":"red","to":[10,5],"unit_id":"red-u2"},"kind":"action_declared","seq":33,"turn":2}
+{"data":{"action":"move","team_id":"red","to":[10,5],"unit_id":"red-u3"},"kind":"action_declared","seq":34,"turn":2}
+{"data":{"to":[4,2],"unit_id":"blue-u1"},"kind":"unit_moved","seq":35,"turn":2}
+{"data":{"to":[0,3],"unit_id":"blue-u2"},"kind":"unit_moved","seq":36,"turn":2}
+{"data":{"to":[2,3],"unit_id":"blue-u3"},"kind":"unit_moved","seq":37,"turn":2}
+{"data":{"to":[10,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":38,"turn":2}
+{"data":{"to":[10,5],"unit_id":"red-u3"},"kind":"unit_moved","seq":39,"turn":2}
+{"data":{"turn":2},"kind":"turn_advanced","seq":40,"turn":2}
+{"data":{"turn":2},"kind":"turn_resolved","seq":41,"turn":2}
+{"data":{"team_id":"blue","text":"blue-u1 rushes cp-east to claim ms-outpost; blue-u2 shuttles rn-west resources to cp-center for ms-supply; blue-u3 defends cp-center and contests cp-west."},"kind":"plan_declared","seq":42,"turn":3}
+{"data":{"from":"blue-1","team_id":"blue","text":"Scout rushing cp-east (9,2) for ms-outpost hold mission - I'm closer than red's scout (dist 5 vs 6). ETA turn 3, then need ~5 turns holding uncontested. blue-2: focus rn-west gather -> deliver at cp-center for ms-supply. blue-3: cover cp-center or swing toward cp-west/cp-east to block red reinforcements."},"kind":"message_sent","seq":43,"turn":3}
+{"data":{"from":"blue-2","team_id":"blue","text":"Moving to rn-west (0,5) now, will gather next turn then haul to cp-center for ms-supply. Full load (3) takes ~2 trips to hit amount 6."},"kind":"message_sent","seq":44,"turn":3}
+{"data":{"from":"blue-3","team_id":"blue","text":"Moving toward cp-center (6,5) — red-2/red-3 are both at (10,5), only 2 turns from cp-center, so they could contest it before blue-2's delivery lands. I'll take up position there to hold/defend it. Will divert to cp-west if red doesn't press center."},"kind":"message_sent","seq":45,"turn":3}
+{"data":{"team_id":"red","text":"Focus on ms-outpost (cp-east) and ms-supply (cp-center). red-2 handles resources. red-3 & I secure points."},"kind":"plan_declared","seq":46,"turn":3}
+{"data":{"from":"red-1","team_id":"red","text":"Plan: red-2 gather rn-east & deliver to cp-center for ms-supply. red-3 secure cp-center. I will secure cp-east for ms-outpost. Coordinate to avoid blocking."},"kind":"message_sent","seq":47,"turn":3}
+{"data":{"from":"red-2","team_id":"red","text":"Acknowledged. Moving to rn-east [11, 4] to gather. Will deliver to cp-center [6, 5]. red-3, please move to cp-center to start the hold streak."},"kind":"message_sent","seq":48,"turn":3}
+{"data":{"from":"red-3","team_id":"red","text":"Acknowledged. Moving to [8, 5] to approach cp-center. Will hold there next turn to start the capture streak."},"kind":"message_sent","seq":49,"turn":3}
+{"data":{"action":"move","team_id":"blue","to":[7,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":50,"turn":3}
+{"data":{"action":"move","team_id":"blue","to":[0,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":51,"turn":3}
+{"data":{"action":"move","team_id":"blue","to":[4,3],"unit_id":"blue-u3"},"kind":"action_declared","seq":52,"turn":3}
+{"data":{"action":"move","team_id":"red","to":[9,5],"unit_id":"red-u1"},"kind":"action_declared","seq":53,"turn":3}
+{"data":{"action":"move","team_id":"red","to":[11,4],"unit_id":"red-u2"},"kind":"action_declared","seq":54,"turn":3}
+{"data":{"action":"move","team_id":"red","to":[8,5],"unit_id":"red-u3"},"kind":"action_declared","seq":55,"turn":3}
+{"data":{"to":[7,2],"unit_id":"blue-u1"},"kind":"unit_moved","seq":56,"turn":3}
+{"data":{"to":[0,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":57,"turn":3}
+{"data":{"to":[4,3],"unit_id":"blue-u3"},"kind":"unit_moved","seq":58,"turn":3}
+{"data":{"to":[9,5],"unit_id":"red-u1"},"kind":"unit_moved","seq":59,"turn":3}
+{"data":{"to":[11,4],"unit_id":"red-u2"},"kind":"unit_moved","seq":60,"turn":3}
+{"data":{"to":[8,5],"unit_id":"red-u3"},"kind":"unit_moved","seq":61,"turn":3}
+{"data":{"turn":3},"kind":"turn_advanced","seq":62,"turn":3}
+{"data":{"turn":3},"kind":"turn_resolved","seq":63,"turn":3}
+{"data":{"team_id":"blue","text":"blue-1 secures cp-east for ms-outpost hold; blue-2 harvests rn-west and delivers to cp-center for ms-supply; blue-3 defends cp-center/harvester route."},"kind":"plan_declared","seq":64,"turn":4}
+{"data":{"from":"blue-1","team_id":"blue","text":"Racing to cp-east (9,2) to contest ms-outpost before red-1 gets there. blue-2: keep gathering rn-west, deliver to cp-center for ms-supply. blue-3: hold/contest cp-center or escort blue-2, watch for red-3 pushing from (8,5)."},"kind":"message_sent","seq":65,"turn":4}
+{"data":{"from":"blue-2","team_id":"blue","text":"At rn-west now, gathering. Will shuttle loads to cp-center for ms-supply."},"kind":"message_sent","seq":66,"turn":4}
+{"data":{"from":"blue-3","team_id":"blue","text":"Red-3 is only 2 away from cp-center (8,5)->(6,5), closer than me. Moving (4,3)->(6,3) to contest cp-center next turn and screen blue-2's delivery route."},"kind":"message_sent","seq":67,"turn":4}
+{"data":{"team_id":"red","text":"Secure cp-east [9,2] for ms-outpost hold mission. red-u3 supports hold. red-u2 gathers rn-east and delivers to center [6,5] for ms-supply."},"kind":"plan_declared","seq":68,"turn":4}
+{"data":{"from":"red-1","team_id":"red","text":"Moving to cp-east [9,2] to start the hold mission. red-u3, follow to support/relieve me. red-u2, gather at rn-east and deliver to center [6,5] for the supply mission."},"kind":"message_sent","seq":69,"turn":4}
+{"data":{"from":"red-2","team_id":"red","text":"Acknowledged. Gathering at rn-east [11,4] this turn. I'll head to cp-center [6,5] immediately after to complete the supply mission. I'll sync with red-u3 for support/defense as needed."},"kind":"message_sent","seq":70,"turn":4}
+{"data":{"from":"red-3","team_id":"red","text":"Acknowledged. Moving to [9, 4] to support red-u1 at cp-east next turn. I'll secure the point against blue-u1."},"kind":"message_sent","seq":71,"turn":4}
+{"data":{"action":"move","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":72,"turn":4}
+{"data":{"action":"gather","team_id":"blue","to":[0,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":73,"turn":4}
+{"data":{"action":"move","team_id":"blue","to":[6,3],"unit_id":"blue-u3"},"kind":"action_declared","seq":74,"turn":4}
+{"data":{"action":"move","team_id":"red","to":[9,2],"unit_id":"red-u1"},"kind":"action_declared","seq":75,"turn":4}
+{"data":{"action":"gather","team_id":"red","to":[11,4],"unit_id":"red-u2"},"kind":"action_declared","seq":76,"turn":4}
+{"data":{"action":"move","team_id":"red","to":[9,4],"unit_id":"red-u3"},"kind":"action_declared","seq":77,"turn":4}
+{"data":{"to":[9,2],"unit_id":"blue-u1"},"kind":"unit_moved","seq":78,"turn":4}
+{"data":{"to":[6,3],"unit_id":"blue-u3"},"kind":"unit_moved","seq":79,"turn":4}
+{"data":{"to":[9,2],"unit_id":"red-u1"},"kind":"unit_moved","seq":80,"turn":4}
+{"data":{"to":[9,4],"unit_id":"red-u3"},"kind":"unit_moved","seq":81,"turn":4}
+{"data":{"amount":3,"node_id":"rn-west","unit_id":"blue-u2"},"kind":"resource_gathered","seq":82,"turn":4}
+{"data":{"amount":3,"node_id":"rn-east","unit_id":"red-u2"},"kind":"resource_gathered","seq":83,"turn":4}
+{"data":{"turn":4},"kind":"turn_advanced","seq":84,"turn":4}
+{"data":{"turn":4},"kind":"turn_resolved","seq":85,"turn":4}
+{"data":{"team_id":"blue","text":"blue-1 holds/denies cp-east, blue-3 controls cp-center, blue-2 delivers to ms-supply."},"kind":"plan_declared","seq":86,"turn":5}
+{"data":{"from":"blue-1","team_id":"blue","text":"Contesting cp-east with red-u1 — holding here denies their outpost mission and capture since neither of us has sole occupancy. blue-3, secure cp-center; blue-2, keep hauling to complete ms-supply. I'll hold this standoff unless red reinforces or leaves."},"kind":"message_sent","seq":87,"turn":5}
+{"data":{"from":"blue-2","team_id":"blue","text":"Loaded 3/3 from rn-west, moving toward cp-center to deliver for ms-supply. ETA ~3 turns."},"kind":"message_sent","seq":88,"turn":5}
+{"data":{"from":"blue-3","team_id":"blue","text":"Moving onto cp-center now to start the capture clock and guard the delivery spot for blue-2's ms-supply drop-off."},"kind":"message_sent","seq":89,"turn":5}
+{"data":{"team_id":"red","text":"red-u1 holds cp-east for ms-outpost (requires 5 turns total). red-u2 delivers current load to ms-supply. red-u3 gathers rn-east and delivers to ms-supply."},"kind":"plan_declared","seq":90,"turn":5}
+{"data":{"from":"red-1","team_id":"red","text":"Holding cp-east [9, 2] for ms-outpost. red-u2: path to [6, 5] to deliver your 3 resources. red-u3: gather at rn-east [11, 4] and bring to [6, 5] for ms-supply."},"kind":"message_sent","seq":91,"turn":5}
+{"data":{"from":"red-2","team_id":"red","text":"Moving to [9, 4] towards cp-center [6, 5] to deliver. red-3, proceed to rn-east [11, 4] to gather. red-1, maintain hold on cp-east."},"kind":"message_sent","seq":92,"turn":5}
+{"data":{"from":"red-3","team_id":"red","text":"Moving to rn-east [11, 4] to gather 1 resource for ms-supply. red-2, clear [9, 4] for your path."},"kind":"message_sent","seq":93,"turn":5}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":94,"turn":5}
+{"data":{"action":"move","team_id":"blue","to":[2,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":95,"turn":5}
+{"data":{"action":"move","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":96,"turn":5}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u1"},"kind":"action_declared","seq":97,"turn":5}
+{"data":{"action":"move","team_id":"red","to":[9,4],"unit_id":"red-u2"},"kind":"action_declared","seq":98,"turn":5}
+{"data":{"action":"move","team_id":"red","to":[11,4],"unit_id":"red-u3"},"kind":"action_declared","seq":99,"turn":5}
+{"data":{"to":[2,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":100,"turn":5}
+{"data":{"to":[6,5],"unit_id":"blue-u3"},"kind":"unit_moved","seq":101,"turn":5}
+{"data":{"to":[9,4],"unit_id":"red-u2"},"kind":"unit_moved","seq":102,"turn":5}
+{"data":{"to":[11,4],"unit_id":"red-u3"},"kind":"unit_moved","seq":103,"turn":5}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":1},"kind":"control_point_held","seq":104,"turn":5}
+{"data":{"turn":5},"kind":"turn_advanced","seq":105,"turn":5}
+{"data":{"turn":5},"kind":"turn_resolved","seq":106,"turn":5}
+{"data":{"team_id":"blue","text":"blue-u1 pins cp-east in a stalemate to deny ms-outpost to red; blue-3 finishes capturing cp-center; blue-2 delivers its full load to complete ms-supply; revisit cp-west once supply is delivered."},"kind":"plan_declared","seq":107,"turn":6}
+{"data":{"from":"blue-1","team_id":"blue","text":"Standoff with red-1 at cp-east (9,2) — holding to deny their outpost capture since neither side can capture while contested. Keep pushing deliver at center and center capture; cp-west (3,8) is wide open if anyone can spare a trip."},"kind":"message_sent","seq":108,"turn":6}
+{"data":{"from":"blue-2","team_id":"blue","text":"Carrying 3/3 from rn-west, en route to ms-supply at cp-center (6,5) - 2 turns out. Will loop back for more after delivery."},"kind":"message_sent","seq":109,"turn":6}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-center (6,5) for 2nd consecutive turn — capturing it now. Staying put to guard the spot for blue-2's supply delivery in ~2 turns."},"kind":"message_sent","seq":110,"turn":6}
+{"data":{"team_id":"red","text":"red-u2 delivers at center; red-u1 holds cp-east; red-u3 contests/guards cp-center to secure supply mission."},"kind":"plan_declared","seq":111,"turn":6}
+{"data":{"from":"red-2","team_id":"red","text":"Moving to [7,4] to deliver 3 resources at center. Red-u1, hold cp-east for outpost mission. Red-u3, head to center to contest or guard."},"kind":"message_sent","seq":112,"turn":6}
+{"data":{"from":"red-3","team_id":"red","text":"Acknowledged. Moving to [9,4] toward center to contest cp-center and guard the delivery point."},"kind":"message_sent","seq":113,"turn":6}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":114,"turn":6}
+{"data":{"action":"move","team_id":"blue","to":[4,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":115,"turn":6}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":116,"turn":6}
+{"data":{"action":"move","team_id":"red","to":[7,4],"unit_id":"red-u2"},"kind":"action_declared","seq":117,"turn":6}
+{"data":{"action":"move","team_id":"red","to":[9,4],"unit_id":"red-u3"},"kind":"action_declared","seq":118,"turn":6}
+{"data":{"to":[4,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":119,"turn":6}
+{"data":{"to":[7,4],"unit_id":"red-u2"},"kind":"unit_moved","seq":120,"turn":6}
+{"data":{"to":[9,4],"unit_id":"red-u3"},"kind":"unit_moved","seq":121,"turn":6}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":2},"kind":"control_point_held","seq":122,"turn":6}
+{"data":{"cp_id":"cp-center","team_id":"blue"},"kind":"control_point_captured","seq":123,"turn":6}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":2},"kind":"control_point_held","seq":124,"turn":6}
+{"data":{"turn":6},"kind":"turn_advanced","seq":125,"turn":6}
+{"data":{"turn":6},"kind":"turn_resolved","seq":126,"turn":6}
+{"data":{"team_id":"blue","text":"Contain cp-east with blue-u1 to deny red's hold mission; blue-u2 finishes delivering at cp-center; blue-u3 guards cp-center/deliver point and reinforces east if freed up."},"kind":"plan_declared","seq":127,"turn":7}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east (9,2) — tied with red scout, denies their sole occupancy so ms-outpost can't progress for them either. blue-2 keep delivering to cp-center, blue-3 hold cp-center for the deliver mission square; if you can spare a reinforcement to cp-east that'd let us flip it since red-3 is only 2 away."},"kind":"message_sent","seq":128,"turn":7}
+{"data":{"from":"blue-2","team_id":"blue","text":"En route to cp-center with 3/3 cargo, arriving this turn — will deliver next turn. Can't spare for cp-east, I'm too slow (move 2) and it's 8 tiles away; that's a job for blue-1 or a redirected defender, not me."},"kind":"message_sent","seq":129,"turn":7}
+{"data":{"from":"blue-3","team_id":"blue","text":"Staying put at cp-center (6,5) — red-2 is only 2 tiles out (7,4) and looks like it's beelining for the same delivery square, so I want blue presence here to protect blue-2's delivery next turn and keep our capture secure. I'm move-2 and cp-east is 6 tiles away — 3 turns to get there, same problem blue-2 flagged. blue-1, your tie at cp-east is already doing the job (denies red's sole occupancy, so ms-outpost can't tick for them either) — hold that line, don't need to force a flip yet."},"kind":"message_sent","seq":130,"turn":7}
+{"data":{"from":"red-2","team_id":"red","text":"red-3: move to [9, 2] to secure cp-east with red-1. red-1: hold [9, 2]."},"kind":"message_sent","seq":131,"turn":7}
+{"data":{"from":"red-3","team_id":"red","text":"Confirmed. Moving to [9, 2] to secure cp-east. red-2: deliver at [6, 5]. red-1: hold [9, 2]."},"kind":"message_sent","seq":132,"turn":7}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":133,"turn":7}
+{"data":{"action":"move","team_id":"blue","to":[6,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":134,"turn":7}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":135,"turn":7}
+{"data":{"action":"move","team_id":"red","to":[6,5],"unit_id":"red-u2"},"kind":"action_declared","seq":136,"turn":7}
+{"data":{"action":"move","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":137,"turn":7}
+{"data":{"to":[6,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":138,"turn":7}
+{"data":{"to":[6,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":139,"turn":7}
+{"data":{"to":[9,2],"unit_id":"red-u3"},"kind":"unit_moved","seq":140,"turn":7}
+{"data":{"cp_id":"cp-center","team_id":"","turns":0},"kind":"control_point_held","seq":141,"turn":7}
+{"data":{"turn":7},"kind":"turn_advanced","seq":142,"turn":7}
+{"data":{"turn":7},"kind":"turn_resolved","seq":143,"turn":7}
+{"data":{"team_id":"blue","text":"blue-1 denies cp-east by holding; blue-2 delivers cargo and keeps cycling rn-west/rn-east into ms-supply; blue-3 moves to capture cp-west uncontested. Re-evaluate if red abandons cp-east."},"kind":"plan_declared","seq":144,"turn":8}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east — contested 1v2 vs red scout+defender, denies their outpost hold mission for free since occupancy is shared. blue-2: deliver your 3 now at cp-center. blue-3: consider pushing to cp-west (unowned, uncontested) to grab a third point while I tie up two red units here."},"kind":"message_sent","seq":145,"turn":8}
+{"data":{"from":"blue-2","team_id":"blue","text":"Delivering 3 now at cp-center — that puts team resources at 3/6 for ms-supply. Heading back to rn-west after to refill; will need another full load plus change to close the mission."},"kind":"message_sent","seq":146,"turn":8}
+{"data":{"from":"blue-3","team_id":"blue","text":"Moving out from cp-center toward cp-west (3 turns, defender move=2) per blue-1's call — no red units are near cp-west so it's a safe free grab. cp-center ownership is sticky (only flips on 2 consecutive turns of sole enemy occupancy), and red-2 is carrying like blue-2 so it'll likely cycle back to refill too — low capture risk. blue-2: if red-2 camps alone at cp-center for 2+ turns after you leave, flag it and I'll turn back."},"kind":"message_sent","seq":147,"turn":8}
+{"data":{"team_id":"red","text":"red-2 delivers at cp-center. red-3 holds cp-east. red-1 gathers rn-east and relays to cp-center."},"kind":"plan_declared","seq":148,"turn":8}
+{"data":{"from":"red-1","team_id":"red","text":"red-2: Deliver your 3 resources at cp-center [6,5] next turn. red-3: Hold cp-east [9,2] to secure the outpost mission. I will advance to rn-east [11,4] to gather and shuttle resources."},"kind":"message_sent","seq":149,"turn":8}
+{"data":{"from":"red-2","team_id":"red","text":"Delivering 3 resources at cp-center now. I will head to rn-west [0,5] next to gather 3 more and finish the supply mission. red-3, maintain hold on cp-east [9,2] for the outpost mission. red-1, coordinate shuttle runs from rn-east."},"kind":"message_sent","seq":150,"turn":8}
+{"data":{"from":"red-3","team_id":"red","text":"Acknowledged. Holding cp-east [9,2] to secure the outpost mission. red-2, proceed with delivery. red-1, coordinate shuttles from rn-east. I will maintain control here."},"kind":"message_sent","seq":151,"turn":8}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":152,"turn":8}
+{"data":{"action":"deliver","team_id":"blue","to":[6,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":153,"turn":8}
+{"data":{"action":"move","team_id":"blue","to":[5,6],"unit_id":"blue-u3"},"kind":"action_declared","seq":154,"turn":8}
+{"data":{"action":"move","team_id":"red","to":[10,4],"unit_id":"red-u1"},"kind":"action_declared","seq":155,"turn":8}
+{"data":{"action":"deliver","team_id":"red","to":[6,5],"unit_id":"red-u2"},"kind":"action_declared","seq":156,"turn":8}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":157,"turn":8}
+{"data":{"to":[5,6],"unit_id":"blue-u3"},"kind":"unit_moved","seq":158,"turn":8}
+{"data":{"to":[10,4],"unit_id":"red-u1"},"kind":"unit_moved","seq":159,"turn":8}
+{"data":{"amount":3,"team_id":"blue","unit_id":"blue-u2"},"kind":"resource_delivered","seq":160,"turn":8}
+{"data":{"amount":3,"team_id":"red","unit_id":"red-u2"},"kind":"resource_delivered","seq":161,"turn":8}
+{"data":{"turn":8},"kind":"turn_advanced","seq":162,"turn":8}
+{"data":{"turn":8},"kind":"turn_resolved","seq":163,"turn":8}
+{"data":{"team_id":"blue","text":"blue-2 keep gathering/delivering at cp-center toward ms-supply (6 needed); blue-3 hold/defend cp-center against red-2 contest; blue-1 (me) pins cp-east contested indefinitely to deny ms-outpost to red unless we commit a second unit to actually flip it."},"kind":"plan_declared","seq":164,"turn":9}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east (9,2) — contested with red-3, denying their outpost hold-mission clock for free. Not worth abandoning since red would start capturing in 2 turns. Focus resources on ms-supply at cp-center; send blue-3 here only if we actually want cp-east ourselves, otherwise this stalemate favors us."},"kind":"message_sent","seq":165,"turn":9}
+{"data":{"from":"blue-2","team_id":"blue","text":"Heading to rn-west (0,5) to fill up (carry 3) for ms-supply — red's harvester is parked on cp-center too so continuing to hold there is contested anyway. ETA node in 2 more turns, then back to deliver. cp-center ownership should stick from our earlier capture even while contested."},"kind":"message_sent","seq":166,"turn":9}
+{"data":{"from":"blue-3","team_id":"blue","text":"Moving blue-u3 onto cp-center now — once blue-2 leaves for rn-west, red-2 would get sole occupancy and start flipping our capture. I'll sit on cp-center to keep it contested until blue-2 gets back to deliver, then we can reassess whether to push cp-west instead."},"kind":"message_sent","seq":167,"turn":9}
+{"data":{"team_id":"red","text":"Priority: Complete ms-supply (deliver 6 to [6,5]). I will gather at rn-east and deliver. red-2 gathers rn-west. red-3 secures cp-east."},"kind":"plan_declared","seq":168,"turn":9}
+{"data":{"from":"red-1","team_id":"red","text":"Moving to rn-east [11,4] to gather. I'll shuttle resources to [6,5] for the deliver mission. red-2, head to rn-west [0,5] to gather and deliver. red-3, maintain pressure on cp-east [9,2]; if blue-1 leaves, hold it for the outpost mission."},"kind":"message_sent","seq":169,"turn":9}
+{"data":{"from":"red-3","team_id":"red","text":"Holding cp-east [9,2] to contest. I'll secure the outpost mission as soon as blue-1 disengages. Will maintain pressure here."},"kind":"message_sent","seq":170,"turn":9}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":171,"turn":9}
+{"data":{"action":"move","team_id":"blue","to":[4,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":172,"turn":9}
+{"data":{"action":"move","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":173,"turn":9}
+{"data":{"action":"move","team_id":"red","to":[11,4],"unit_id":"red-u1"},"kind":"action_declared","seq":174,"turn":9}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":175,"turn":9}
+{"data":{"to":[4,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":176,"turn":9}
+{"data":{"to":[6,5],"unit_id":"blue-u3"},"kind":"unit_moved","seq":177,"turn":9}
+{"data":{"to":[11,4],"unit_id":"red-u1"},"kind":"unit_moved","seq":178,"turn":9}
+{"data":{"turn":9},"kind":"turn_advanced","seq":179,"turn":9}
+{"data":{"turn":9},"kind":"turn_resolved","seq":180,"turn":9}
+{"data":{"team_id":"blue","text":"Deny ms-outpost by contesting cp-east indefinitely (blue-1). Hold cp-center against red-2 (blue-3). Harvester (blue-2) cycles rn-west -> cp-center to hit ms-supply's 6 resources."},"kind":"plan_declared","seq":181,"turn":10}
+{"data":{"from":"blue-1","team_id":"blue","text":"Parked on cp-east with red-3 — contested, so their ms-outpost hold (worth 8) can't progress. Staying put to block. blue-2: rn-west is closer (dist 4) than rn-east from your spot, gather there and shuttle to cp-center for ms-supply. blue-3: keep holding cp-center against red-2, ownership stays ours while contested."},"kind":"message_sent","seq":182,"turn":10}
+{"data":{"from":"blue-2","team_id":"blue","text":"Heading to rn-west (dist 4 from me), moving to (2,5) this turn then gather next turn. Will shuttle to cp-center for ms-supply after."},"kind":"message_sent","seq":183,"turn":10}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-center against red-2 to keep it contested, ownership stays blue since we already had it. blue-2: once you gather at rn-west, come straight to (6,5) to deliver ms-supply — I'll keep the square occupied for you."},"kind":"message_sent","seq":184,"turn":10}
+{"data":{"team_id":"red","text":"Priority: ms-supply (6 resources). Red-1 & Red-2 gather from rn-east/rn-west and deliver to cp-center. Red-3 secures cp-east for ms-outpost once clear."},"kind":"plan_declared","seq":185,"turn":10}
+{"data":{"from":"red-1","team_id":"red","text":"Gathering at rn-east. Will deliver to cp-center next turn. Red-2: head to rn-east/rn-west, gather, and deliver to cp-center. Red-3: hold cp-east if blue-u1 vacates, otherwise reposition to support supply run."},"kind":"message_sent","seq":186,"turn":10}
+{"data":{"from":"red-2","team_id":"red","text":"Heading to rn-west via [4, 5]. Will gather and deliver to cp-center. Red-3, keep holding cp-east."},"kind":"message_sent","seq":187,"turn":10}
+{"data":{"from":"red-3","team_id":"red","text":"Holding cp-east at [9, 2] to contest blue-u1 and secure ms-outpost. Will maintain position until blue vacates or orders change. Good luck with supply runs."},"kind":"message_sent","seq":188,"turn":10}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":189,"turn":10}
+{"data":{"action":"move","team_id":"blue","to":[2,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":190,"turn":10}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":191,"turn":10}
+{"data":{"action":"gather","team_id":"red","to":[11,4],"unit_id":"red-u1"},"kind":"action_declared","seq":192,"turn":10}
+{"data":{"action":"move","team_id":"red","to":[4,5],"unit_id":"red-u2"},"kind":"action_declared","seq":193,"turn":10}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":194,"turn":10}
+{"data":{"to":[2,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":195,"turn":10}
+{"data":{"to":[4,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":196,"turn":10}
+{"data":{"amount":1,"node_id":"rn-east","unit_id":"red-u1"},"kind":"resource_gathered","seq":197,"turn":10}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":1},"kind":"control_point_held","seq":198,"turn":10}
+{"data":{"turn":10},"kind":"turn_advanced","seq":199,"turn":10}
+{"data":{"turn":10},"kind":"turn_resolved","seq":200,"turn":10}
+{"data":{"team_id":"blue","text":"blue-3 completes cp-center capture and stays to build ms-supply delivery point; blue-2 shuttles resources from rn-west to cp-center; blue-1 (me) holds cp-east to deny red's outpost mission via stalemate contest, re-evaluating if red reinforces or withdraws."},"kind":"plan_declared","seq":201,"turn":11}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east (9,2) — red-3 is also here so it's contested, denying their ms-outpost (reward 8). I'll sit on it as long as red-3 stays; too far from a node to gather efficiently anyway. blue-3: finish the cp-center capture (1/2 already) then start banking toward ms-supply. blue-2: keep cycling rn-west -> cp-center, we're at 3/6 resources."},"kind":"message_sent","seq":202,"turn":11}
+{"data":{"from":"blue-2","team_id":"blue","text":"Moving to rn-west (0,5) now, will gather next turn then run back to cp-center to deliver toward ms-supply."},"kind":"message_sent","seq":203,"turn":11}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-center for the 2nd turn to lock the capture. After that I will stay here to build the ms-supply hold/deliver support, or push to defend if red approaches."},"kind":"message_sent","seq":204,"turn":11}
+{"data":{"team_id":"red","text":"Prioritize ms-supply: red-1 delivers current resource, red-2 gathers rn-west and delivers. Once supply complete, shift to ms-outpost by securing cp-east."},"kind":"plan_declared","seq":205,"turn":11}
+{"data":{"from":"red-1","team_id":"red","text":"Moving to [8, 4] to reach deliver point [6, 5] in 2 turns. red-2, gather at rn-west [0, 5] and bring 3 resources to [6, 5] to complete ms-supply. red-3, contest cp-east [9, 2] and hold once blue-1 leaves."},"kind":"message_sent","seq":206,"turn":11}
+{"data":{"from":"red-2","team_id":"red","text":"Acknowledged. Moving to [2, 5] to reach rn-west [0, 5] next turn. Will gather 3 and deliver to [6, 5] to complete ms-supply."},"kind":"message_sent","seq":207,"turn":11}
+{"data":{"from":"red-3","team_id":"red","text":"Holding cp-east [9, 2]. Will capture once blue-u1 leaves. red-1, good luck delivering. red-2, gather and deliver to complete ms-supply."},"kind":"message_sent","seq":208,"turn":11}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":209,"turn":11}
+{"data":{"action":"move","team_id":"blue","to":[0,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":210,"turn":11}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u3"},"kind":"action_declared","seq":211,"turn":11}
+{"data":{"action":"move","team_id":"red","to":[8,4],"unit_id":"red-u1"},"kind":"action_declared","seq":212,"turn":11}
+{"data":{"action":"move","team_id":"red","to":[2,5],"unit_id":"red-u2"},"kind":"action_declared","seq":213,"turn":11}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":214,"turn":11}
+{"data":{"to":[0,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":215,"turn":11}
+{"data":{"to":[8,4],"unit_id":"red-u1"},"kind":"unit_moved","seq":216,"turn":11}
+{"data":{"to":[2,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":217,"turn":11}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":2},"kind":"control_point_held","seq":218,"turn":11}
+{"data":{"turn":11},"kind":"turn_advanced","seq":219,"turn":11}
+{"data":{"turn":11},"kind":"turn_resolved","seq":220,"turn":11}
+{"data":{"team_id":"blue","text":"Blue-3 anchors cp-center (secures ms-supply deliver point). Blue-2 gathers 3 at rn-west, delivers to cp-center to complete ms-supply (reward 10). Blue-1 contests cp-east against red-u3 to deny ms-outpost (reward 8) — reassess and redeploy to cp-west if red reinforces east."},"kind":"plan_declared","seq":221,"turn":12}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east — contested with red-u3, denies their ms-outpost hold streak (no combat, so my scout mobility (mv3) lets me redeploy fast if needed). Blue-2: gather full 3 at rn-west then run to cp-center [6,5] to finish ms-supply (exactly your carry, reward 10). Blue-3: keep holding cp-center to secure the delivery point. I'll stay pinned here unless red brings a second unit, then I'll peel off to cp-west instead."},"kind":"message_sent","seq":222,"turn":12}
+{"data":{"from":"blue-2","team_id":"blue","text":"At rn-west now, gathering to fill 3 carry. Will head to cp-center next turn to deliver into ms-supply."},"kind":"message_sent","seq":223,"turn":12}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-center as ordered — it's also the ms-supply deliver square, so I'm guarding blue-2's delivery. cp-center already shows blue owned with a 2-turn streak; no red units nearby to contest. Will stay put unless red pushes toward (6,5)."},"kind":"message_sent","seq":224,"turn":12}
+{"data":{"team_id":"red","text":"Focus on ms-supply first. red-u1 delivers 1. red-u2 gathers rn-west. red-u3 secures cp-east."},"kind":"plan_declared","seq":225,"turn":12}
+{"data":{"from":"red-1","team_id":"red","text":"Moving to deliver at cp-center. red-2: gather rn-west and bring resources to cp-center. red-3: hold cp-east to secure outpost mission."},"kind":"message_sent","seq":226,"turn":12}
+{"data":{"from":"red-2","team_id":"red","text":"Acknowledged. Moving to rn-west to gather, then heading to cp-center to deliver."},"kind":"message_sent","seq":227,"turn":12}
+{"data":{"from":"red-3","team_id":"red","text":"Acknowledged. Holding cp-east to secure the outpost mission. I will maintain position to build the hold streak."},"kind":"message_sent","seq":228,"turn":12}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":229,"turn":12}
+{"data":{"action":"gather","team_id":"blue","unit_id":"blue-u2"},"kind":"action_declared","seq":230,"turn":12}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u3"},"kind":"action_declared","seq":231,"turn":12}
+{"data":{"action":"move","team_id":"red","to":[6,5],"unit_id":"red-u1"},"kind":"action_declared","seq":232,"turn":12}
+{"data":{"action":"move","team_id":"red","to":[0,5],"unit_id":"red-u2"},"kind":"action_declared","seq":233,"turn":12}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":234,"turn":12}
+{"data":{"to":[6,5],"unit_id":"red-u1"},"kind":"unit_moved","seq":235,"turn":12}
+{"data":{"to":[0,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":236,"turn":12}
+{"data":{"amount":3,"node_id":"rn-west","unit_id":"blue-u2"},"kind":"resource_gathered","seq":237,"turn":12}
+{"data":{"cp_id":"cp-center","team_id":"","turns":0},"kind":"control_point_held","seq":238,"turn":12}
+{"data":{"turn":12},"kind":"turn_advanced","seq":239,"turn":12}
+{"data":{"turn":12},"kind":"turn_resolved","seq":240,"turn":12}
+{"data":{"team_id":"blue","text":"blue-1 holds cp-east to deny red's outpost hold-mission; blue-2 hauls its full load to cp-center to finish ms-supply (3+3=6); blue-3 keeps cp-center contested."},"kind":"plan_declared","seq":241,"turn":13}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east — I'm contesting red-3's defender there, denying ms-outpost (reward 8) as long as I stay. blue-2: you're full at 3/3, team resources are 3/6 for ms-supply — deliver at cp-center (6,5), that completes it immediately. blue-3: keep contesting cp-center against red-1."},"kind":"message_sent","seq":242,"turn":13}
+{"data":{"from":"blue-2","team_id":"blue","text":"Moving toward cp-center with my 3 resources, ETA ~2 more turns from (0,5). Will deliver as soon as I arrive to close ms-supply."},"kind":"message_sent","seq":243,"turn":13}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-center at (6,5), staying on red-1's square to deny sole occupancy — they can't flip ownership while I'm parked here. blue-2: come on in and deliver, I'm not moving."},"kind":"message_sent","seq":244,"turn":13}
+{"data":{"team_id":"red","text":"Focus on ms-supply (need 3 more) and ms-outpost (hold cp-east). red-2 gathers/delivers, red-3 holds east, red-1 delivers and assists."},"kind":"plan_declared","seq":245,"turn":13}
+{"data":{"from":"red-1","team_id":"red","text":"Delivering 1 to center. red-2, gather at rn-west and bring to center to complete ms-supply. red-3, hold cp-east for ms-outpost. I'll move to support after delivery."},"kind":"message_sent","seq":246,"turn":13}
+{"data":{"from":"red-2","team_id":"red","text":"Gathering at rn-west. Will deliver to center to finish ms-supply."},"kind":"message_sent","seq":247,"turn":13}
+{"data":{"from":"red-3","team_id":"red","text":"Holding cp-east for ms-outpost. I'll maintain position and secure the point once blue-u1 vacates. Acknowledged plan."},"kind":"message_sent","seq":248,"turn":13}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":249,"turn":13}
+{"data":{"action":"move","team_id":"blue","to":[2,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":250,"turn":13}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":251,"turn":13}
+{"data":{"action":"deliver","team_id":"red","to":[6,5],"unit_id":"red-u1"},"kind":"action_declared","seq":252,"turn":13}
+{"data":{"action":"gather","team_id":"red","to":[0,5],"unit_id":"red-u2"},"kind":"action_declared","seq":253,"turn":13}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":254,"turn":13}
+{"data":{"to":[2,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":255,"turn":13}
+{"data":{"amount":3,"node_id":"rn-west","unit_id":"red-u2"},"kind":"resource_gathered","seq":256,"turn":13}
+{"data":{"amount":1,"team_id":"red","unit_id":"red-u1"},"kind":"resource_delivered","seq":257,"turn":13}
+{"data":{"turn":13},"kind":"turn_advanced","seq":258,"turn":13}
+{"data":{"turn":13},"kind":"turn_resolved","seq":259,"turn":13}
+{"data":{"team_id":"blue","text":"blue-3 anchors cp-center and escorts blue-2's delivery to close ms-supply before red's harvester arrives; blue-1 (scout) camps cp-east in a permanent stalemate with red-3 to deny ms-outpost, since sole occupancy is impossible while contested."},"kind":"plan_declared","seq":260,"turn":14}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east — I'm stacked with red-3 so neither of us can capture it, which denies their ms-outpost (reward 8) for free. blue-2: you're 2 moves from cp-center vs red's harvester's 3 — push the delivery, we clinch ms-supply first. blue-3: red-1 just moved onto cp-center to contest it, hold your ground there."},"kind":"message_sent","seq":261,"turn":14}
+{"data":{"from":"blue-2","team_id":"blue","text":"Confirmed, pushing to cp-center with my full load (3). Moving to [4,5] this turn, [6,5] next turn to deliver — that alone completes ms-supply (3+3=6)."},"kind":"message_sent","seq":262,"turn":14}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-center against red-1 - as long as I stay, they cannot get sole occupancy to flip it, and it stays clear for blue-2 to deliver. blue-2: come on in, I will not block your delivery."},"kind":"message_sent","seq":263,"turn":14}
+{"data":{"team_id":"red","text":"Secure cp-east for the hold mission. red-u2 will deliver resources to complete the supply mission."},"kind":"plan_declared","seq":264,"turn":14}
+{"data":{"from":"red-1","team_id":"red","text":"Moving to reinforce cp-east. red-u2 proceed to deliver at cp-center. red-u3 hold cp-east."},"kind":"message_sent","seq":265,"turn":14}
+{"data":{"from":"red-2","team_id":"red","text":"Acknowledged. I'm moving toward cp-center to deliver my load and finish ms-supply. Keep holding cp-east for the outpost mission."},"kind":"message_sent","seq":266,"turn":14}
+{"data":{"from":"red-3","team_id":"red","text":"Holding cp-east to contest blue-u1. red-1, avoid stacking on cp-east; focus on cp-center or rn-east. red-2, proceed to deliver."},"kind":"message_sent","seq":267,"turn":14}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":268,"turn":14}
+{"data":{"action":"move","team_id":"blue","to":[4,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":269,"turn":14}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":270,"turn":14}
+{"data":{"action":"move","team_id":"red","to":[8,4],"unit_id":"red-u1"},"kind":"action_declared","seq":271,"turn":14}
+{"data":{"action":"move","team_id":"red","to":[2,5],"unit_id":"red-u2"},"kind":"action_declared","seq":272,"turn":14}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":273,"turn":14}
+{"data":{"to":[4,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":274,"turn":14}
+{"data":{"to":[8,4],"unit_id":"red-u1"},"kind":"unit_moved","seq":275,"turn":14}
+{"data":{"to":[2,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":276,"turn":14}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":1},"kind":"control_point_held","seq":277,"turn":14}
+{"data":{"turn":14},"kind":"turn_advanced","seq":278,"turn":14}
+{"data":{"turn":14},"kind":"turn_resolved","seq":279,"turn":14}
+{"data":{"team_id":"blue","text":"Deny cp-east to red by contesting with blue-u1 (stalemate blocks their hold-mission progress). blue-2 delivers to finish ms-supply (10 pts). blue-3 continues holding cp-center. Re-evaluate if red reinforces cp-east or pulls back."},"kind":"plan_declared","seq":280,"turn":15}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east/ms-outpost — red-3 is here too, so it's contested and denied to them. Staying to block their mission progress. blue-2: deliver the 3 you're carrying at cp-center once you arrive, that completes ms-supply (6/6). blue-3: keep holding cp-center."},"kind":"message_sent","seq":281,"turn":15}
+{"data":{"from":"blue-2","team_id":"blue","text":"Moving to cp-center now (dist 2, exactly my move). Will deliver next turn to hit 6/6 on ms-supply."},"kind":"message_sent","seq":282,"turn":15}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-center, staying put so blue-2 can deliver here next turn for ms-supply."},"kind":"message_sent","seq":283,"turn":15}
+{"data":{"team_id":"red","text":"Priority: Secure cp-east [9,2] for ms-outpost (hold 3 turns). red-1 & red-3 will hold cp-east. red-2 delivers to cp-center to finish ms-supply."},"kind":"plan_declared","seq":284,"turn":15}
+{"data":{"from":"red-1","team_id":"red","text":"Moving to cp-east [9,2] to reinforce red-3 for the hold mission. red-2, proceed to cp-center [6,5] to deliver your resources and complete ms-supply. We'll contest blue-1 at the outpost."},"kind":"message_sent","seq":285,"turn":15}
+{"data":{"from":"red-2","team_id":"red","text":"Moving to [4,5] toward cp-center. I'll deliver my 3 resources next turn to complete ms-supply (team will reach 7/6). red-1, good luck securing cp-east with red-3."},"kind":"message_sent","seq":286,"turn":15}
+{"data":{"from":"red-3","team_id":"red","text":"Holding [9,2] to contest blue-1 and initiate the cp-east hold streak. red-1, coordinate arrival to secure the point. red-2, proceed with delivery at cp-center."},"kind":"message_sent","seq":287,"turn":15}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":288,"turn":15}
+{"data":{"action":"move","team_id":"blue","to":[6,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":289,"turn":15}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":290,"turn":15}
+{"data":{"action":"move","team_id":"red","to":[9,2],"unit_id":"red-u1"},"kind":"action_declared","seq":291,"turn":15}
+{"data":{"action":"move","team_id":"red","to":[4,5],"unit_id":"red-u2"},"kind":"action_declared","seq":292,"turn":15}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":293,"turn":15}
+{"data":{"to":[6,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":294,"turn":15}
+{"data":{"to":[9,2],"unit_id":"red-u1"},"kind":"unit_moved","seq":295,"turn":15}
+{"data":{"to":[4,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":296,"turn":15}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":2},"kind":"control_point_held","seq":297,"turn":15}
+{"data":{"turn":15},"kind":"turn_advanced","seq":298,"turn":15}
+{"data":{"turn":15},"kind":"turn_resolved","seq":299,"turn":15}
+{"data":{"team_id":"blue","text":"Blue-2 delivers to close ms-supply then resumes gathering; blue-3 anchors cp-center against red's nearby harvester; blue-1 holds cp-east to deny red's outpost mission/CP capture."},"kind":"plan_declared","seq":300,"turn":16}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east contested (me + red-1 + red-3) — denies their outpost hold-mission and CP capture. Blue-2: deliver now (3 carried + 3 banked = 6, closes ms-supply). Blue-3: stay on cp-center, red's harvester at (4,5) is only 2 away and could contest it if we leave."},"kind":"message_sent","seq":301,"turn":16}
+{"data":{"from":"blue-2","team_id":"blue","text":"Delivering now at cp-center: 3 carried + 3 banked = 6, ms-supply complete this turn."},"kind":"message_sent","seq":302,"turn":16}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-center to guard blue-2's delivery and block red-2's harvester from contesting. Will reassess once ms-supply completes."},"kind":"message_sent","seq":303,"turn":16}
+{"data":{"team_id":"red","text":"Secure cp-east for ms-outpost (8pts) while red-u2 completes ms-supply (10pts). Contest blue at center if possible later."},"kind":"plan_declared","seq":304,"turn":16}
+{"data":{"from":"red-1","team_id":"red","text":"Holding cp-east [9,2] to contest blue-u1 and secure ms-outpost. red-u2, move to [6,5] and deliver to finish ms-supply. red-u3, hold with me."},"kind":"message_sent","seq":305,"turn":16}
+{"data":{"from":"red-2","team_id":"red","text":"Moving to [6,5] to deliver. Will complete ms-supply next turn."},"kind":"message_sent","seq":306,"turn":16}
+{"data":{"from":"red-3","team_id":"red","text":"Confirming hold at cp-east [9,2] with red-1 to contest and secure ms-outpost. red-2, proceed to [6,5] to deliver and complete ms-supply."},"kind":"message_sent","seq":307,"turn":16}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u1"},"kind":"action_declared","seq":308,"turn":16}
+{"data":{"action":"deliver","team_id":"blue","unit_id":"blue-u2"},"kind":"action_declared","seq":309,"turn":16}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":310,"turn":16}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u1"},"kind":"action_declared","seq":311,"turn":16}
+{"data":{"action":"move","team_id":"red","to":[6,5],"unit_id":"red-u2"},"kind":"action_declared","seq":312,"turn":16}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":313,"turn":16}
+{"data":{"to":[6,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":314,"turn":16}
+{"data":{"amount":3,"team_id":"blue","unit_id":"blue-u2"},"kind":"resource_delivered","seq":315,"turn":16}
+{"data":{"cp_id":"cp-center","team_id":"","turns":0},"kind":"control_point_held","seq":316,"turn":16}
+{"data":{"mission_id":"ms-supply","team_id":"blue"},"kind":"mission_completed","seq":317,"turn":16}
+{"data":{"turn":16},"kind":"turn_advanced","seq":318,"turn":16}
+{"data":{"turn":16},"kind":"turn_resolved","seq":319,"turn":16}
+{"data":{"team_id":"blue","text":"ms-supply complete (10pts banked). blue-u1 camps cp-east to deny red the outpost hold mission indefinitely (contested = no capture for either side). blue-3 pushes to claim unclaimed cp-west. blue-2 keeps farming rn-east for resources."},"kind":"plan_declared","seq":320,"turn":17}
+{"data":{"from":"blue-1","team_id":"blue","text":"cp-east contested: red-u1 (scout) + red-3 (defender) are parked here with me, so ms-outpost stays blocked for everyone as long as I hold — denying their 8pt mission for free. blue-3: cp-west (3,8) is unclaimed and empty, worth swinging over to capture. blue-2: ms-supply is done but keep gathering at rn-east (8 remaining, closer) for resource score."},"kind":"message_sent","seq":321,"turn":17}
+{"data":{"from":"blue-2","team_id":"blue","text":"Heading to rn-east (11,4) to keep gathering since ms-supply is already delivered — will reach in ~3 turns and start hauling for resource score."},"kind":"message_sent","seq":322,"turn":17}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-center instead of dashing to cp-west: blue-2 is vacating this turn and red-u2 is sitting right here with 3 cargo, so if I leave too, red-u2 becomes sole occupant and starts a capture-flip on a point we already own. Cp-west is empty and unclaimed — it'll still be there in a turn or two, or blue-1's scout (move 3) can swing over faster once cp-east denial isn't needed. I'll reassess once red-u2 moves off center."},"kind":"message_sent","seq":323,"turn":17}
+{"data":{"team_id":"red","text":"Secure cp-east for ms-outpost mission. All units hold/reinforce [9,2]."},"kind":"plan_declared","seq":324,"turn":17}
+{"data":{"from":"red-1","team_id":"red","text":"Holding cp-east to secure ms-outpost. red-u3, hold with me. red-u2, move to [9,2] ASAP to reinforce."},"kind":"message_sent","seq":325,"turn":17}
+{"data":{"from":"red-2","team_id":"red","text":"Delivering at center now to secure resources. Will move to cp-east next turn to reinforce the hold."},"kind":"message_sent","seq":326,"turn":17}
+{"data":{"from":"red-3","team_id":"red","text":"Holding cp-east with red-1 to secure ms-outpost. red-2, proceed with delivery; we'll maintain the hold until you arrive."},"kind":"message_sent","seq":327,"turn":17}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":328,"turn":17}
+{"data":{"action":"move","team_id":"blue","to":[8,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":329,"turn":17}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":330,"turn":17}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u1"},"kind":"action_declared","seq":331,"turn":17}
+{"data":{"action":"deliver","team_id":"red","to":[6,5],"unit_id":"red-u2"},"kind":"action_declared","seq":332,"turn":17}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":333,"turn":17}
+{"data":{"to":[8,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":334,"turn":17}
+{"data":{"amount":3,"team_id":"red","unit_id":"red-u2"},"kind":"resource_delivered","seq":335,"turn":17}
+{"data":{"turn":17},"kind":"turn_advanced","seq":336,"turn":17}
+{"data":{"turn":17},"kind":"turn_resolved","seq":337,"turn":17}
+{"data":{"team_id":"blue","text":"blue-u1 blocks cp-east indefinitely to deny ms-outpost to red; blue-u3 holds cp-center; blue-u2 keeps gathering/delivering for resource score."},"kind":"plan_declared","seq":338,"turn":18}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east (9,2) — red-1 and red-3 are both here too, so it's contested and neither side can get sole occupancy. I'll sit tight to deny their outpost hold mission. Supply mission's already done; keep gathering/delivering for score if useful."},"kind":"message_sent","seq":339,"turn":18}
+{"data":{"from":"blue-2","team_id":"blue","text":"Supply's done; heading to rn-east (11,4) to keep banking resources for score since I'm too slow to help contest cp-east. 2 turns out, then I'll gather/deliver on repeat."},"kind":"message_sent","seq":340,"turn":18}
+{"data":{"from":"blue-3","team_id":"blue","text":"Red-2 (harvester) is parked on cp-center with me right now — supply's done so it's not delivering toward anything new, but if I move off, they get sole occupancy and could flip our ownership in 2 turns. Holding here to deny that."},"kind":"message_sent","seq":341,"turn":18}
+{"data":{"team_id":"red","text":"red-3 captures cp-east [9,2] for ms-outpost. red-1 provides perimeter cover at [11,2]. red-2 supports from center."},"kind":"plan_declared","seq":342,"turn":18}
+{"data":{"from":"red-1","team_id":"red","text":"Moving to [11,2] to clear cp-east. red-3, hold [9,2] sole-occupant to capture ms-outpost. red-2, avoid cp-east."},"kind":"message_sent","seq":343,"turn":18}
+{"data":{"from":"red-2","team_id":"red","text":"Moving to [4,5] to approach rn-west. I will gather resources and relay them if needed. Avoiding cp-east as instructed."},"kind":"message_sent","seq":344,"turn":18}
+{"data":{"from":"red-3","team_id":"red","text":"Holding [9,2] to capture cp-east and complete ms-outpost. red-1, ensure blue-1 does not contest. red-2, stay away from cp-east to maintain sole occupancy."},"kind":"message_sent","seq":345,"turn":18}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u1"},"kind":"action_declared","seq":346,"turn":18}
+{"data":{"action":"move","team_id":"blue","to":[9,4],"unit_id":"blue-u2"},"kind":"action_declared","seq":347,"turn":18}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":348,"turn":18}
+{"data":{"action":"move","team_id":"red","to":[11,2],"unit_id":"red-u1"},"kind":"action_declared","seq":349,"turn":18}
+{"data":{"action":"move","team_id":"red","to":[4,5],"unit_id":"red-u2"},"kind":"action_declared","seq":350,"turn":18}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":351,"turn":18}
+{"data":{"to":[9,4],"unit_id":"blue-u2"},"kind":"unit_moved","seq":352,"turn":18}
+{"data":{"to":[11,2],"unit_id":"red-u1"},"kind":"unit_moved","seq":353,"turn":18}
+{"data":{"to":[4,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":354,"turn":18}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":1},"kind":"control_point_held","seq":355,"turn":18}
+{"data":{"turn":18},"kind":"turn_advanced","seq":356,"turn":18}
+{"data":{"turn":18},"kind":"turn_resolved","seq":357,"turn":18}
+{"data":{"team_id":"blue","text":"Deny ms-outpost by contesting cp-east indefinitely; secure cp-center capture with blue-3; blue-2 gathers remaining resources for control-point scoring."},"kind":"plan_declared","seq":358,"turn":19}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east contested against red-3's defender — denies their ms-outpost hold mission since we already banked ms-supply. blue-3 stay on cp-center to lock the capture, blue-2 keep gathering rn-east."},"kind":"message_sent","seq":359,"turn":19}
+{"data":{"from":"blue-2","team_id":"blue","text":"Moving to rn-east (11,4) to gather, 8 remaining there. Will shuttle back to cp-center to bank more resources."},"kind":"message_sent","seq":360,"turn":19}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-center, ms-supply already banked. Keeping this locked down while blue-1 contests cp-east hold mission."},"kind":"message_sent","seq":361,"turn":19}
+{"data":{"team_id":"red","text":"Secure cp-east for ms-outpost at cp-east. red-u1 & red-3 hold [9, 2]. red-2 gathers resources."},"kind":"plan_declared","seq":362,"turn":19}
+{"data":{"from":"red-1","team_id":"red","text":"Moving to [9, 2] to secure cp-east for ms-outpost. red-3, hold position. red-2, head toward rn-west [0, 5] to gather."},"kind":"message_sent","seq":363,"turn":19}
+{"data":{"from":"red-2","team_id":"red","text":"Moving to [2, 5] toward rn-west. Will gather next turn and deliver at cp-center."},"kind":"message_sent","seq":364,"turn":19}
+{"data":{"from":"red-3","team_id":"red","text":"Holding [9,2] as ordered. I will maintain position to contest cp-east for ms-outpost. Noting blue-u1 is currently on the same square; if they leave, I'll start the hold streak. red-1, coordinate your arrival to ensure sole occupancy."},"kind":"message_sent","seq":365,"turn":19}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":366,"turn":19}
+{"data":{"action":"move","team_id":"blue","to":[11,4],"unit_id":"blue-u2"},"kind":"action_declared","seq":367,"turn":19}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u3"},"kind":"action_declared","seq":368,"turn":19}
+{"data":{"action":"move","team_id":"red","to":[9,2],"unit_id":"red-u1"},"kind":"action_declared","seq":369,"turn":19}
+{"data":{"action":"move","team_id":"red","to":[2,5],"unit_id":"red-u2"},"kind":"action_declared","seq":370,"turn":19}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":371,"turn":19}
+{"data":{"to":[11,4],"unit_id":"blue-u2"},"kind":"unit_moved","seq":372,"turn":19}
+{"data":{"to":[9,2],"unit_id":"red-u1"},"kind":"unit_moved","seq":373,"turn":19}
+{"data":{"to":[2,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":374,"turn":19}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":2},"kind":"control_point_held","seq":375,"turn":19}
+{"data":{"turn":19},"kind":"turn_advanced","seq":376,"turn":19}
+{"data":{"turn":19},"kind":"turn_resolved","seq":377,"turn":19}
+{"data":{"team_id":"blue","text":"Deny ms-outpost by parking blue-u1 at cp-east indefinitely (contested = no capture for either side). Redirect blue-3 from cp-center to cp-west to claim the uncontested third CP. blue-2 continues harvest/deliver loop between rn-east and cp-center for bonus resources."},"kind":"plan_declared","seq":378,"turn":20}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east to block red-1/red-3 from starting their outpost hold count. Since cp-center is already ours (owner=blue), blue-3 is free — send it to cp-west to grab the third CP. blue-2 keep gathering/delivering, extra resources likely still help our score even with ms-supply done."},"kind":"message_sent","seq":379,"turn":20}
+{"data":{"from":"blue-2","team_id":"blue","text":"On rn-east now, gathering to carry 3. Will haul it back toward cp-center/ms-supply area in case extra resources still count toward score."},"kind":"message_sent","seq":380,"turn":20}
+{"data":{"from":"blue-3","team_id":"blue","text":"Agreed, cp-center ownership is locked in even if I leave. Moving toward cp-west now: (6,5)->(5,6)->(4,7)->(3,8), ETA turn 22, then 2 turns holding to flip it by ~turn 24. Will report if red-2 beats me there."},"kind":"message_sent","seq":381,"turn":20}
+{"data":{"team_id":"red","text":"Priority: Capture cp-east [9,2] for ms-outpost (hold 3 turns). red-3 holds [9,2]. red-1 covers nearby. red-2 gathers resources."},"kind":"plan_declared","seq":382,"turn":20}
+{"data":{"from":"red-1","team_id":"red","text":"red-3: Hold [9,2] to capture cp-east for ms-outpost. I'll move to [10,2] to clear the square for sole occupancy. red-2: Gather rn-west [0,5] and move inward."},"kind":"message_sent","seq":383,"turn":20}
+{"data":{"from":"red-2","team_id":"red","text":"On it. Moving to [0, 5] to gather rn-west. I'll head to [6, 5] to deliver once full. red-3, hold tight on [9, 2] for the outpost mission."},"kind":"message_sent","seq":384,"turn":20}
+{"data":{"from":"red-3","team_id":"red","text":"Holding [9, 2] for cp-east/ms-outpost. red-1, note blue-u1 is also on [9, 2]; if they hold, we'll need to contest next turn. red-2, proceed with rn-west."},"kind":"message_sent","seq":385,"turn":20}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":386,"turn":20}
+{"data":{"action":"gather","team_id":"blue","to":[11,4],"unit_id":"blue-u2"},"kind":"action_declared","seq":387,"turn":20}
+{"data":{"action":"move","team_id":"blue","to":[5,6],"unit_id":"blue-u3"},"kind":"action_declared","seq":388,"turn":20}
+{"data":{"action":"move","team_id":"red","to":[10,2],"unit_id":"red-u1"},"kind":"action_declared","seq":389,"turn":20}
+{"data":{"action":"move","team_id":"red","to":[0,5],"unit_id":"red-u2"},"kind":"action_declared","seq":390,"turn":20}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":391,"turn":20}
+{"data":{"to":[5,6],"unit_id":"blue-u3"},"kind":"unit_moved","seq":392,"turn":20}
+{"data":{"to":[10,2],"unit_id":"red-u1"},"kind":"unit_moved","seq":393,"turn":20}
+{"data":{"to":[0,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":394,"turn":20}
+{"data":{"amount":3,"node_id":"rn-east","unit_id":"blue-u2"},"kind":"resource_gathered","seq":395,"turn":20}
+{"data":{"cp_id":"cp-center","team_id":"","turns":0},"kind":"control_point_held","seq":396,"turn":20}
+{"data":{"turn":20},"kind":"turn_advanced","seq":397,"turn":20}
+{"data":{"turn":20},"kind":"turn_resolved","seq":398,"turn":20}
+{"data":{"team_id":"blue","text":"Deny cp-east: blue-u1 holds to block red-3's capture streak. blue-u2 deliver remaining resources when full. blue-u3 free to reinforce or scout cp-west."},"kind":"plan_declared","seq":399,"turn":21}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east (9,2) — red-3 is here too, contesting blocks red from capturing ms-outpost even if I can't capture it myself. We're already ahead with ms-supply done (10). Staying put to deny them the 8-point outpost."},"kind":"message_sent","seq":400,"turn":21}
+{"data":{"from":"blue-2","team_id":"blue","text":"Full load (3) from rn-east, moving toward cp-center to bank it — ms-supply's done but every extra resource still helps our economy. Nice work denying cp-east, blue-1."},"kind":"message_sent","seq":401,"turn":21}
+{"data":{"from":"blue-3","team_id":"blue","text":"cp-west (3,8) is wide open, no red nearby. Heading there now to lock down a third control point while blue-1 denies cp-east and blue-2 banks resources — 2 turns to arrive, then holding to capture."},"kind":"message_sent","seq":402,"turn":21}
+{"data":{"team_id":"red","text":"Secure cp-east: red-1 and red-3 occupy [9,2] to contest. Once blue-u1 vacates, maintain sole occupancy for 5 turns (2 to capture, 3 for mission)."},"kind":"plan_declared","seq":403,"turn":21}
+{"data":{"from":"red-1","team_id":"red","text":"Moving to cp-east [9,2] to stack with red-3. We contest until blue-u1 leaves, then hold for 5 turns to complete ms-outpost. red-2, resources are irrelevant for this mission."},"kind":"message_sent","seq":404,"turn":21}
+{"data":{"from":"red-2","team_id":"red","text":"Acknowledged. I'll gather rn-west [0,5] since I'm too far to assist with cp-east in time. You and red-3 secure the hold streak. I'll push east after gathering if backup is needed."},"kind":"message_sent","seq":405,"turn":21}
+{"data":{"from":"red-3","team_id":"red","text":"Holding cp-east [9,2] to contest blue-1. We will secure it and hold for 3 turns to complete ms-outpost. red-2, proceed with gathering rn-west."},"kind":"message_sent","seq":406,"turn":21}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":407,"turn":21}
+{"data":{"action":"move","team_id":"blue","to":[9,4],"unit_id":"blue-u2"},"kind":"action_declared","seq":408,"turn":21}
+{"data":{"action":"move","team_id":"blue","to":[4,7],"unit_id":"blue-u3"},"kind":"action_declared","seq":409,"turn":21}
+{"data":{"action":"move","team_id":"red","to":[9,2],"unit_id":"red-u1"},"kind":"action_declared","seq":410,"turn":21}
+{"data":{"action":"gather","team_id":"red","to":[0,5],"unit_id":"red-u2"},"kind":"action_declared","seq":411,"turn":21}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":412,"turn":21}
+{"data":{"to":[9,4],"unit_id":"blue-u2"},"kind":"unit_moved","seq":413,"turn":21}
+{"data":{"to":[4,7],"unit_id":"blue-u3"},"kind":"unit_moved","seq":414,"turn":21}
+{"data":{"to":[9,2],"unit_id":"red-u1"},"kind":"unit_moved","seq":415,"turn":21}
+{"data":{"amount":3,"node_id":"rn-west","unit_id":"red-u2"},"kind":"resource_gathered","seq":416,"turn":21}
+{"data":{"turn":21},"kind":"turn_advanced","seq":417,"turn":21}
+{"data":{"turn":21},"kind":"turn_resolved","seq":418,"turn":21}
+{"data":{"team_id":"blue","text":"blue-1 contests cp-east to deny red's outpost hold mission; blue-3 pivots to capture cp-west uncontested; blue-2 keeps working rn-east."},"kind":"plan_declared","seq":419,"turn":22}
+{"data":{"from":"blue-1","team_id":"blue","text":"cp-east is 1v2 contested (me vs red-1+red-3), so nobody accrues hold progress right now — I'll stay to deny red the outpost mission. blue-3: you're only 2 away from cp-west (unowned, undefended) — go capture it instead of trying to reach me. blue-2: keep gathering/delivering from rn-east (5 left) if it still helps our score."},"kind":"message_sent","seq":420,"turn":22}
+{"data":{"from":"blue-2","team_id":"blue","text":"Loaded 3/3 from rn-east, heading to cp-center to deliver (2 turns out). rn-east still has 5 left for another run after."},"kind":"message_sent","seq":421,"turn":22}
+{"data":{"from":"blue-3","team_id":"blue","text":"Moving to cp-west (3,8) now, 2 away and unowned/undefended - will hold once there to start the capture clock."},"kind":"message_sent","seq":422,"turn":22}
+{"data":{"team_id":"red","text":"Priority: Capture and hold cp-east [9,2] for ms-outpost (needs 5 turns total). red-u1 and red-u3 hold [9,2] together; once blue-u1 vacates, we start the 2-turn capture streak then continue holding for 3 more turns. red-u2 should gather from rn-east [11,4] for bonus resources."},"kind":"plan_declared","seq":423,"turn":22}
+{"data":{"from":"red-1","team_id":"red","text":"Holding cp-east [9,2] for ms-outpost. red-3 stay with me to secure sole occupancy once blue-u1 leaves. red-2: rn-east [11,4] has 5 resources left, consider gathering if you can reach it."},"kind":"message_sent","seq":424,"turn":22}
+{"data":{"from":"red-2","team_id":"red","text":"Acknowledged. Moving toward cp-east [9,2] to reinforce the hold mission. I'll arrive in ~6 turns. Keep holding [9,2] and pressure blue-u1 to leave. rn-east is too far to impact ms-outpost in time."},"kind":"message_sent","seq":425,"turn":22}
+{"data":{"from":"red-3","team_id":"red","text":"Acknowledged. Holding [9,2] alongside red-1. We will take sole occupancy immediately upon blue-u1's departure. red-2, continue your approach to [9,2] to bolster the hold streak. All units prioritize ms-outpost."},"kind":"message_sent","seq":426,"turn":22}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":427,"turn":22}
+{"data":{"action":"move","team_id":"blue","to":[7,4],"unit_id":"blue-u2"},"kind":"action_declared","seq":428,"turn":22}
+{"data":{"action":"move","team_id":"blue","to":[3,8],"unit_id":"blue-u3"},"kind":"action_declared","seq":429,"turn":22}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u1"},"kind":"action_declared","seq":430,"turn":22}
+{"data":{"action":"move","team_id":"red","to":[2,5],"unit_id":"red-u2"},"kind":"action_declared","seq":431,"turn":22}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":432,"turn":22}
+{"data":{"to":[7,4],"unit_id":"blue-u2"},"kind":"unit_moved","seq":433,"turn":22}
+{"data":{"to":[3,8],"unit_id":"blue-u3"},"kind":"unit_moved","seq":434,"turn":22}
+{"data":{"to":[2,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":435,"turn":22}
+{"data":{"cp_id":"cp-west","team_id":"blue","turns":1},"kind":"control_point_held","seq":436,"turn":22}
+{"data":{"turn":22},"kind":"turn_advanced","seq":437,"turn":22}
+{"data":{"turn":22},"kind":"turn_resolved","seq":438,"turn":22}
+{"data":{"team_id":"blue","text":"Deny cp-east: blue-u1 stays put to keep it contested so red can't complete ms-outpost. blue-3 finishes capturing cp-west. blue-2 keeps gathering/delivering for resource score."},"kind":"plan_declared","seq":439,"turn":23}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east (9,2) to contest — red-1 and red-3 are both here too, so it's a 3-way stalemate blocking ms-outpost for everyone. As long as I stay, red can't get sole occupancy to start their hold-mission clock. Don't reroute the defender here, it's too far (6 turns); just keep banking resources and finish cp-west capture."},"kind":"message_sent","seq":440,"turn":23}
+{"data":{"from":"blue-2","team_id":"blue","text":"Moving onto (6,5) now (2 away, within my move-2) to deliver my full 3 load next turn — banking it still grows our resource total even past the completed supply mission. After that drop I'm 6 tiles from rn-east's last 5 units; a round trip won't finish before turn 30, so I'll likely just hold near cp-center as a backstop unless someone needs me elsewhere. Copy on cp-east stalemate — staying clear of it."},"kind":"message_sent","seq":441,"turn":23}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-west (3,8) for the 2nd consecutive turn to close the capture now. Once it's ours I'll keep holding here for streak value since cp-east is a 3-way stalemate anyway."},"kind":"message_sent","seq":442,"turn":23}
+{"data":{"team_id":"red","text":"Secure cp-east for ms-outpost. red-3 holds [9,2], red-u1 supports from [10,2], red-2 moves to reinforce."},"kind":"plan_declared","seq":443,"turn":23}
+{"data":{"from":"red-1","team_id":"red","text":"Moving to [10,2] to clear cp-east for red-3. Hold [9,2] and contest blue-u1. red-2, reposition to support outpost."},"kind":"message_sent","seq":444,"turn":23}
+{"data":{"from":"red-2","team_id":"red","text":"Acknowledged. Moving to [4,5] to support cp-east hold. Will arrive in ~4 turns."},"kind":"message_sent","seq":445,"turn":23}
+{"data":{"from":"red-3","team_id":"red","text":"Holding [9,2]. red-1, thanks for clearing. red-2, keep moving. I will contest blue-u1."},"kind":"message_sent","seq":446,"turn":23}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":447,"turn":23}
+{"data":{"action":"move","team_id":"blue","to":[6,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":448,"turn":23}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u3"},"kind":"action_declared","seq":449,"turn":23}
+{"data":{"action":"move","team_id":"red","to":[10,2],"unit_id":"red-u1"},"kind":"action_declared","seq":450,"turn":23}
+{"data":{"action":"move","team_id":"red","to":[4,5],"unit_id":"red-u2"},"kind":"action_declared","seq":451,"turn":23}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":452,"turn":23}
+{"data":{"to":[6,5],"unit_id":"blue-u2"},"kind":"unit_moved","seq":453,"turn":23}
+{"data":{"to":[10,2],"unit_id":"red-u1"},"kind":"unit_moved","seq":454,"turn":23}
+{"data":{"to":[4,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":455,"turn":23}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":1},"kind":"control_point_held","seq":456,"turn":23}
+{"data":{"cp_id":"cp-west","team_id":"blue","turns":2},"kind":"control_point_held","seq":457,"turn":23}
+{"data":{"cp_id":"cp-west","team_id":"blue"},"kind":"control_point_captured","seq":458,"turn":23}
+{"data":{"cp_id":"cp-west","team_id":"blue","turns":2},"kind":"control_point_held","seq":459,"turn":23}
+{"data":{"turn":23},"kind":"turn_advanced","seq":460,"turn":23}
+{"data":{"turn":23},"kind":"turn_resolved","seq":461,"turn":23}
+{"data":{"team_id":"blue","text":"blue-2 stays on cp-center delivering/holding while blue-1 contests cp-east and blue-3 holds cp-west."},"kind":"plan_declared","seq":462,"turn":24}
+{"data":{"from":"blue-1","team_id":"blue","text":"At cp-east contesting red-3, denying their outpost capture — holding here. ms-outpost still open, 8 pts on the line."},"kind":"message_sent","seq":463,"turn":24}
+{"data":{"from":"blue-2","team_id":"blue","text":"Delivering my 3 carried resources now (blue pool 6->9) and holding cp-center after. ms-supply's already done, but banking extra can't hurt. rn-east still has 5 left if anyone wants a top-up run; I'm too slow to reach cp-east to help the outpost fight."},"kind":"message_sent","seq":464,"turn":24}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-west, no red units within reach of it — secure. cp-east is 12 tiles out (6 turns at my move-2), I'd land turn 29 with no time to flip the stalemate, so reinforcing there doesn't help. Best play: keep denying red's outpost via blue-1's contest and protect what we've already banked (ms-supply done, cp-center + cp-west ours)."},"kind":"message_sent","seq":465,"turn":24}
+{"data":{"team_id":"red","text":"Secure cp-east for ms-outpost. Red-3 holds [9,2]. Red-1 supports from [8,2]. Red-2 moves to assist."},"kind":"plan_declared","seq":466,"turn":24}
+{"data":{"from":"red-1","team_id":"red","text":"Blue completed supply. All focus on ms-outpost at cp-east [9,2]. Red-3 hold [9,2]. I move to [8,2] to support. Red-2, move towards [9,2] to contest/help."},"kind":"message_sent","seq":467,"turn":24}
+{"data":{"from":"red-2","team_id":"red","text":"On it. Moving to [5,4] toward cp-east. Will arrive by turn 26 to secure the hold. Red-1, keep blue-u1 busy."},"kind":"message_sent","seq":468,"turn":24}
+{"data":{"from":"red-3","team_id":"red","text":"Holding [9,2] as planned. Blue-u1 is currently on the square with me; I will maintain position and pressure them to leave. Red-1, your flank at [8,2] should force them out. Red-2, keep pushing east to back us up."},"kind":"message_sent","seq":469,"turn":24}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":470,"turn":24}
+{"data":{"action":"deliver","team_id":"blue","unit_id":"blue-u2"},"kind":"action_declared","seq":471,"turn":24}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u3"},"kind":"action_declared","seq":472,"turn":24}
+{"data":{"action":"move","team_id":"red","to":[8,2],"unit_id":"red-u1"},"kind":"action_declared","seq":473,"turn":24}
+{"data":{"action":"move","team_id":"red","to":[5,4],"unit_id":"red-u2"},"kind":"action_declared","seq":474,"turn":24}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":475,"turn":24}
+{"data":{"to":[8,2],"unit_id":"red-u1"},"kind":"unit_moved","seq":476,"turn":24}
+{"data":{"to":[5,4],"unit_id":"red-u2"},"kind":"unit_moved","seq":477,"turn":24}
+{"data":{"amount":3,"team_id":"blue","unit_id":"blue-u2"},"kind":"resource_delivered","seq":478,"turn":24}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":2},"kind":"control_point_held","seq":479,"turn":24}
+{"data":{"cp_id":"cp-west","team_id":"blue","turns":3},"kind":"control_point_held","seq":480,"turn":24}
+{"data":{"turn":24},"kind":"turn_advanced","seq":481,"turn":24}
+{"data":{"turn":24},"kind":"turn_resolved","seq":482,"turn":24}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east at (9,2) — red-3 is here too so it's contested, no one captures. I'll keep blocking to deny their ms-outpost hold mission since we already banked ms-supply + own both other CPs. blue-2, worth topping up resources from rn-east (5 left) for score margin since no missions need harvesting now."},"kind":"message_sent","seq":483,"turn":25}
+{"data":{"from":"blue-2","team_id":"blue","text":"Staying on cp-center — red-2 is only 2 away (5,4) and could flip it in 2 turns if I leave; round trip to rn-east is ~7 turns anyway, more than we have left. Holding keeps our 2-CP lead locked in."},"kind":"message_sent","seq":484,"turn":25}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-west (streak 3, no red units nearby) — keeps our 2-CP lock secure while blue-1 denies ms-outpost at cp-east and blue-2 holds cp-center. No reason to move with 6 turns left."},"kind":"message_sent","seq":485,"turn":25}
+{"data":{"team_id":"red","text":"Priority: Capture cp-east [9,2] to complete ms-outpost. Stack red units on the point to contest blue-u1. Once blue leaves, hold for 2 turns to capture, then 3 more for mission completion."},"kind":"plan_declared","seq":486,"turn":25}
+{"data":{"from":"red-1","team_id":"red","text":"Moving to [9,2] to stack with red-3 on cp-east. Blue-u1 is contesting; we need sole occupancy to capture ms-outpost. red-3, hold position. red-2, ms-supply is completed by Blue; conserve resources or reposition if possible."},"kind":"message_sent","seq":487,"turn":25}
+{"data":{"from":"red-2","team_id":"red","text":"Moving to [6, 5] to deliver my 3 resources next turn. Will then head to rn-east. red-1, red-3: coordinate to secure sole occupancy on cp-east."},"kind":"message_sent","seq":488,"turn":25}
+{"data":{"from":"red-3","team_id":"red","text":"Moving to [8, 2] to clear cp-east for red-1 sole occupancy. Will rotate back once blue-u1 is displaced or red-1 secures the hold streak. red-2, proceed with delivery."},"kind":"message_sent","seq":489,"turn":25}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u1"},"kind":"action_declared","seq":490,"turn":25}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":491,"turn":25}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u3"},"kind":"action_declared","seq":492,"turn":25}
+{"data":{"action":"move","team_id":"red","to":[9,2],"unit_id":"red-u1"},"kind":"action_declared","seq":493,"turn":25}
+{"data":{"action":"move","team_id":"red","to":[6,5],"unit_id":"red-u2"},"kind":"action_declared","seq":494,"turn":25}
+{"data":{"action":"move","team_id":"red","to":[8,2],"unit_id":"red-u3"},"kind":"action_declared","seq":495,"turn":25}
+{"data":{"to":[9,2],"unit_id":"red-u1"},"kind":"unit_moved","seq":496,"turn":25}
+{"data":{"to":[6,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":497,"turn":25}
+{"data":{"to":[8,2],"unit_id":"red-u3"},"kind":"unit_moved","seq":498,"turn":25}
+{"data":{"cp_id":"cp-center","team_id":"","turns":0},"kind":"control_point_held","seq":499,"turn":25}
+{"data":{"cp_id":"cp-west","team_id":"blue","turns":4},"kind":"control_point_held","seq":500,"turn":25}
+{"data":{"turn":25},"kind":"turn_advanced","seq":501,"turn":25}
+{"data":{"turn":25},"kind":"turn_resolved","seq":502,"turn":25}
+{"data":{"team_id":"blue","text":"blue-1 blocks cp-east (contested, denies red the 8pt outpost mission); blue-2/blue-3 hold cp-center/cp-west to lock in control-point value through the final turns."},"kind":"plan_declared","seq":503,"turn":26}
+{"data":{"from":"blue-1","team_id":"blue","text":"Sitting on cp-east with red-1 — contested, no capture either way while I stay. Their defender is one square off at (8,2). I'll hold here through turn 30 to deny ms-outpost; supply mission's already banked so this is just denial."},"kind":"message_sent","seq":504,"turn":26}
+{"data":{"from":"blue-2","team_id":"blue","text":"Holding cp-center — red-u2 is parked here too; if I leave, 2 turns of their sole occupancy flips it. rn-west is tapped and rn-east is too far to round-trip in 5 turns, so nothing to gain by moving. Staying put through turn 30 to keep cp-center blue."},"kind":"message_sent","seq":505,"turn":26}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-west — no red units within reach, ownership secure through turn 30. rn-west is dry so there's nothing to gather either. Staying put; will only move if red repositions toward me."},"kind":"message_sent","seq":506,"turn":26}
+{"data":{"team_id":"red","text":"Secure cp-east for ms-outpost mission."},"kind":"plan_declared","seq":507,"turn":26}
+{"data":{"from":"red-1","team_id":"red","text":"Holding cp-east for ms-outpost. Red-u3, please engage blue-u1 if they contest."},"kind":"message_sent","seq":508,"turn":26}
+{"data":{"from":"red-2","team_id":"red","text":"Delivering 3 resources at center. Red resources now 10 vs Blue 9. Red-u3, please push blue-u1 off cp-east so red-u1 can secure the outpost hold."},"kind":"message_sent","seq":509,"turn":26}
+{"data":{"from":"red-3","team_id":"red","text":"Moving to [9, 2] to engage blue-u1 directly. I will contest the tile to force them off so red-u1 can secure the hold streak for ms-outpost."},"kind":"message_sent","seq":510,"turn":26}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":511,"turn":26}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u2"},"kind":"action_declared","seq":512,"turn":26}
+{"data":{"action":"hold","team_id":"blue","to":[3,8],"unit_id":"blue-u3"},"kind":"action_declared","seq":513,"turn":26}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u1"},"kind":"action_declared","seq":514,"turn":26}
+{"data":{"action":"deliver","team_id":"red","to":[6,5],"unit_id":"red-u2"},"kind":"action_declared","seq":515,"turn":26}
+{"data":{"action":"move","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":516,"turn":26}
+{"data":{"to":[9,2],"unit_id":"red-u3"},"kind":"unit_moved","seq":517,"turn":26}
+{"data":{"amount":3,"team_id":"red","unit_id":"red-u2"},"kind":"resource_delivered","seq":518,"turn":26}
+{"data":{"cp_id":"cp-west","team_id":"blue","turns":5},"kind":"control_point_held","seq":519,"turn":26}
+{"data":{"turn":26},"kind":"turn_advanced","seq":520,"turn":26}
+{"data":{"turn":26},"kind":"turn_resolved","seq":521,"turn":26}
+{"data":{"team_id":"blue","text":"Turtle to the finish: blue-u1 denies cp-east outpost mission by contesting it every remaining turn; blue-u2 denies cp-center flip; blue-u3 holds cp-west. No new captures needed — protect the lead through turn 30."},"kind":"plan_declared","seq":522,"turn":27}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east — red parked their scout+defender here for the outpost hold mission. If I leave, they lock in 5 straight turns and bank it. Staying keeps it contested through turn 30. blue-2 hold cp-center (red harvester's contesting you too, don't let it flip), blue-3 hold cp-west. We bank supply(10)+cp-west; just need to deny the rest."},"kind":"message_sent","seq":523,"turn":27}
+{"data":{"from":"blue-2","team_id":"blue","text":"Holding cp-center, red harvester's stuck contesting me so they can't flip it. Staying put through turn 30."},"kind":"message_sent","seq":524,"turn":27}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-west, ownership secure, nothing threatening it. Good on the plan — deny cp-east and cp-center through turn 30."},"kind":"message_sent","seq":525,"turn":27}
+{"data":{"team_id":"red","text":"Contest cp-east for outpost mission. Deny blue capture. Push resources if reachable."},"kind":"plan_declared","seq":526,"turn":27}
+{"data":{"from":"red-1","team_id":"red","text":"Holding cp-east to contest capture. red-u3, stay on cp-east to secure it. red-u2, attempt rn-east if within range."},"kind":"message_sent","seq":527,"turn":27}
+{"data":{"from":"red-2","team_id":"red","text":"Heading toward rn-east. I will move to [8, 5] this turn and continue advancing to gather resources. red-u1 and red-u3, maintain hold on cp-east."},"kind":"message_sent","seq":528,"turn":27}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":529,"turn":27}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u2"},"kind":"action_declared","seq":530,"turn":27}
+{"data":{"action":"hold","team_id":"blue","to":[3,8],"unit_id":"blue-u3"},"kind":"action_declared","seq":531,"turn":27}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u1"},"kind":"action_declared","seq":532,"turn":27}
+{"data":{"action":"move","team_id":"red","to":[8,5],"unit_id":"red-u2"},"kind":"action_declared","seq":533,"turn":27}
+{"data":{"to":[8,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":534,"turn":27}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":1},"kind":"control_point_held","seq":535,"turn":27}
+{"data":{"cp_id":"cp-west","team_id":"blue","turns":6},"kind":"control_point_held","seq":536,"turn":27}
+{"data":{"turn":27},"kind":"turn_advanced","seq":537,"turn":27}
+{"data":{"turn":27},"kind":"turn_resolved","seq":538,"turn":27}
+{"data":{"team_id":"blue","text":"cp-center and cp-west stay ours; blue-u1 parks on cp-east to deny red sole occupancy through turn 30 since neither side can finish ms-outpost in time; blue-2/blue-3 stay put or top up resources rather than reposition."},"kind":"plan_declared","seq":539,"turn":28}
+{"data":{"from":"blue-1","team_id":"blue","text":"cp-east is 1v2 contested (me vs red-1+red-3) and ms-outpost needs 5 straight sole-hold turns to complete — only 4 turns remain (27-30) so it's unwinnable for either side. Holding here just to deny red the capture; nobody move to reinforce, not worth the travel time. blue-2, if useful, top off at rn-east since we're still up on missions but red edges us on raw resources (10 vs 9)."},"kind":"message_sent","seq":540,"turn":28}
+{"data":{"from":"blue-2","team_id":"blue","text":"Rn-east is 6 away from cp-center at my move-2 — that's 3 turns just to arrive, no time left to gather+deliver before turn 30, so topping off isn't reachable. Bigger issue: red-2 (harvester) is only 2 away from cp-center and could take sole occupancy next turn if I leave. I'm holding cp-center to deny any last-minute flip since ms-supply is already banked and we don't want to give up a captured point for free in the final turns."},"kind":"message_sent","seq":541,"turn":28}
+{"data":{"from":"blue-3","team_id":"blue","text":"Agreed, ms-outpost is out of reach (need 2 to capture + 3 to complete = 5 turns, only 4 left). Holding cp-west (streak 6) to keep it locked in for score — too far from cp-east (12 away, move 2) to help there anyway. blue-1 hold cp-east contest, blue-2 hold cp-center, I'll sit tight here through turn 30."},"kind":"message_sent","seq":542,"turn":28}
+{"data":{"team_id":"red","text":"Secure rn-east resources and contest cp-east. Red-3 denies blue on cp-east, Red-2 gathers rn-east."},"kind":"plan_declared","seq":543,"turn":28}
+{"data":{"from":"red-1","team_id":"red","text":"Blue-1 is occupying cp-east, blocking capture. I will advance toward rn-east to gather resources. Red-3, contest or hold cp-east to deny blue. Red-2, head toward rn-east."},"kind":"message_sent","seq":544,"turn":28}
+{"data":{"from":"red-2","team_id":"red","text":"Moving to [10, 5] to approach rn-east. Will gather next turn. Red-3, maintain sole occupancy on cp-east to secure ms-outpost."},"kind":"message_sent","seq":545,"turn":28}
+{"data":{"from":"red-3","team_id":"red","text":"Holding cp-east to contest sole occupancy for ms-outpost. Blue-u1 must displace me or I secure the point. Red-1, proceed to rn-east as planned. Red-2, gather rn-east and return to deliver."},"kind":"message_sent","seq":546,"turn":28}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":547,"turn":28}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u2"},"kind":"action_declared","seq":548,"turn":28}
+{"data":{"action":"hold","team_id":"blue","to":[3,8],"unit_id":"blue-u3"},"kind":"action_declared","seq":549,"turn":28}
+{"data":{"action":"move","team_id":"red","to":[11,3],"unit_id":"red-u1"},"kind":"action_declared","seq":550,"turn":28}
+{"data":{"action":"move","team_id":"red","to":[10,5],"unit_id":"red-u2"},"kind":"action_declared","seq":551,"turn":28}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":552,"turn":28}
+{"data":{"to":[11,3],"unit_id":"red-u1"},"kind":"unit_moved","seq":553,"turn":28}
+{"data":{"to":[10,5],"unit_id":"red-u2"},"kind":"unit_moved","seq":554,"turn":28}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":2},"kind":"control_point_held","seq":555,"turn":28}
+{"data":{"cp_id":"cp-west","team_id":"blue","turns":7},"kind":"control_point_held","seq":556,"turn":28}
+{"data":{"turn":28},"kind":"turn_advanced","seq":557,"turn":28}
+{"data":{"turn":28},"kind":"turn_resolved","seq":558,"turn":28}
+{"data":{"from":"blue-1","team_id":"blue","text":"Red-3 is co-located with me at cp-east, so neither of us can capture it — holding to deny red the point with only 2-3 turns left. Everyone hold current squares: we already have supply done + cp-center/cp-west locked, no time left for outpost hold anyway."},"kind":"message_sent","seq":559,"turn":29}
+{"data":{"from":"blue-2","team_id":"blue","text":"Agreed, holding cp-center. Supply's already in and outpost isn't reachable in time — just banking the control points we've got."},"kind":"message_sent","seq":560,"turn":29}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-west, it's secure. Agreed on banking what we have — no reason to move with so little time left."},"kind":"message_sent","seq":561,"turn":29}
+{"data":{"team_id":"red","text":"Abandon outpost capture due to blue denial. Focus on gathering remaining resources at rn-east to maximize team score in final turns."},"kind":"plan_declared","seq":562,"turn":29}
+{"data":{"from":"red-1","team_id":"red","text":"Blue is contesting cp-east. I'm moving to rn-east to gather resources. red-u2, gather there too. red-u3, hold cp-east but prioritize resources if blue leaves."},"kind":"message_sent","seq":563,"turn":29}
+{"data":{"from":"red-2","team_id":"red","text":"Acknowledged. I'll move to rn-east to gather. red-u3, hold cp-east firmly to secure the outpost mission once blue-u1 disengages."},"kind":"message_sent","seq":564,"turn":29}
+{"data":{"from":"red-3","team_id":"red","text":"Holding cp-east to contest blue-u1. I'll maintain position to capture immediately upon their disengagement. red-1/red-2, secure rn-east resources."},"kind":"message_sent","seq":565,"turn":29}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":566,"turn":29}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":567,"turn":29}
+{"data":{"action":"hold","team_id":"blue","to":[3,8],"unit_id":"blue-u3"},"kind":"action_declared","seq":568,"turn":29}
+{"data":{"action":"move","team_id":"red","to":[11,4],"unit_id":"red-u1"},"kind":"action_declared","seq":569,"turn":29}
+{"data":{"action":"move","team_id":"red","to":[11,4],"unit_id":"red-u2"},"kind":"action_declared","seq":570,"turn":29}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":571,"turn":29}
+{"data":{"to":[11,4],"unit_id":"red-u1"},"kind":"unit_moved","seq":572,"turn":29}
+{"data":{"to":[11,4],"unit_id":"red-u2"},"kind":"unit_moved","seq":573,"turn":29}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":3},"kind":"control_point_held","seq":574,"turn":29}
+{"data":{"cp_id":"cp-west","team_id":"blue","turns":8},"kind":"control_point_held","seq":575,"turn":29}
+{"data":{"turn":29},"kind":"turn_advanced","seq":576,"turn":29}
+{"data":{"turn":29},"kind":"turn_resolved","seq":577,"turn":29}
+{"data":{"from":"blue-1","team_id":"blue","text":"Holding cp-east, contested square with red-3 defender — no sole occupancy yet and outpost mission is out of reach this late. Staying put in case they pull off."},"kind":"message_sent","seq":578,"turn":30}
+{"data":{"from":"blue-2","team_id":"blue","text":"Holding cp-center, streak intact. Supply mission already banked. Nothing to gather in time — west node is dry, east node too far to reach and back. Good luck on the east contest."},"kind":"message_sent","seq":579,"turn":30}
+{"data":{"from":"blue-3","team_id":"blue","text":"Holding cp-west, ownership locked in — final turn, staying put rather than abandoning it for an unreachable east contest. GG either way."},"kind":"message_sent","seq":580,"turn":30}
+{"data":{"team_id":"red","text":"Maximize resource lead. Hold current positions through turn 30 to win on resource count."},"kind":"plan_declared","seq":581,"turn":30}
+{"data":{"from":"red-1","team_id":"red","text":"Gathering final resources at rn-east. We lead 10-9. Hold positions to secure the win on the final turn."},"kind":"message_sent","seq":582,"turn":30}
+{"data":{"from":"red-2","team_id":"red","text":"Gathering at rn-east to maximize our resource lead. Good luck on the final turn!"},"kind":"message_sent","seq":583,"turn":30}
+{"data":{"from":"red-3","team_id":"red","text":"Holding cp-east to block blue and secure the point. Good luck gathering!"},"kind":"message_sent","seq":584,"turn":30}
+{"data":{"action":"hold","team_id":"blue","to":[9,2],"unit_id":"blue-u1"},"kind":"action_declared","seq":585,"turn":30}
+{"data":{"action":"hold","team_id":"blue","to":[6,5],"unit_id":"blue-u2"},"kind":"action_declared","seq":586,"turn":30}
+{"data":{"action":"hold","team_id":"blue","unit_id":"blue-u3"},"kind":"action_declared","seq":587,"turn":30}
+{"data":{"action":"gather","team_id":"red","to":[11,4],"unit_id":"red-u1"},"kind":"action_declared","seq":588,"turn":30}
+{"data":{"action":"gather","team_id":"red","to":[11,4],"unit_id":"red-u2"},"kind":"action_declared","seq":589,"turn":30}
+{"data":{"action":"hold","team_id":"red","to":[9,2],"unit_id":"red-u3"},"kind":"action_declared","seq":590,"turn":30}
+{"data":{"amount":1,"node_id":"rn-east","unit_id":"red-u1"},"kind":"resource_gathered","seq":591,"turn":30}
+{"data":{"amount":3,"node_id":"rn-east","unit_id":"red-u2"},"kind":"resource_gathered","seq":592,"turn":30}
+{"data":{"cp_id":"cp-center","team_id":"blue","turns":4},"kind":"control_point_held","seq":593,"turn":30}
+{"data":{"cp_id":"cp-west","team_id":"blue","turns":9},"kind":"control_point_held","seq":594,"turn":30}
+{"data":{"turn":30},"kind":"turn_advanced","seq":595,"turn":30}
+{"data":{"winner":"blue"},"kind":"match_finished","seq":596,"turn":30}
+{"data":{"turn":30},"kind":"turn_resolved","seq":597,"turn":30}
