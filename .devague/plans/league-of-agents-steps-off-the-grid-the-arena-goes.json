@@ -1,0 +1,341 @@
+{
+  "slug": "league-of-agents-steps-off-the-grid-the-arena-goes",
+  "title": "League of Agents steps off the grid: the arena goes continuous \u2014 decimal positions, role-given speed, and time itself as the resolver, where actions take duration, a faster agent acts again sooner, and a post can be snatched mid-capture by whoever finishes first",
+  "frame_slug": "league-of-agents-steps-off-the-grid-the-arena-goes",
+  "schema_version": 1,
+  "status": "exported",
+  "created": "2026-07-07T17:43:01Z",
+  "updated": "2026-07-07T17:45:47Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "League of Agents steps off the grid: the arena goes continuous \u2014 decimal positions, role-given speed, and time itself as the resolver, where actions take duration, a faster agent acts again sooner, and a post can be snatched mid-capture by whoever finishes first"
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "Every announcement phrase is backed by a committed artifact: fixed-point state with its hash, the event-timeline resolver, the race demonstrated in a recorded match, and the continuous determinism gate"
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "Researchers studying timing and races as coordination problems (does a team cover its slow capturer?); agent teams that must reason about in-game time budgets, not just moves; the maintainers keeping two engine lanes honest"
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "Each audience touches the increment on the record: a race-centric match report a researcher can dissect, briefings that give agent teams their time budgets, and the two-lane compat proof for the maintainers"
+    },
+    {
+      "id": "c3",
+      "kind": "after_state",
+      "text": "Positions are continuous decimal points (exact fixed-point values, never binary floats in state); every role has an in-game speed; resolution is a deterministic event timeline \u2014 actions carry durations, completions order the world, a faster agent acts again sooner; contested objectives have real race semantics (first to finish takes the post, the loser's attempt visibly fails mid-take); the continuous lane ships with its own scripted determinism gate while the grid engine and every committed artifact keep working untouched"
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "The after-state is claimed only when every thread has a committed artifact \u2014 and 'deterministic' is proven the same way the grid earned it: replay a committed log, get the identical hash"
+    },
+    {
+      "id": "c4",
+      "kind": "before_state",
+      "text": "The board is an integer grid resolved in uniform simultaneous turns \u2014 every unit acts exactly once per turn regardless of role; capture is a streak of whole turns, so races are impossible by construction; speed exists only OUT of game (the wall-clock tempo axis t0) \u2014 in-game time is perfectly uniform and strategically inert"
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "Every before-state deficiency cites the current code: tick.py's uniform simultaneous turn, streak-based capture in resolve_turn, and t0 measuring only wall-clock"
+    },
+    {
+      "id": "c5",
+      "kind": "why_it_matters",
+      "text": "Issue #1 demands role specialization that matters and decisions with visible consequences over time: a real in-game time axis makes speed a strategic role dimension (the scout that arrives first changes the plan), duration races create genuinely new coordination problems (cover the slow capturer, time the handoff), and continuous positions remove grid artifacts from fairness claims"
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "The why traces to issue #1's own words (roles/specialization matter; decisions have visible consequences over time) \u2014 quoted, not strengthened"
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "Continuous positions (user directive): locations are decimal points, stored as exact fixed-point values (integer-scaled decimals \u2014 never binary floats in MatchState), so canonical JSON, equality, and the state hash stay exact and platform-independent"
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "No binary float ever enters MatchState, canonical JSON, or the hash: a test scans state values for float types, and cross-platform hash equality is asserted the same way the grid gate does it"
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "Role-given speed (user directive): in-game speed is role DATA \u2014 movement rate and action durations per role \u2014 and is explicitly decoupled from substrate wall-clock: a slow local mind's unit moves exactly as fast as a cloud mind's; thinking time stays the out-of-game tempo axis, never game time"
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "A test proves substrate independence: the same continuous match log emerges whether a seat's driver answers in 1ms or 60s \u2014 game time comes only from role data and the event timeline"
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "Time-based resolution (user directive): the simultaneous turn is replaced by a deterministic event timeline \u2014 every action has an in-game duration, completion times order the world, and a faster agent's next decision point arrives sooner (more actions per unit of game time); simultaneous completions break ties by canonical order (time, team_id, unit_id) so submission order can never matter"
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "Determinism of the timeline is proven end to end: replaying a committed continuous log reproduces the identical final state and hash; a test proves submission order cannot change resolution (the tie-break test, time-based edition)"
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "Race semantics (user directive): gathering a resource and occupying/taking a post take in-game duration; a faster agent that starts later can still finish first and take the post while the slower agent is mid-take \u2014 whose attempt visibly fails; interruption and contest rules are explicit, deterministic engine rules with tests, not emergent accidents"
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "The race is engine truth, not narrative: a scripted test constructs the exact scenario \u2014 slower agent starts taking a post first, faster agent starts later and wins \u2014 and the loser's failed attempt appears in the log as a first-class event"
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "Two engine lanes, both honest: the continuous arena lands beside the grid engine, not over it \u2014 every committed grid log still folds (the compat sweep stays green), the grid determinism gate is untouched, and the continuous lane gets its own canonical scripted match with its own committed hash"
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "The compat sweep (all committed grid logs fold to their recorded outcomes) and the untouched grid determinism hash are both green in the PR that lands the continuous lane"
+    },
+    {
+      "id": "c11",
+      "kind": "boundary",
+      "text": "Not real-time networking or wall-clock play \u2014 a deterministic SIMULATION of time (replayable, seedable); no binary floats anywhere in state; agent thinking latency never enters game time; cooperation v1 / tempo t0 / probe p0 formulas are unchanged for grid matches (how they adapt to continuous logs is a plan-level decision, not silent drift); grid replay/video renderers keep working for grid logs"
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "Boundary checkable in review: no wall-clock/float imports in the continuous engine (the same AST ban extended), thinking-latency exclusion proven by the substrate-independence test, and any scoring adaptation for continuous logs lands as an explicit documented decision, not silent formula drift"
+    },
+    {
+      "id": "c12",
+      "kind": "success_signal",
+      "text": "A recorded continuous-arena match where a faster agent takes a post while a slower agent is mid-capture \u2014 the race visible in the replay, checkable turn-by-event in the log; the continuous determinism gate committed with its hash; the full grid compat sweep green in the same PR"
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "Each success signal is verifiable by pointing at a committed artifact (the match log with the race events, the replay, the new hash fixture, the green sweep)"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Fixed-point spatial core",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A continuous-space module (league/engine/continuous/) represents positions as integer-scaled fixed-point values with vectors, distance, movement-toward-at-speed, and arrival tolerance \u2014 the representation and scale pinned here (frame v2), documented in the module docstring",
+        "A test scans every continuous-state value for binary float types and fails on any; canonical JSON round-trips positions exactly; the same operations produce identical results across platforms (pure integer arithmetic)"
+      ],
+      "deps": [],
+      "covers": [
+        "c6",
+        "h6"
+      ]
+    },
+    {
+      "id": "t2",
+      "summary": "Deterministic initiative timeline",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A timeline scheduler orders the world by action completion times: actions carry in-game durations, the next decision point goes to the earliest completion, and a faster agent demonstrably gets more decision points per unit of game time (unit test with two speeds)",
+        "Simultaneous completions break ties by canonical order (time, team_id, unit_id); a test proves submission order can never change resolution; the event-queue-vs-micro-tick decision (frame v3) is pinned here with rationale in the docstring"
+      ],
+      "deps": [],
+      "covers": [
+        "c8",
+        "h8"
+      ]
+    },
+    {
+      "id": "t3",
+      "summary": "Continuous match state and event vocabulary",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Frozen dataclasses for the continuous lane's MatchState with a stable state hash; new event kinds (at minimum: action_started, action_completed, action_failed, decision_point) fold deterministically \u2014 replaying a log reproduces the identical final state and hash",
+        "No float, wall-clock, or randomness imports anywhere in the continuous package \u2014 the engine AST ban extended to it by test"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c6",
+        "c8"
+      ]
+    },
+    {
+      "id": "t4",
+      "summary": "Role speed and action-duration data",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Continuous role stats carry in-game speed (movement rate) and per-action durations (gather, take-post, deliver) as pure role DATA; the coding-reflective roles (explorer fast/planner slow) get continuous stats consistent with their grid capability contracts",
+        "Role data is scenario-declared and hash-covered \u2014 two scenarios can field different speed tables without code changes"
+      ],
+      "deps": [
+        "t3"
+      ],
+      "covers": [
+        "c7"
+      ]
+    },
+    {
+      "id": "t5",
+      "summary": "The continuous resolver with race semantics",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Taking a post and gathering take in-game duration; the scripted race test passes: a slower agent starts taking a post FIRST, a faster agent starts LATER and completes first \u2014 the post goes to the faster agent and the slower agent's attempt fails with a first-class action_failed event in the log",
+        "Interruption and contest rules are explicit engine rules with tests (what happens when a taker is displaced, when two attempts overlap, when a post changes owner mid-attempt); everything the legality surface offers resolves without rejection (the legal<->resolver agreement pattern, continuous edition)"
+      ],
+      "deps": [
+        "t2",
+        "t4"
+      ],
+      "covers": [
+        "c9",
+        "h9",
+        "c8"
+      ]
+    },
+    {
+      "id": "t6",
+      "summary": "Continuous scenario + its own determinism gate",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A hand-authored continuous scenario ships with a canonical scripted match; its final-state hash is committed as a fixture and a CI gate test replays the script and compares \u2014 the continuous lane earns determinism the same way the grid did",
+        "The scenario registry serves both lanes without ambiguity (a continuous scenario is distinguishable by data, not by special-casing)"
+      ],
+      "deps": [
+        "t5"
+      ],
+      "covers": [
+        "c10",
+        "h3"
+      ]
+    },
+    {
+      "id": "t7",
+      "summary": "Mind-facing contract: decision points, briefings, harness loop",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The decision cadence (frame v1 \u2014 the hardest question) is pinned: minds receive a decision point when their unit becomes idle (action completed/failed/interrupted), the briefing exposes the game clock, the unit's action menu WITH durations, and the visible initiative outlook (who is due next), so time budgets are plannable",
+        "The substrate-independence test passes: the same continuous match log emerges whether a seat's driver answers in 1ms or 60s \u2014 game time comes only from role data and the timeline (h7); all driver kinds (bot, bot-file, command, per-seat, resident) get the continuous loop per the all-backends rule"
+      ],
+      "deps": [
+        "t5"
+      ],
+      "covers": [
+        "c7",
+        "h7",
+        "c2"
+      ]
+    },
+    {
+      "id": "t8",
+      "summary": "Two-lane honesty: compat + AST ban + boundary review",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "In the PR that lands the continuous lane: the full committed-log compat sweep is green, the grid determinism hash is untouched, and the extended AST ban covers the continuous package (no wall-clock/random/float-producing imports)",
+        "Scoring for continuous matches is an explicit documented decision, not silent drift: cooperation v1 / tempo t0 / probe p0 remain grid-only; the continuous lane ships outcome scoring plus a documented adaptation decision (even if that decision is 'deferred to the next cycle')"
+      ],
+      "deps": [
+        "t6"
+      ],
+      "covers": [
+        "c10",
+        "h10",
+        "c11",
+        "h11"
+      ]
+    },
+    {
+      "id": "t9",
+      "summary": "Continuous replay face: the race made visible",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A replay face for continuous logs renders the timeline and the board (fixed-point positions interpolated) well enough that the race \u2014 faster agent snatching the post mid-capture \u2014 is VISIBLE: the failed attempt and the successful take are both distinguishable moments; grid renderers stay untouched for grid logs (frame v4 pinned: minimal-but-real this cycle, full mesmerizing/video generalization is follow-up)",
+        "The face is byte-deterministic from the log and self-contained, matching the repo's replay conventions"
+      ],
+      "deps": [
+        "t6"
+      ],
+      "covers": [
+        "c12",
+        "c2"
+      ]
+    },
+    {
+      "id": "t10",
+      "summary": "The recorded race match + cycle report",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A recorded continuous-arena match is committed (log + replay + report) in which the race actually happened \u2014 cited to the exact events; the report quotes issue #1 for the why, cites the before-state code (tick.py's uniform turn, streak capture, t0's wall-clock-only speed), and states which audience each artifact serves",
+        "Every announcement phrase maps to its committed artifact in the report's closing ledger \u2014 no thread ships silently"
+      ],
+      "deps": [
+        "t7",
+        "t8",
+        "t9"
+      ],
+      "covers": [
+        "c12",
+        "h12",
+        "c1",
+        "h1",
+        "c3",
+        "h3",
+        "c4",
+        "h4",
+        "c5",
+        "h5",
+        "c2",
+        "h2"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "Decision cadence for minds in continuous time (frame v1) \u2014 pinned by t7's mind-facing contract before any harness work",
+      "kind": "unknown_nonblocking",
+      "task_id": "t7"
+    },
+    {
+      "id": "r2",
+      "text": "Fixed-point representation, scale, and movement model (frame v2) \u2014 pinned by t1",
+      "kind": "unknown_nonblocking",
+      "task_id": "t1"
+    },
+    {
+      "id": "r3",
+      "text": "Event queue vs micro-tick (frame v3) \u2014 pinned by t2 with rationale",
+      "kind": "unknown_nonblocking",
+      "task_id": "t2"
+    },
+    {
+      "id": "r4",
+      "text": "Replay/video/vision generalization to continuous space (frame v4) \u2014 t9 ships the minimal honest face; the mesmerizing/video/fog generalization is follow-up work for a later cycle",
+      "kind": "unknown_nonblocking",
+      "task_id": "t9"
+    }
+  ]
+}
