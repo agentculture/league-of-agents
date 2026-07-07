@@ -84,3 +84,22 @@ and the committed determinism fixture stays byte-identical.
 (scout / harvester / defender). `recon-1` is the first scenario to field the
 coding-reflective roster: an **explorer** and a **planner** alongside a
 **harvester** and a **defender** (the executors) — read, plan, execute.
+
+## Continuous-lane divergence: scout
+
+Everything above describes the **grid** lane (`league/engine/scenario.py`'s
+`RoleStats`, `can_capture`) — grid scout is **unchanged**: it still gathers and
+holds exactly as described above. The two lanes are allowed to diverge (spec
+c11/h11, "two-lane honesty": the continuous lane sits *beside* the grid, never
+over it), and cycle 7 exercised that: a human-reviewed pre-publish decision on
+the continuous lane's still-unpublished season ("scouts should not be able to
+take posts — only be the 'eyes'") forbids the continuous scout from
+`take_post` (`league/engine/continuous/roles.py`'s `CRoleStats`,
+`can_take_post=False`, `take_post_duration=0`). It keeps every other
+capability — move, vision (still widest among the continuous executor class),
+gather, carry, deliver — untouched; only holding a control point is withdrawn.
+The actual fog-reducing "eyes" mechanic (narrowing what *other* units can see)
+is a later cycle's continuous fog work — this amendment only withdraws
+post-taking, it does not yet add fog. See
+[`docs/continuous-contract.md`](continuous-contract.md) for the continuous
+mind-facing contract this shows up in.

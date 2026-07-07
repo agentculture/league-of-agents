@@ -11,6 +11,19 @@ regenerate the fixture and justify it in the PR:
         compute_final_hash; print(compute_final_hash())" \\
         > tests/fixtures/determinism_continuous.hash
 
+One such deliberate regeneration is already on record: cycle 7's pre-publish
+review (the human evaluator's recorded decision, "scouts should not be able to
+take posts — only be the 'eyes'") forbade scout from ``take_post`` in the
+continuous default role table (``league/engine/continuous/roles.py``). Because
+``c-skirmish-1``'s canonical race was staged around a post-taking scout, the
+scenario's racer became the defender instead (``league/engine/continuous/
+scenario.py``), this scripted match's cast changed to match
+(``blue-u1``/``red-u1`` are now ``defender``, not ``scout``), the race's
+completion instant moved from ``t=7`` to ``t=8`` (defender's
+``take_post_duration`` is 6, not scout's former 5), and the fixture below was
+regenerated with the command above to the new value that follows from that —
+an intentional, reviewed rule change, not drift.
+
 Any *unintentional* drift — platform, ordering, refactor side effects — fails
 here before it can corrupt fairness (same actions + same seed must mean same
 outcome, or continuous matches stop being comparable), exactly the same
@@ -45,7 +58,10 @@ def _slot(uid: str, role: str, model: str) -> CAgentSlot:
 
 
 def _roster(team: str, model: str) -> tuple[CAgentSlot, ...]:
-    return (_slot(f"{team}-scout", "scout", model), _slot(f"{team}-harvester", "harvester", model))
+    return (
+        _slot(f"{team}-defender", "defender", model),
+        _slot(f"{team}-harvester", "harvester", model),
+    )
 
 
 def _pick(menu: dict, kind: str):
@@ -67,16 +83,19 @@ def _scripted_decider(unit_id: str, state, menu: dict):
     same pattern ``tests/test_continuous_resolve.py`` uses for its scripted
     races. Four units, four distinct jobs:
 
-    * ``blue-u1`` (scout) — travels one unit to ``cp-crossing`` then takes it.
-      Starts its take LATER than ``red-u2`` but is the faster role, so it
-      completes FIRST: THE race.
+    * ``blue-u1`` (defender) — travels one unit to ``cp-crossing`` then takes
+      it. Starts its take LATER than ``red-u2`` but is the faster post-taker,
+      so it completes FIRST: THE race. (Scout never fields in this scenario at
+      all — a human-reviewed amendment, cycle 7 pre-publish, forbids it from
+      taking posts, so the contested-crossing racer is the defender instead.)
     * ``blue-u2`` (harvester) — gathers from the co-located resource node to
       capacity, then delivers — the gather -> deliver economy, running in
       parallel with the race on its own timeline entry.
     * ``red-u2`` (harvester) — already camped on the post; starts taking it at
       ``t=0`` (the slower attempt that starts first and still loses).
-    * ``red-u1`` (scout) — parked in a far corner all match; contributes only
-      its opening ``decision_point`` (proves an idle unit is inert, not a bug).
+    * ``red-u1`` (defender) — parked in a far corner all match; contributes
+      only its opening ``decision_point`` (proves an idle unit is inert, not a
+      bug).
     """
     if unit_id == "blue-u1":
         take = _pick(menu, "take_post")
@@ -155,9 +174,9 @@ def test_the_scripted_match_actually_exercises_the_rules() -> None:
     assert len(failed) == 1
     assert failed[0].data == {"unit_id": "red-u2", "reason": "post taken by a faster agent"}
     # red-u2's OWN take started at t=0 (would complete at t=10); it fails at
-    # t=7 — the winner's completion instant, strictly before its own would-be
+    # t=8 — the winner's completion instant, strictly before its own would-be
     # completion — the loser really is caught mid-take, not merely outraced.
-    assert failed[0].game_time == 7
+    assert failed[0].game_time == 8
 
     final = res.final_state
     cp = next(c for c in final.control_points if c.id == "cp-crossing")

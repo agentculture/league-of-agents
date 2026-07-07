@@ -109,16 +109,20 @@ def _state(
 
 
 def _clash_state():
-    """Two solo teams race for one unowned post. Blue's scout is a step out (it
-    must move then take); red's defender starts one step further, so both minds
-    face several decision points before the post is taken and the match ends."""
+    """Two solo teams race for one unowned post. Blue's defender is a step out
+    (it must move then take); red's defender starts three units further out,
+    so both minds face several decision points before the post is taken and
+    the match ends. (Scout used to field here before the human-reviewed
+    amendment, cycle 7 pre-publish, forbade it from taking posts at all —
+    "scouts should not be able to take posts — only be the 'eyes'" — so both
+    racers are now defenders.)"""
     return _state(
         teams=(
-            _team("blue", "Blue", (_slot("blue-scout", "scout"),)),
+            _team("blue", "Blue", (_slot("blue-def", "defender"),)),
             _team("red", "Red", (_slot("red-def", "defender"),)),
         ),
         units=(
-            _unit("blue-scout", "blue", "scout", from_units(2, 3)),
+            _unit("blue-def", "blue", "defender", from_units(2, 3)),
             _unit("red-def", "red", "defender", from_units(6, 3)),
         ),
         control_points=(CControlPoint(id="cp", pos=from_units(3, 3)),),
@@ -162,8 +166,8 @@ def _transitions(log):
 # Criterion 1a — the briefing shape (pinned)
 # --------------------------------------------------------------------------- #
 def _briefing_state():
-    """blue-scout is idle at t=0; red-def has already committed a long take
-    (so it appears in the outlook with a real completion_time)."""
+    """blue-def is idle at t=0; red-def has already committed a move toward the
+    post (so it appears in the outlook with a real completion_time)."""
     state = _clash_state()
     r = _Resolver(state, ROLE_TABLE, lambda *a: None, None)
     r.emit(0, "match_started", {})
@@ -174,23 +178,23 @@ def _briefing_state():
 
 def test_briefing_exposes_clock_menu_durations_and_outlook():
     state = _briefing_state()
-    menu = legal_actions_continuous(state, ROLE_TABLE, "blue-scout")
-    briefing = build_briefing(state, "blue-scout", menu)
+    menu = legal_actions_continuous(state, ROLE_TABLE, "blue-def")
+    briefing = build_briefing(state, "blue-def", menu)
 
     # game clock
     assert briefing["game_time"] == state.clock == 0
 
     # you: idle at a decision point
     you = briefing["you"]
-    assert you["unit_id"] == "blue-scout"
-    assert you["role"] == "scout"
+    assert you["unit_id"] == "blue-def"
+    assert you["role"] == "defender"
     assert you["team_id"] == "blue"
     assert you["carrying"] == 0
     assert you["action"] is None
-    assert you["pos"] == _find(state, "blue-scout").pos.to_dict()
+    assert you["pos"] == _find(state, "blue-def").pos.to_dict()
 
     # menu: every action carries a duration AND the completion_time it lands at
-    assert briefing["menu"], "the scout must have at least a move on offer"
+    assert briefing["menu"], "the defender must have at least a move on offer"
     for entry in briefing["menu"]:
         assert entry["kind"] in {"move", "gather", "take_post", "deliver"}
         assert isinstance(entry["duration"], int) and entry["duration"] > 0

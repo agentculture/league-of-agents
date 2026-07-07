@@ -59,9 +59,18 @@ shape reads across both lanes: explorer is the strict fastest and
 widest-sighted and cannot gather or take posts (produces nothing, holds no
 ground); planner is the strict slowest and coordination-only; scout /
 harvester / defender are the executor class in between, with harvester the
-only high-carry role (it hauls and delivers the payload). The exact values
-are data anyone can rebalance via :func:`build_role_table` — nothing here is
-hard-coded into the resolver.
+only high-carry role (it hauls and delivers the payload). Scout is the eyes of
+the executor class — it sees widest among the three (``vision_mu`` 4000 vs
+2000 for harvester/defender) and keeps its full gather/carry/deliver
+contract — but it is forbidden from taking posts (``can_take_post=False``,
+``take_post_duration=0``): a human-reviewed amendment (cycle 7, pre-publish)
+that only its post-taking is withdrawn, not its economy participation. Its
+fog-reducing role (actually narrowing what OTHER units can see, not just what
+it itself sees) arrives with the continuous fog work, a later cycle. That
+leaves harvester and defender as the only two roles that can take/hold a
+control point in the continuous lane. The exact values are data anyone can
+rebalance via :func:`build_role_table` — nothing here is hard-coded into the
+resolver.
 
 The grain warning (``space.py``'s docstring) is satisfied by construction:
 every role's ``move_rate_mu`` times the shortest positive action duration
@@ -259,9 +268,11 @@ DEFAULT_CROLE_STATS: tuple[tuple[str, CRoleStats], ...] = (
             vision_mu=4000,
             carry=1,
             gather_duration=6,
-            take_post_duration=5,
+            take_post_duration=0,
             deliver_duration=4,
-            analog="quick reconnaissance pass: fast and wide-sighted, " "can still gather and hold",
+            can_take_post=False,
+            analog="the eyes — sees widest among executors, forbidden from taking posts; "
+            "its fog-reducing role arrives with the continuous fog work",
         ),
     ),
     (

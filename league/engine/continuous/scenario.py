@@ -35,43 +35,59 @@ things that differ from the grid shape.
 ``c-skirmish-1``: a race by construction
 -----------------------------------------
 The board is small on purpose: one control point, ``cp-crossing``, sits at
-(5, 4) — roughly central on a 10x8 board. Blue's scout spawns one unit west of
-it (a real move is required); blue's harvester spawns at a resource node that
-is *also* the delivery mission's square, so gather -> deliver never needs to
-travel. Red's harvester spawns already camped ON the post (no travel at all);
-red's scout parks in a far corner and never receives a useful order — this
-scenario deliberately fields only ONE live contest per side so the canonical
-scripted match (t6's determinism gate) stays legible turn-by-event.
+(5, 4) — roughly central on a 10x8 board. Blue's defender spawns one unit west
+of it (a real move is required); blue's harvester spawns at a resource node
+that is *also* the delivery mission's square, so gather -> deliver never needs
+to travel. Red's harvester spawns already camped ON the post (no travel at
+all); red's defender parks in a far corner and never receives a useful order —
+this scenario deliberately fields only ONE live contest per side so the
+canonical scripted match (t6's determinism gate) stays legible turn-by-event.
+
+Scout does not field in this roster at all (human-reviewed amendment, cycle 7,
+pre-publish: "scouts should not be able to take posts — only be the 'eyes'").
+Scout keeps its full gather/carry/deliver contract and its widest-among-
+executors vision unchanged — only its ``can_take_post`` is withdrawn (see
+``league/engine/continuous/roles.py``) — but a scenario built specifically to
+race for a control point needs a racer that can actually take one, so this
+scenario's contested-crossing role is now the **defender**, the faster of the
+two roles left able to take a post at all (``take_post_duration`` 6, vs
+harvester's 10).
 
 The race is forced by the default role table's own numbers (:data:`~league.
 engine.continuous.roles.DEFAULT_CROLE_STATS`), not by scripting an unfair
 fight: red's harvester starts taking the post at ``t=0`` (``take_post_duration
-10`` -> would complete at ``t=10``); blue's scout must first travel one unit
-(``move_rate_mu 750``, exact distance 1000 mu -> ``move_duration`` = 2) before
-it can even start its own take at ``t=2`` (``take_post_duration 5`` -> completes
-at ``t=7``). The harvester started EIGHT time-units earlier than the scout
-finishes, yet the scout — starting its OWN take five time-units later than the
-harvester started — still completes first (``7 < 10``): a genuine race the
-scenario's role speeds make happen by arithmetic, not narration. The harvester
-watches from the takers list as blue's take completes and its own attempt is
-cancelled and fails: ``action_failed`` with reason ``"post taken by a faster
-agent"``.
+10`` -> would complete at ``t=10``); blue's defender must first travel one unit
+(``move_rate_mu 500``, exact distance 1000 mu -> ``move_duration`` = 2) before
+it can even start its own take at ``t=2`` (``take_post_duration 6`` -> completes
+at ``t=8``). Red's harvester has a 2-time-unit HEAD START on the take itself —
+it starts taking at ``t=0``, a full 2 time-units before blue's defender even
+arrives and starts its OWN take at ``t=2`` — yet blue's defender still
+completes first (``8 < 10``): a genuine race the scenario's role speeds make
+happen by arithmetic, not narration. The harvester watches from the takers
+list as blue's take completes and its own attempt is cancelled and fails:
+``action_failed`` with reason ``"post taken by a faster agent"``.
 
 Coordination pressure, proven by arithmetic (mirrors the grid scenarios' style)
 --------------------------------------------------------------------------------
-``time_limit`` is 20. A single unit — even the FASTER scout — cannot both win
-the race and run the economy within that budget if it had to do both serially:
-move to the post (2) + take it (5) + travel from the post to the resource node
-(exact distance 5 units -> ``move_duration`` = 7) + gather (6) + deliver (4) =
-**24 > 20**. The actual roster splits the labor across the scout (race) and the
-harvester (economy) running in PARALLEL on their own timeline entries; the
-canonical scripted match (``tests/test_determinism_gate_continuous.py``)
+``time_limit`` is 20. A single unit — even the defender, the faster of the two
+remaining post-takers — cannot both win the race and run the economy within
+that budget if it had to do both serially: move to the post (2) + take it (6)
++ travel from the post to the resource node (exact distance 5 units ->
+``move_duration`` = 10) + gather (10) + deliver (8) = **36 > 20**. (The
+harvester attempting the same solo path fares no better: its own
+take/gather/deliver durations — 10, 8, 6 — are a permutation of the defender's
+6, 10, 8, so its serial total is also 2 + 10 + 10 + 8 + 6 = 36. The default
+role table splits post-taking speed and economy speed between the two roles
+symmetrically, not by accident — neither role can solo both jobs, whichever
+one you pick.) The actual roster splits the labor across the defender (race)
+and the harvester (economy) running in PARALLEL on their own timeline entries;
+the canonical scripted match (``tests/test_determinism_gate_continuous.py``)
 finishes both the hold and the deliver missions by ``t=14 < 20`` — comfortably
 inside the limit specialization buys, and outside the limit a single unit could
 reach. ``tests/test_continuous_scenario.py::
 test_solo_unit_cannot_win_the_race_and_run_the_economy_in_time`` computes the
-24 from the scenario's own positions and the scout's own role stats — never a
-hard-coded literal — so retuning the board or the role table re-checks the
+36 from the scenario's own positions and the defender's own role stats — never
+a hard-coded literal — so retuning the board or the role table re-checks the
 inequality rather than silently invalidating the claim.
 """
 
@@ -153,24 +169,27 @@ def _c_skirmish_1() -> CScenario:
         id="c-skirmish-1",
         name="Continuous Skirmish 1 — The Contested Crossing",
         description=(
-            "A 10x8 crossing with one control point roughly central. Blue's scout "
+            "A 10x8 crossing with one control point roughly central. Blue's defender "
             "starts one unit from the post and blue's harvester starts on a "
             "resource node that doubles as the delivery square; red's harvester "
-            "starts already camped ON the post and red's scout parks far away. "
+            "starts already camped ON the post and red's defender parks far away. "
             "The default role table's own speeds make the post a genuine race: "
-            "the camped harvester starts first but the travelling scout still "
-            "finishes first — a slower start beats a faster start when the "
-            "starter is the slower role."
+            "the camped harvester starts first but the travelling defender still "
+            "finishes first — a later start beats an earlier start when the "
+            "starter is the slower-at-taking role."
         ),
         width=10 * SCALE,
         height=8 * SCALE,
         time_limit=20,
         modes=("cooperative", "competitive"),
-        unit_roles=("scout", "harvester"),
+        unit_roles=("defender", "harvester"),
         role_table=build_role_table(),
         spawns=(
-            (from_units(4, 4), econ_pos),  # blue: scout 1 unit from the post; harvester home
-            (from_units(9, 7), cp_pos),  # red: scout parked far away; harvester camped on the post
+            (from_units(4, 4), econ_pos),  # blue: defender 1 unit from the post; harvester home
+            (
+                from_units(9, 7),
+                cp_pos,
+            ),  # red: defender parked far away; harvester camped on the post
         ),
         control_points=(CControlPoint(id="cp-crossing", pos=cp_pos),),
         missions=(

@@ -140,30 +140,40 @@ def test_menu_gather_only_on_a_node_with_stock_and_spare_capacity() -> None:
 
 
 def test_menu_take_post_gated_by_arrival_and_ownership() -> None:
+    # "harvester" here, not "scout": scout is forbidden from taking posts at
+    # all (human-reviewed amendment, cycle 7 pre-publish), so this test — which
+    # is about arrival/ownership gating, not role capability — uses a role that
+    # can actually take a post.
     cp_open = CControlPoint(id="cp", pos=from_units(3, 3), owner=None)
     at_open = _state(
-        units=[_unit("u", "blue", "scout", from_units(3, 3))], control_points=[cp_open]
+        units=[_unit("u", "blue", "harvester", from_units(3, 3))], control_points=[cp_open]
     )
     assert any(
         a["kind"] == "take_post"
         for a in legal_actions_continuous(at_open, ROLE_TABLE, "u")["actions"]
     )
 
-    away = _state(units=[_unit("u", "blue", "scout", from_units(0, 0))], control_points=[cp_open])
+    away = _state(
+        units=[_unit("u", "blue", "harvester", from_units(0, 0))], control_points=[cp_open]
+    )
     assert not any(
         a["kind"] == "take_post" for a in legal_actions_continuous(away, ROLE_TABLE, "u")["actions"]
     )
 
     # contest case (d): a post the unit's OWN team owns is not offered...
     cp_ours = CControlPoint(id="cp", pos=from_units(3, 3), owner="blue")
-    ours = _state(units=[_unit("u", "blue", "scout", from_units(3, 3))], control_points=[cp_ours])
+    ours = _state(
+        units=[_unit("u", "blue", "harvester", from_units(3, 3))], control_points=[cp_ours]
+    )
     assert not any(
         a["kind"] == "take_post" for a in legal_actions_continuous(ours, ROLE_TABLE, "u")["actions"]
     )
 
     # ...but an ENEMY-owned post is a legal flip.
     cp_enemy = CControlPoint(id="cp", pos=from_units(3, 3), owner="red")
-    enemy = _state(units=[_unit("u", "blue", "scout", from_units(3, 3))], control_points=[cp_enemy])
+    enemy = _state(
+        units=[_unit("u", "blue", "harvester", from_units(3, 3))], control_points=[cp_enemy]
+    )
     assert any(
         a["kind"] == "take_post"
         for a in legal_actions_continuous(enemy, ROLE_TABLE, "u")["actions"]
@@ -210,6 +220,41 @@ def test_explorer_menu_has_only_moves_no_gather_take_or_deliver() -> None:
     kinds = {a["kind"] for a in menu["actions"]}
     assert kinds <= {"move"}
     assert menu["can_gather"] is False and menu["can_take_post"] is False
+
+
+def test_scout_menu_never_offers_take_post_but_still_gathers_and_delivers() -> None:
+    """Scout (can_take_post=False, can_gather=True, carry=1) is forbidden from
+    taking a post even standing right on an unowned one (human-reviewed
+    amendment, cycle 7 pre-publish: "scouts should not be able to take posts —
+    only be the 'eyes'") — but unlike the explorer, it keeps gather/deliver."""
+    cp = CControlPoint(id="cp", pos=from_units(1, 1), owner=None)
+    mission = CMission(id="dm", kind="deliver", pos=from_units(1, 1), amount=1, reward=1)
+    node = CResourceNode(id="n", pos=from_units(1, 1), remaining=5)
+
+    empty_handed = _state(
+        units=[_unit("u", "blue", "scout", from_units(1, 1), carrying=0)],
+        control_points=[cp],
+        resource_nodes=[node],
+        missions=[mission],
+    )
+    menu = legal_actions_continuous(empty_handed, ROLE_TABLE, "u")
+    kinds = {a["kind"] for a in menu["actions"]}
+    assert "take_post" not in kinds
+    assert "gather" in kinds
+    assert menu["can_gather"] is True and menu["can_take_post"] is False
+    assert (
+        plan_action(empty_handed, ROLE_TABLE, "u", {"kind": "take_post", "target_id": "cp"}) is None
+    )
+
+    carrying = _state(
+        units=[_unit("u", "blue", "scout", from_units(1, 1), carrying=1)],
+        control_points=[cp],
+        resource_nodes=[node],
+        missions=[mission],
+    )
+    kinds = {a["kind"] for a in legal_actions_continuous(carrying, ROLE_TABLE, "u")["actions"]}
+    assert "take_post" not in kinds
+    assert "deliver" in kinds
 
 
 def test_menu_is_canonically_sorted_and_carries_role_context() -> None:
@@ -278,9 +323,11 @@ def test_plan_action_refuses_illegal_orders_reverse_direction() -> None:
         units=[_unit("x", "blue", "explorer", from_units(1, 1))], resource_nodes=[node_here]
     )
     assert plan_action(with_node, ROLE_TABLE, "x", {"kind": "gather", "target_id": "n2"}) is None
-    # taking a post your own team already owns (contest case d)
+    # taking a post your own team already owns (contest case d) — "harvester",
+    # not "scout": scout can never take a post at all now, which would mask
+    # the ownership-refusal path this case is actually pinning.
     on_own = _state(
-        units=[_unit("u", "blue", "scout", from_units(1, 1))],
+        units=[_unit("u", "blue", "harvester", from_units(1, 1))],
         control_points=[CControlPoint(id="cp", pos=from_units(1, 1), owner="blue")],
     )
     assert plan_action(on_own, ROLE_TABLE, "u", {"kind": "take_post", "target_id": "cp"}) is None
