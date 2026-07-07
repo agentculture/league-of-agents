@@ -12,11 +12,19 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
+from league.engine.events import MatchLog
 from league.engine.scoring import score_match
 from league.engine.state import state_hash
-from league.replay import build_replay_data, render_html
+from league.replay import build_assessor_guide, build_replay_data, render_html
 from tests.test_engine_scoring import _play_match
+
+_PLAYTESTS = Path(__file__).resolve().parent.parent / "docs" / "playtests"
+
+
+def _committed_log(rel: str) -> MatchLog:
+    return MatchLog.from_jsonl((_PLAYTESTS / rel).read_text(encoding="utf-8"))
 
 
 def _extract_embedded(html: str) -> dict:
@@ -234,3 +242,166 @@ def test_board_marks_never_paint_text_with_team_color() -> None:
     # guard that it does not come back.
     assert "color:${teamColor(t.id)}" not in _TEMPLATE
     assert 'style="color:${teamColor' not in _TEMPLATE
+
+
+# --------------------------------------------------------------------------- #
+# C6-t5 — the embedded assessor guide (spec c6, honesty h6). The replay must
+# TEACH a human to judge coordination quality, phase by phase, from THIS
+# match's own facts — real turns, unit ids, and mission names, not boilerplate.
+# --------------------------------------------------------------------------- #
+
+
+def test_assessor_guide_is_embedded_in_data_and_panel() -> None:
+    """The guide is a first-class fold output and a rendered panel — the same
+    server-computed facts flow into build_replay_data and the HTML block."""
+    log = _play_match()
+    data = build_replay_data(log)
+    assert "guide" in data
+    guide = data["guide"]
+    for section in ("scenario", "phases", "key_moments", "judging", "checklist", "deep_link_turns"):
+        assert section in guide, f"missing guide section {section!r}"
+
+    html = render_html(log)
+    # The panel renders from M.guide (server-computed), not client recomputation.
+    assert "M.guide" in html
+    assert 'id="guide"' in html
+    # It is a collapsible panel in the wave-0 card system.
+    assert "<details" in html and "<summary" in html
+    # Embedded JSON carries the guide — same fold, byte-for-byte.
+    assert _extract_embedded(html)["guide"] == json.loads(json.dumps(guide))
+
+
+def test_assessor_guide_scenario_facts_are_derived_from_the_log() -> None:
+    """Section (a): objectives, win condition, and roles come from THIS
+    scenario + log, not a generic template."""
+    guide = build_replay_data(_play_match())["guide"]
+    sc = guide["scenario"]
+    assert sc["id"] == "skirmish-1"
+    assert sc["mode"] == "competitive"
+    assert sc["turn_limit"] == 30
+    obj_ids = {o["id"] for o in sc["objectives"]}
+    assert obj_ids == {"ms-supply", "ms-outpost"}
+    supply = next(o for o in sc["objectives"] if o["id"] == "ms-supply")
+    assert supply["kind"] == "deliver" and supply["amount"] == 6 and supply["reward"] == 10
+    outpost = next(o for o in sc["objectives"] if o["id"] == "ms-outpost")
+    assert outpost["kind"] == "hold"
+    roles = {r["role"] for r in sc["roles"]}
+    assert {"scout", "harvester", "defender"} <= roles
+    # The win condition and coordination pressure are real prose, not empty.
+    assert "outcome" in sc["win_condition"].lower()
+    assert sc["coordination_pressure"]
+    assert any("30-turn" in line or "control point" in line for line in sc["coordination_pressure"])
+
+
+def test_assessor_guide_key_moments_cite_real_turns_units_missions() -> None:
+    """Section (b): every key moment is a clickable #tN into a real frame and
+    names real entities from this match's log (first capture, mission done)."""
+    log = _committed_log("season-0/orchestrator.log.jsonl")
+    data = build_replay_data(log)
+    moments = data["guide"]["key_moments"]
+    assert moments
+    frame_turns = {f["turn"] for f in data["frames"]}
+    for m in moments:
+        assert m["turn"] in frame_turns
+        assert m["anchor"] == f"#t{m['turn']}"
+    kinds = {m["kind"] for m in moments}
+    assert "first_capture" in kinds
+    assert "mission_completed" in kinds
+    real_missions = {e.data["mission_id"] for e in log.events if e.kind == "mission_completed"}
+    completed_titles = " ".join(m["title"] for m in moments if m["kind"] == "mission_completed")
+    assert any(mid in completed_titles for mid in real_missions)
+    real_cps = {e.data["cp_id"] for e in log.events if e.kind == "control_point_captured"}
+    cap_title = next(m["title"] for m in moments if m["kind"] == "first_capture")
+    assert any(cp in cap_title for cp in real_cps)
+
+
+def test_assessor_guide_differs_meaningfully_between_two_committed_logs() -> None:
+    """Criterion 1: the guide is match-specific — two different committed logs
+    produce guides whose framing, key moments, and judging genuinely diverge."""
+    a = build_replay_data(_committed_log("season-0/orchestrator.log.jsonl"))["guide"]
+    b = build_replay_data(_committed_log("cycle-5/colleague-coop.log.jsonl"))["guide"]
+    # Mode framing differs (competitive vs cooperative win condition).
+    assert a["scenario"]["mode"] == "competitive"
+    assert b["scenario"]["mode"] == "cooperative"
+    assert a["scenario"]["win_condition"] != b["scenario"]["win_condition"]
+    # Different teams under judgment.
+    assert set(a["judging"]) != set(b["judging"])
+    # Key moments land on different turns and describe different play.
+    assert [m["turn"] for m in a["key_moments"]] != [m["turn"] for m in b["key_moments"]]
+    assert {m["title"] for m in a["key_moments"]} != {m["title"] for m in b["key_moments"]}
+    assert a != b
+
+
+def test_assessor_guide_deep_links_all_resolve_to_real_frames() -> None:
+    """Criterion 2: every #tN the guide points at resolves to an existing
+    frame — a reviewer can always scrub to it."""
+    for rel in ("season-0/orchestrator.log.jsonl", "cycle-5/colleague-coop.log.jsonl"):
+        data = build_replay_data(_committed_log(rel))
+        frame_turns = {f["turn"] for f in data["frames"]}
+        links = data["guide"]["deep_link_turns"]
+        assert links, f"guide for {rel} points at no turns"
+        for turn in links:
+            assert turn in frame_turns, f"deep link #t{turn} has no frame in {rel}"
+
+
+def test_assessor_guide_has_reviewer_checklist_with_phases_and_anchors() -> None:
+    """Criterion 2: the 'how to review' checklist covers opening/midgame/endgame,
+    teaches pseudo-coordination vs real delegation and where dead time/collisions
+    show, and every item points at concrete scrub turns."""
+    data = build_replay_data(_committed_log("season-0/orchestrator.log.jsonl"))
+    checklist = data["guide"]["checklist"]
+    phases = {c["phase"] for c in checklist}
+    assert {"opening", "midgame", "endgame", "pseudo-vs-real", "dead-time"} <= phases
+    blob = " ".join(c["check"] for c in checklist).lower()
+    assert "pseudo" in blob and "delegation" in blob
+    assert "dead time" in blob or "idle" in blob or "collision" in blob
+    frame_turns = {f["turn"] for f in data["frames"]}
+    referenced = [t for c in checklist for t in c["turns"]]
+    assert referenced
+    for turn in referenced:
+        assert turn in frame_turns
+
+
+def test_assessor_guide_judging_uses_cooperation_v1_with_match_numbers() -> None:
+    """Section (c): the judging block explains the v1 signals with THIS match's
+    real numbers, taken straight from score_match(..., version='v1')."""
+    log = _committed_log("cycle-5/colleague-coop.log.jsonl")
+    guide = build_replay_data(log)["guide"]
+    v1 = score_match(log, version="v1")["cooperation"]
+    assert set(guide["judging"]) == set(v1)
+    for team_id, jt in guide["judging"].items():
+        coop = v1[team_id]
+        assert jt["cooperation_score"] == coop["score"]
+        assert jt["signals"] == coop["signals"]
+        assert set(jt["signals"]) == {
+            "delegation_spread",
+            "message_utility",
+            "plan_fidelity",
+            "discipline",
+        }
+        comp = coop["components"]["message_utility"]
+        assert jt["message_utility"]["messages"] == comp["messages"]
+        assert jt["message_utility"]["useful"] == comp["useful"]
+        # The plain-language explanation embeds this match's real counts.
+        assert str(comp["useful"]) in jt["message_utility"]["plain"]
+        assert str(comp["messages"]) in jt["message_utility"]["plain"]
+
+
+def test_assessor_guide_teaches_real_vs_pseudo_delegation_via_span() -> None:
+    """h6/probe: the guide surfaces span-of-control evidence so a human can tell
+    a mind that fielded real subagents from one narrating personas it never
+    fielded — the orchestrator log's baseline shows span < roster."""
+    guide = build_replay_data(_committed_log("season-0/orchestrator.log.jsonl"))["guide"]
+    spans = {tid: jt["span"] for tid, jt in guide["judging"].items()}
+    # fable fielded three real seats; baseline's 'delegation' is one mind.
+    assert spans["fable"]["span"] == 3
+    assert spans["baseline"]["span"] < spans["baseline"]["roster_size"]
+    assert "pseudo" in spans["baseline"]["plain"].lower()
+
+
+def test_assessor_guide_is_byte_deterministic() -> None:
+    """Same log → identical guide and identical HTML (no wall-clock/entropy)."""
+    log = _committed_log("season-0/orchestrator.log.jsonl")
+    assert build_assessor_guide(log) == build_assessor_guide(log)
+    assert build_replay_data(log)["guide"] == build_assessor_guide(log)
+    assert render_html(log) == render_html(log)
