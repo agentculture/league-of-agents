@@ -126,7 +126,7 @@ def _solo_vs_bot() -> Preset:
         description=(
             "One agent commands the whole roster alone, handicapped to a single "
             "action per turn (the coordination-necessity handicap), against the "
-            "deterministic greedy bot baseline."
+            "house ladder's named silver strategy (bots/rusher.py)."
         ),
         scenario_id="skirmish-1",
         mode="competitive",
@@ -143,7 +143,7 @@ def _solo_vs_bot() -> Preset:
                 },
                 model="claude-sonnet-5",
             ),
-            _bot_side("house", "House Baseline"),
+            _bot_file_side("house", "House Rusher (silver)", "rusher"),
         ),
     )
 
