@@ -185,3 +185,73 @@ continuous scenario module (built in parallel, `t6`):
 The `t6` registry wiring is a one-liner at `_try_get_cscenario`; until it lands,
 a scenario name without a registry raises a clear `CHarnessError` pointing at the
 inline seam.
+
+## Scoring: the two-lane decision
+
+Two engine lanes, both honest (spec c10): the continuous lane does not get a
+silently-adapted copy of the grid's scoring formulas — it gets an explicit,
+documented decision (spec c11/h11), pinned here rather than left to drift.
+
+**What continuous matches score this cycle: OUTCOME ONLY.** A continuous
+match's competitive tally is the grid's own outcome rule, ported —
+[`league/engine/continuous/resolve.py`](../league/engine/continuous/resolve.py)'s
+`outcome_points`/`CP_POINTS` compute mission rewards (dual awards paid in
+full) + 2 points per owned control point + delivered resources, the same
+shape [`league/engine/tick.py`](../league/engine/tick.py)'s `outcome_points`
+computes for the grid. It is a deliberate, independent port, not a shared
+import: the continuous package never imports `league.engine.tick`, and the
+grid engine never imports `league.engine.continuous` — each lane earns its
+own outcome tally from its own state.
+
+**What stays grid-only: cooperation v1, tempo t0, span probe p0.** None of
+the three read-time scoring axes —
+[`league/engine/scoring.py`](../league/engine/scoring.py)'s cooperation v1,
+[`league/engine/tempo.py`](../league/engine/tempo.py)'s tempo t0, or
+[`league/engine/probe.py`](../league/engine/probe.py)'s span probe p0 — run
+over continuous logs this cycle. This is enforced, not just documented:
+`tests/test_two_lane_honesty.py` AST-checks that none of the three modules
+imports `league.engine.continuous`, and that nothing under
+`league/engine/continuous/` imports any of the three back.
+
+**Why adaptation is non-trivial, named per axis** (this is the honest part —
+each formula leans on a grid assumption continuous time does not hold):
+
+- **Cooperation v1's `message_utility`** correlates a message with a
+  subsequent team action inside a window,
+  `_referent_realized(index, team_id, turn, window, referent)` computing
+  `lo, hi = turn, turn + window` over `CORRELATION_WINDOW = 2` — a window
+  measured in discrete, shared *turns* that every unit advances in lockstep.
+  Continuous decision points are per-unit and asynchronous by construction
+  (a fast role legitimately reaches several decision points while a slow
+  role reaches one, per this document's own decision-cadence section) — there
+  is no shared "turn" to window over, and it is not obvious what "2" should
+  mean once the unit is game-time rather than turn count, especially when
+  action durations vary by role and by menu entry.
+- **Tempo t0's per-substrate calibration** is documented as "a representative
+  *per-turn* latency in milliseconds"
+  (`league/engine/tempo.py`'s `DEFAULT_CALIBRATION` comment) and its whole
+  point is separating substrate speed from skill by comparing one
+  `seat_latency` sample per synchronized grid turn. In continuous play,
+  decision *frequency* is itself a role-driven variable — the faster role
+  gets more decision points per unit of game time, not as a special rule but
+  as this contract's own arithmetic (see "Decision cadence" above) — so a
+  straight median-per-decision comparison would conflate "fast substrate"
+  with "fast role", the exact confound tempo t0 exists to avoid for the grid.
+- **Span probe p0's `guidance_linkage`/`degradation_curve`** reuses
+  cooperation v1's referent-matching machinery directly
+  (`league/engine/probe.py` imports `CORRELATION_WINDOW`,
+  `_build_action_index`, `_utterance_useful` from `league.engine.scoring`)
+  and additionally buckets turns by how many seats declared an action
+  "CONCURRENTLY that turn" to build its degradation curve. Both legs depend
+  on the same shared, turn-indexed notion cooperation v1 does, plus a
+  concurrency test ("acted in the same turn") that has no continuous
+  analogue until a real definition of "the same moment" exists for
+  asynchronous per-unit decision points.
+
+**The pinned decision:** adaptation of cooperation v1 / tempo t0 / span probe
+p0 to continuous time is **deferred to a later cycle**. This cycle ships
+continuous outcome scoring only; the three read-time axes keep scoring grid
+matches exactly as before, untouched and unextended. When a later cycle picks
+this up, the honest starting question for each axis is named above — not "why
+did the number look different," but "what does a turn-shaped assumption mean
+once turns are gone."
