@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-07-07
+
+### Added
+
+- Seeded scenario generator: `gen-<seed>-...` ids fully encode seed+params (any match re-creatable from its log header), 180-degree rotational fairness proven by property tests, boards to 41x41 / 200 turns / 8 objective pairs / executor_scale rosters up to 14 units
+- Coding-reflective roles: explorer (extended vision/reach, gather+capture rejected by engine legality) and planner (coordination-only) in the new recon-1 scenario, each documenting its software-work analog (docs/roles.md); scout/harvester/defender byte-identical
+- The mesmerizing replay: validated palette (CVD-safe both themes), deliberately designed dark+light with toggle, purposeful motion behind prefers-reduced-motion, zero anti-pattern hits (docs/replay-design.md), byte-deterministic
+- Embedded assessor guide: per-scenario, phase-by-phase judging guidance derived from THIS match's log — key moments as #tN scrub links, cooperation-v1 numbers explained, real-vs-pseudo delegation taught
+- Video export: league match record renders any committed log to a shareable GIF offline via a pure-stdlib GIF89a writer (tests ship their own decoder); optional --format mp4 via ffmpeg on PATH; provenance embedded in the file
+- Span-of-control probe (p0): league match probe measures span, per-seat realization, guidance linkage and a degradation curve from log evidence alone — claimed delegation without evidence scores zero
+- Committed-log compatibility sweep: every docs/playtests log must fold to its recorded outcome (the additive-engine-changes tripwire) + docs/playtests/README.md index
+
+### Changed
+
+- instantiate() no longer collapses duplicate-role agents (real bug found by the executor_scale work)
+- league/replay exports palette constants shared by the HTML and GIF renderers
+
 ## [0.9.3] - 2026-07-07
 
 ### Added
