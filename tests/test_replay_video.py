@@ -416,6 +416,54 @@ def test_tween_frames_interpolate_and_stay_deterministic() -> None:
         build_frames(data, tween=-1)
 
 
+def test_tween_sub_frame_delays_sum_exactly_to_the_turn_hold() -> None:
+    """When the hold doesn't divide evenly by (tween + 1), the remainder is
+    spread across the leading sub-frames — every non-final turn's delays sum
+    exactly to turn_delay_cs (no silent slowdown) and each stays at or above
+    the 2cs floor GIF renderers enforce."""
+    from league.replay.html import build_replay_data
+
+    data = build_replay_data(_coop_log())
+    turns = len(data["frames"]) - 1
+    tween, turn_delay_cs = 3, 25  # 25 / 4 -> 7, 6, 6, 6
+    video = build_frames(data, tween=tween, turn_delay_cs=turn_delay_cs)
+    per_turn = tween + 1
+    for i in range(turns - 1):  # every non-final turn owns (tween + 1) sub-frames
+        delays = [f.delay_cs for f in video.frames[1 + i * per_turn : 1 + (i + 1) * per_turn]]
+        assert sum(delays) == turn_delay_cs
+        assert min(delays) >= 2
+    assert video.frames[-2].delay_cs == turn_delay_cs  # the final turn rests the full hold
+
+
+def test_build_frames_rejects_a_tween_that_cannot_fit_the_hold() -> None:
+    """A tween whose sub-frames would fall under the 2cs GIF floor must be
+    refused, not silently played slower than the requested pace."""
+    from league.replay.html import build_replay_data
+
+    data = build_replay_data(_coop_log())
+    with pytest.raises(ValueError, match="does not fit"):
+        build_frames(data, tween=12, turn_delay_cs=10)  # the --fps 10 --tween 12 shape
+    # The boundary combination — every sub-frame exactly at the floor — is legal.
+    video = build_frames(data, tween=4, turn_delay_cs=10)
+    assert video.frames[1].delay_cs == 2
+
+
+def test_mp4_repeat_counts_keep_a_tweened_turn_inside_one_fps_interval() -> None:
+    """The MP4 container runs at fps * (tween + 1), so each tween sub-frame maps
+    to ~one output frame and a full turn still spans 1/fps seconds; the title
+    and closing cards keep their real-time holds."""
+    from league.cli._commands.match import _repeat_count
+
+    fps, tween = 2, 4  # the defaults: a 50cs turn split into five 10cs sub-frames
+    output_fps = fps * (tween + 1)
+    assert _repeat_count(10, output_fps) == 1
+    assert _repeat_count(200, output_fps) == 20  # title card: 2s either way
+    assert _repeat_count(300, output_fps) == 30  # closing card: 3s
+    # Untweened parity: at plain fps the old behavior is unchanged.
+    assert _repeat_count(50, 2) == 1
+    assert _repeat_count(200, 2) == 4
+
+
 def test_tweened_gif_round_trips_through_the_decoder() -> None:
     """A tweened, dark-theme GIF still decodes frame-for-frame — the container
     and LZW stay correct with the extra interpolated frames and the swapped
@@ -617,6 +665,22 @@ def test_match_record_rejects_out_of_range_tween(arena, capsys) -> None:
     rc = main(["match", "record", "m-rec-tw", "--out", str(out_file), "--tween", "999"])
     assert rc == 1
     err = capsys.readouterr().err
+    assert "hint:" in err
+    assert not out_file.exists()
+
+
+def test_match_record_rejects_tween_too_high_for_fps(arena, capsys) -> None:
+    """--fps 10 gives each turn a 10cs hold; 13 sub-frames cannot fit it. The
+    combination is refused with a remediation, never silently slowed down."""
+    _play_a_match("m-rec-tw2")
+    capsys.readouterr()
+    out_file = arena / "m-rec-tw2.gif"
+    rc = main(
+        ["match", "record", "m-rec-tw2", "--out", str(out_file), "--fps", "10", "--tween", "12"]
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "too high for --fps" in err
     assert "hint:" in err
     assert not out_file.exists()
 

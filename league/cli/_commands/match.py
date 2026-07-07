@@ -805,20 +805,25 @@ def _frame_delay_cs(fps: int) -> int:
     return max(2, round(100 / fps))
 
 
-def _repeat_count(delay_cs: int, fps: int) -> int:
-    """How many constant-fps output frames reproduce one GIF-style hold time."""
-    frame_cs = _frame_delay_cs(fps)
-    return max(1, round(delay_cs / frame_cs))
+def _repeat_count(delay_cs: int, output_fps: int) -> int:
+    """How many constant-rate output frames reproduce one GIF-style hold time."""
+    return max(1, round(delay_cs * output_fps / 100))
 
 
-def _render_mp4(video, *, fps: int, out_path: Path, provenance: str) -> None:
+def _render_mp4(video, *, fps: int, tween: int, out_path: Path, provenance: str) -> None:
     """Pipe the same raw frames ffmpeg's way. The only subprocess call in the
     whole video-export feature — deliberately kept out of league/replay/video.py
-    (library code stays subprocess-free and trivially testable)."""
+    (library code stays subprocess-free and trivially testable).
+
+    The container runs at ``fps * (tween + 1)`` so each tween sub-frame maps to
+    ~one output frame and a full turn still spans 1/fps seconds — at plain
+    ``fps``, every sub-frame would expand to a whole turn interval and the video
+    would play ``tween + 1`` times slower than asked."""
+    output_fps = fps * (tween + 1)
     raw = bytearray()
     for frame in video.frames:
         rgb = indices_to_rgb(frame.indices, video.palette)
-        raw += rgb * _repeat_count(frame.delay_cs, fps)
+        raw += rgb * _repeat_count(frame.delay_cs, output_fps)
     try:
         subprocess.run(  # nosec B603 B607
             [
@@ -834,7 +839,7 @@ def _render_mp4(video, *, fps: int, out_path: Path, provenance: str) -> None:
                 "-video_size",
                 f"{video.width}x{video.height}",
                 "-framerate",
-                str(fps),
+                str(output_fps),
                 "-i",
                 "-",
                 "-pix_fmt",
@@ -880,13 +885,26 @@ def cmd_match_record(args: argparse.Namespace) -> int:
                 "(interpolated frames inserted between turns; 0 disables)"
             ),
         )
+    turn_delay_cs = _frame_delay_cs(args.fps)
+    if turn_delay_cs < 2 * (args.tween + 1):
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=(
+                f"--tween {args.tween} is too high for --fps {args.fps}: a turn holds "
+                f"{turn_delay_cs}cs but its {args.tween + 1} sub-frames need >= 2cs each"
+            ),
+            remediation=(
+                f"lower --tween to <= {turn_delay_cs // 2 - 1} at this frame rate, "
+                "or lower --fps to give each turn a longer hold"
+            ),
+        )
     log = _load(Store(), args.match_id)
     provenance = _record_provenance(args)
     data = build_replay_data(log)
     video = build_video_frames(
         data,
         cell_px=args.scale,
-        turn_delay_cs=_frame_delay_cs(args.fps),
+        turn_delay_cs=turn_delay_cs,
         theme=args.theme,
         tween=args.tween,
     )
@@ -902,7 +920,7 @@ def cmd_match_record(args: argparse.Namespace) -> int:
                     "(the default)"
                 ),
             )
-        _render_mp4(video, fps=args.fps, out_path=out_path, provenance=provenance)
+        _render_mp4(video, fps=args.fps, tween=args.tween, out_path=out_path, provenance=provenance)
         size = out_path.stat().st_size
     else:
         gif_bytes = render_gif(
@@ -1250,7 +1268,8 @@ def register(sub: argparse._SubParsersAction) -> None:
         default=DEFAULT_TWEEN,
         help=f"Interpolated frames inserted between each pair of turns so movement "
         f"flows instead of teleporting ({MIN_TWEEN}..{MAX_TWEEN}, default {DEFAULT_TWEEN}; "
-        "0 disables).",
+        "0 disables). Each sub-frame holds >= 2cs, so a high --fps caps how many fit "
+        "one turn.",
     )
     record.add_argument("--json", action="store_true", help="Emit structured JSON.")
     record.set_defaults(func=cmd_match_record)

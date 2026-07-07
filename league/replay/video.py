@@ -683,6 +683,12 @@ def build_frames(
     palette (``"light"`` cream / ``"dark"`` black-green); it changes only the
     color table, so the indices — and thus the tween interpolation — stay
     byte-deterministic.
+
+    The ``tween + 1`` sub-frame delays of every non-final turn sum *exactly* to
+    ``turn_delay_cs``, so the requested pace is honored to the centisecond. GIF
+    renderers ignore holds under 2cs, so a ``tween`` too high for the hold —
+    ``turn_delay_cs < 2 * (tween + 1)`` — raises :class:`ValueError` instead of
+    silently playing slower than asked.
     """
     if cell_px < 4:
         raise ValueError("cell_px must be >= 4")
@@ -695,9 +701,17 @@ def build_frames(
     team_index = {t["id"]: i for i, t in enumerate(replay_data["teams"])}
     board_frames = replay_data["frames"][1:]
     width, height, board_x, board_y, footer_y = _layout(replay_data, cell_px)
-    # Split a turn's screen time across its (tween + 1) sub-frames so the total
-    # pace is ~unchanged while the motion within a turn is subdivided.
-    seg = max(2, round(turn_delay_cs / (tween + 1)))
+    # Split a turn's screen time exactly across its (tween + 1) sub-frames —
+    # integer division, remainder spread over the leading sub-frames — so the
+    # delays sum to turn_delay_cs. Each sub-frame must clear the 2cs floor GIF
+    # renderers enforce; refuse combinations that can't, rather than inflating.
+    if turn_delay_cs < 2 * (tween + 1):
+        raise ValueError(
+            f"tween {tween} does not fit a {turn_delay_cs}cs turn hold: "
+            f"{tween + 1} sub-frames need >= 2cs each"
+        )
+    base, extra = divmod(turn_delay_cs, tween + 1)
+    sub_delays = tuple(base + 1 if k < extra else base for k in range(tween + 1))
 
     frames: list[Frame] = []
 
@@ -711,7 +725,7 @@ def build_frames(
         _draw_turn_frame(canvas, replay_data, f, team_index, cell_px, board_x, board_y, footer_y)
         # The final turn rests the full hold; earlier turns share time with the
         # tween frames that follow them.
-        frames.append(Frame(canvas.to_bytes(), turn_delay_cs if i == last else seg))
+        frames.append(Frame(canvas.to_bytes(), turn_delay_cs if i == last else sub_delays[0]))
         if i != last and tween:
             nxt = board_frames[i + 1]
             for k in range(1, tween + 1):
@@ -729,7 +743,7 @@ def build_frames(
                     footer_y,
                     frac,
                 )
-                frames.append(Frame(tcanvas.to_bytes(), seg))
+                frames.append(Frame(tcanvas.to_bytes(), sub_delays[k]))
 
     closing_canvas = _Canvas(width, height)
     _draw_closing_frame(closing_canvas, replay_data, team_index)
