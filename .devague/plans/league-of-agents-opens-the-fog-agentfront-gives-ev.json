@@ -1,0 +1,360 @@
+{
+  "slug": "league-of-agents-opens-the-fog-agentfront-gives-ev",
+  "title": "League of Agents opens the fog: AgentFront gives every audience its native face \u2014 markdown for agents, TUI and HTML for humans, JSON for coded bots \u2014 orchestrator mode becomes a real game mode where the master reads the map and ground units see only their radius, and strategy-coded bots join the ladder",
+  "frame_slug": "league-of-agents-opens-the-fog-agentfront-gives-ev",
+  "schema_version": 1,
+  "status": "exported",
+  "created": "2026-07-07T05:13:39Z",
+  "updated": "2026-07-07T05:20:10Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "League of Agents opens the fog: AgentFront gives every audience its native face \u2014 markdown for agents, TUI and HTML for humans, JSON for coded bots \u2014 orchestrator mode becomes a real game mode where the master reads the map and ground units see only their radius, and strategy-coded bots join the ladder"
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "Every announcement phrase maps to a committed artifact before the next frame: faces (projection-agreement tests), fog (briefing-boundary test), orchestrator mode (recorded fogged match), coded bots (committed strategy source on the ladder)"
+    },
+    {
+      "id": "c2",
+      "kind": "requirement",
+      "text": "AgentFront faces (user directive): agents read markdown, humans read TUI/HTML, bots/automations read JSON \u2014 three audience-typed projections of the same match fold"
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "The three faces are provably one fold: projection-agreement tests (the HTML=JSON pattern from season 0) extend to the markdown and TUI faces \u2014 same log in, same facts out, byte-derivable"
+    },
+    {
+      "id": "c3",
+      "kind": "requirement",
+      "text": "Coded-strategy bots as first-class opponents (user directive): the JSON face lets automations with committed, coded strategies play against agent teams \u2014 the arena tests agents against programmed strategy, not only other minds"
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "A coded bot is honest opposition: its strategy is committed, readable source; it consumes only the public JSON surface (no engine internals); its matches are deterministic given the seed and replayable"
+    },
+    {
+      "id": "c4",
+      "kind": "requirement",
+      "text": "Orchestrator mode becomes a real game mode (user directive): the orchestrator agent reads the map; its spawned subagents do the ground work"
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "The orchestrator's map-reading is a DECLARED capability recorded in the match config and log \u2014 an information-asymmetry rule of the mode, never a hidden privilege; its guidance to units flows only through logged in-game messages"
+    },
+    {
+      "id": "c5",
+      "kind": "requirement",
+      "text": "Line of sight (user directive): units see at most x tiles (fog of war); the master agent has to guide them"
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "Fog is enforced at the briefing boundary and tested: a unit's briefing contains nothing beyond its vision radius plus explicit teammate/master messages; a test proves an out-of-vision fact reaches a unit ONLY via a logged message"
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "Optional sub-agent communication (user directive): a config option lets ground units message each other to help each other \u2014 off by default in orchestrator mode, a declared fairness axis either way"
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "The comms option is a recorded fairness axis: unit-to-unit messaging on/off is in the match config echo and the log; comparisons across configs state it; default in orchestrator mode is master-mediated only"
+    },
+    {
+      "id": "c7",
+      "kind": "audience",
+      "text": "Agent teams (resident or stateless), human spectators (TUI + HTML replay), coded-strategy bot authors, and the orchestrator master guiding blind ground units"
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "Each audience actually touches the increment: an agent team plays fogged, a human reviews via TUI/HTML, a coded bot plays through JSON, an orchestrator guides blind units \u2014 all in recorded artifacts"
+    },
+    {
+      "id": "c8",
+      "kind": "before_state",
+      "text": "Every seat sees the whole board (full observability let one solo mind beat a coordinated swarm \u2014 h9 not demonstrated in season 0); the arena has two faces (JSON + HTML replay) but no markdown face for agents and no TUI for humans; orchestrator mode is a harness config demo, not a game mode with its own information asymmetry; the only bots are the greedy baseline"
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "The before-state cites the committed season-0 record (full observability, h9 not demonstrated, greedy-only bots) \u2014 not reconstructed after the fact"
+    },
+    {
+      "id": "c9",
+      "kind": "after_state",
+      "text": "One match fold projects three audience-typed faces via agentfront (the renamed teken already gating this repo): markdown briefings for agents, TUI/HTML for humans, JSON for bots; units carry per-role vision radii and briefings contain ONLY what that unit can see plus what teammates told it; the orchestrator reads the full map as a declared capability and guides blind units through auditable messages; coded-strategy bots with committed source play on the ladder"
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "The after-state is demonstrated in ONE recorded fogged match with all elements active \u2014 per-role vision, briefing boundary, declared orchestrator capability, knowledge overlay \u2014 not assembled from disjoint demos"
+    },
+    {
+      "id": "c10",
+      "kind": "why_it_matters",
+      "text": "Fog of war is the recorded #1 candidate fix for the failed h9 coordination-necessity test: when a unit cannot see the objective, communication stops being flavor and becomes the mechanism of victory \u2014 cooperation quality becomes measurable as information flow that changed an outcome; coded bots give agents a reproducible strategic opponent and the benchmark ladder a fixed reference point"
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "The rationale survives its own test: the h9 retest and the cooperation-as-information-flow claim are published with numbers either way"
+    },
+    {
+      "id": "c12",
+      "kind": "requirement",
+      "text": "Visibility is deterministic, per-role, and engine-computed: vision radius is a role stat (scouts see farther \u2014 issue #1 names visibility as a specialization axis), computed purely from state with no RNG, and the determinism gate still holds"
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "Vision is a pure function of state and role: the AST import ban still passes, the determinism gate hash is regenerated once deliberately, and identical logs re-fold to identical per-team knowledge"
+    },
+    {
+      "id": "c13",
+      "kind": "requirement",
+      "text": "Fog stays legible: the replay shows ground truth AND a per-team knowledge overlay; the log records what each seat was shown, so a reviewer can verify a blind unit acted on relayed guidance, not hidden knowledge"
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "A reviewer can audit fog from the replay alone: ground truth and per-team knowledge are both visible, and the log records what each seat was shown each turn"
+    },
+    {
+      "id": "c14",
+      "kind": "requirement",
+      "text": "The h9 retest: the season-0 coordination-necessity match shape reruns under fog (solo strong mind vs coordinated weaker swarm) and the result is published either way"
+    },
+    {
+      "id": "h14",
+      "kind": "honesty",
+      "text": "The h9 retest reuses the season-0 shape (solo strong mind vs coordinated weaker swarm, same scenario family) so the comparison is apples-to-apples, and the result is published even if h9 fails again"
+    },
+    {
+      "id": "c15",
+      "kind": "boundary",
+      "text": "Not building: a graphics engine (the TUI is a face over the same fold), a live networked spectator server (v5 stays parked), pathfinding aids for units, or bot strategies smuggled as hidden engine privileges \u2014 bots play through the same public JSON surface as everyone"
+    },
+    {
+      "id": "h15",
+      "kind": "honesty",
+      "text": "The boundary is checkable: the TUI renders from the same fold (agreement test), bots reach nothing but the public CLI/JSON surface, and no pathfinding/strategy aid ships inside the engine"
+    },
+    {
+      "id": "c16",
+      "kind": "success_signal",
+      "text": "A recorded fogged orchestrator match where a ground unit completes an objective it never saw (guidance auditable in messages); a coded-strategy bot with committed source winning or losing on the record against an agent team; the h9 retest result published; all three faces proven projections of one fold by agreement tests"
+    },
+    {
+      "id": "h16",
+      "kind": "honesty",
+      "text": "Success artifacts are all committed: the fogged-match log showing a unit completing an objective never in its vision (guiding messages logged), the bot's source + its match record, the h9 retest report, and the face-agreement test suite"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Engine: per-role vision \u2014 vision radius as a role stat in the scenario schema, and a pure visibility function (league/engine/vision.py) computing what a unit/team sees from state alone; determinism hash regenerated deliberately",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "vision is a pure function of (state, scenario): no RNG, AST import ban passes, identical logs yield identical visibility",
+        "scout sees strictly farther than harvester/defender in skirmish scenarios (specialization axis)"
+      ],
+      "deps": [],
+      "covers": [
+        "c12",
+        "h12"
+      ]
+    },
+    {
+      "id": "t2",
+      "summary": "Coded-strategy bot lane: bots/ holds committed strategy sources that consume ONLY the public CLI/JSON surface; one reference strategy bot beyond greedy registers as a driver",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the reference bot's strategy is readable committed source and its matches are deterministic given the seed",
+        "a test proves the bot driver touches no league internals (public surface only)"
+      ],
+      "deps": [],
+      "covers": [
+        "c3",
+        "h2"
+      ]
+    },
+    {
+      "id": "t3",
+      "summary": "Engine: per-team knowledge fold \u2014 what each team has seen and been told, derived purely from the event log (the substrate for fogged briefings, the replay overlay, and the TUI)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "knowledge is a fold over events: re-folding a log reproduces per-team knowledge exactly",
+        "an out-of-vision fact enters a team's knowledge ONLY via a logged message or own sighting"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c13"
+      ]
+    },
+    {
+      "id": "t4",
+      "summary": "Scenario: skirmish-2 (fogged) \u2014 vision radii per role + turn-limit arithmetic re-proving coordination-necessity by construction under fog (unparks v1)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a test proves by arithmetic that the best solo run cannot complete both missions inside the limit under fog"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c5"
+      ]
+    },
+    {
+      "id": "t5",
+      "summary": "Harness: fog-aware briefings \u2014 a seat's briefing contains only its unit's vision + team knowledge + teammate/master messages; never the full board",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a test stages an out-of-vision objective and proves it reaches the seat's briefing ONLY after a logged message names it"
+      ],
+      "deps": [
+        "t3"
+      ],
+      "covers": [
+        "c5",
+        "h4"
+      ]
+    },
+    {
+      "id": "t6",
+      "summary": "Harness: orchestrator mode for real \u2014 the master's full-map read is a declared capability in config echo + match log; unit-to-unit comms an explicit config flag (default off in orchestrator mode; a recorded fairness axis)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the log records map_read=full for the master and the comms flag per team; match show --json surfaces both",
+        "with comms off, a unit's briefing contains master messages only; with comms on, teammate messages too \u2014 both tested"
+      ],
+      "deps": [
+        "t5"
+      ],
+      "covers": [
+        "c4",
+        "c6",
+        "h3",
+        "h5"
+      ]
+    },
+    {
+      "id": "t7",
+      "summary": "TUI face for humans: replay-stepping terminal view over the same fold (board, fog overlay, feed) \u2014 the human's third face beside HTML",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the TUI renders from build_replay_data (or the knowledge fold) \u2014 an agreement test pins it to the same facts as JSON",
+        "ground truth vs per-team knowledge toggle works in the TUI and the HTML replay overlay"
+      ],
+      "deps": [
+        "t3"
+      ],
+      "covers": [
+        "c2",
+        "c13",
+        "c15",
+        "h13"
+      ]
+    },
+    {
+      "id": "t8",
+      "summary": "Playtests: the fogged orchestrator match (master guides blind units), a coded-bot-vs-agent-team match, and the h9 retest (season-0 solo-vs-swarm shape under fog); logs, replays, scores, reports committed",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the fogged match log shows a unit completing an objective never inside its own vision, with the guiding messages logged",
+        "the h9 retest result is published either way",
+        "the coded bot's match record is committed beside its strategy source"
+      ],
+      "deps": [
+        "t2",
+        "t4",
+        "t6",
+        "t7",
+        "t10"
+      ],
+      "covers": [
+        "c9",
+        "c14",
+        "c16",
+        "c7",
+        "c10",
+        "h9",
+        "h14",
+        "h16",
+        "h7",
+        "h10"
+      ]
+    },
+    {
+      "id": "t9",
+      "summary": "Docs + propagation: before-state citations from the season-0 record, announcement-to-artifact traceability, boundary audit (TUI same-fold, bots public-surface-only, no engine strategy aids), human review of the fogged replay, next-frame seeding",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "traceability table maps every announcement phrase to a committed artifact",
+        "human-review section records the reviewer's reconstruction from the replay/TUI alone"
+      ],
+      "deps": [
+        "t8"
+      ],
+      "covers": [
+        "c1",
+        "c8",
+        "c15",
+        "h6",
+        "h8",
+        "h15"
+      ]
+    },
+    {
+      "id": "t10",
+      "summary": "agentfront runtime adoption + the markdown face: dependencies gains agentfront (user decision c17, honesty h11); match/briefing state renders as markdown for agents from one registry; face-agreement tests prove markdown/JSON/HTML are one fold",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "pyproject dependencies includes agentfront and the PR body calls out the install-story change",
+        "a face-agreement test renders the same log to markdown and JSON and asserts fact-for-fact equality"
+      ],
+      "deps": [
+        "t3"
+      ],
+      "covers": [
+        "c2",
+        "h1"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "Fog may make weak models helpless rather than cooperative \u2014 the h9 retest could fail in a new direction (units ignore guidance); scenario tuning (v1) may need iteration",
+      "kind": "unknown_nonblocking",
+      "task_id": "t8"
+    },
+    {
+      "id": "r2",
+      "text": "agentfront App registry integration with the existing argparse CLI is untested territory \u2014 the faces may adopt the registry while the CLI surface migrates incrementally",
+      "kind": "unknown_nonblocking",
+      "task_id": "t10"
+    }
+  ]
+}

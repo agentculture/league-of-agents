@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-07-07
+
+### Changed
+
+- Cycle-3 fog+faces frame converged (user confirmations): all claims/honesty conditions confirmed, v4 resolved by user decision c17 (agentfront runtime import); converged spec + 10-task/6-wave plan exported, superseding the parked draft
+
 ## [0.7.1] - 2026-07-07
 
 ### Added
