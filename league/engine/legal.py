@@ -15,6 +15,12 @@ do right now? It mirrors ``resolve_turn``'s applicability rules for
 never fails) without engine mutation or randomness, so callers — the CLI
 projection, a briefing, a future orchestrator — can check legality before
 spending an order on it.
+
+It also surfaces the role's engine-enforced capability contract
+(``can_gather``/``can_capture``, spec h11): a role that ``can_gather=False``
+reports ``gather=False`` here exactly as the tick rejects its ``gather`` order,
+and ``can_capture`` mirrors the tick's control-point occupancy rule (capture is
+streak-based, so it has no per-order legality — only the capability flag).
 """
 
 from __future__ import annotations
@@ -30,13 +36,17 @@ def legal_actions(state: MatchState, scenario: Scenario, unit_id: str) -> dict[s
 
     Returns::
 
-        {"move": [[x, y], ...], "gather": bool, "deliver": bool, "hold": True}
+        {"move": [[x, y], ...], "gather": bool, "deliver": bool, "hold": True,
+         "can_gather": bool, "can_capture": bool}
 
     * ``move`` — every on-grid cell within the unit's role's ``move`` stat
       (Manhattan distance), excluding the unit's current cell, sorted
       ascending by ``(x, y)`` so the result is byte-for-byte deterministic.
-    * ``gather`` — ``True`` iff the unit stands on a resource node with
-      ``remaining > 0`` and it is carrying below its role's ``carry`` stat.
+    * ``gather`` — ``True`` iff the unit's role ``can_gather`` AND it stands on
+      a resource node with ``remaining > 0`` AND it is carrying below its
+      role's ``carry`` stat. A role that ``can_gather=False`` (e.g. the
+      explorer/planner) always reports ``False`` here, exactly as
+      ``resolve_turn`` rejects its ``gather`` order.
     * ``deliver`` — ``True`` iff the unit stands on the first deliver
       mission's square while carrying more than zero. Mirrors
       ``resolve_turn``'s own target lookup exactly: the *first* mission with
@@ -44,6 +54,12 @@ def legal_actions(state: MatchState, scenario: Scenario, unit_id: str) -> dict[s
       ``status`` — a completed mission's square still banks resource points,
       so delivery there is genuinely legal, not just tolerated.
     * ``hold`` — always ``True``.
+    * ``can_gather`` / ``can_capture`` — the role's engine-enforced capability
+      contract (spec h11). ``can_capture=False`` means this unit's occupancy of
+      a control point never builds or contests a capture streak in the tick
+      (there is no ``capture`` *order* to reject — capture is streak-based — so
+      the capability is surfaced here for briefings/agents and mirrored by
+      ``resolve_turn``'s occupancy rule).
 
     Raises ``ValueError`` if ``unit_id`` names no unit in ``state``.
     """
@@ -66,7 +82,9 @@ def legal_actions(state: MatchState, scenario: Scenario, unit_id: str) -> dict[s
     moves.sort()
 
     node = next((n for n in state.resource_nodes if n.pos == unit.pos), None)
-    gather = node is not None and node.remaining > 0 and unit.carrying < stats.carry
+    gather = (
+        stats.can_gather and node is not None and node.remaining > 0 and unit.carrying < stats.carry
+    )
 
     # Mirrors resolve_turn's deliver validation exactly: the first deliver
     # mission (regardless of status) is the delivery target, and only its
@@ -74,4 +92,11 @@ def legal_actions(state: MatchState, scenario: Scenario, unit_id: str) -> dict[s
     target = next((m for m in state.missions if m.kind == "deliver"), None)
     deliver = target is not None and unit.pos == target.pos and unit.carrying > 0
 
-    return {"move": moves, "gather": bool(gather), "deliver": bool(deliver), "hold": True}
+    return {
+        "move": moves,
+        "gather": bool(gather),
+        "deliver": bool(deliver),
+        "hold": True,
+        "can_gather": bool(stats.can_gather),
+        "can_capture": bool(stats.can_capture),
+    }
