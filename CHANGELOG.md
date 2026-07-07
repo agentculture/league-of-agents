@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+<<<<<<< HEAD
 ## [0.11.0] - 2026-07-08
 
 ### Added
@@ -20,6 +21,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Grid-replay byte-identity pin in tests re-anchored to the restyled grid face (PR #18); docs/playtests/README.md gains its missing cycle-6 row plus the cycle-7 row
+=======
+## [0.10.3] - 2026-07-08
+
+### Changed
+
+- GIF/video face recomposed to the mesmerizing design system: centered title lockup, board-hero turn frames with hairline grid + unit rings + score footer, big-numeral closing card, typographic hierarchy via scaled glyphs — both themes, same indices
+>>>>>>> origin/main
 
 ## [0.10.2] - 2026-07-07
 

@@ -4,13 +4,13 @@
 pure-stdlib animated GIF89a writer — palette-indexed raster frames plus a
 hand-rolled LZW encoder (~a few hundred lines, no dependency). The board is
 flat-color geometry (discs, rings, diamonds, a tiny bitmap font), so a small
-global palette (20 colors — the SAME validated hues :mod:`league.replay.html`
-uses, selected per ``--theme``: light Anthropic cream / dark Culture
-black-green) compresses well and always works, on any machine, with nothing to
-install. This keeps the runtime dependency-free (``dependencies = []`` in
-``pyproject.toml`` is untouched) while resolving the "how do we ship a video,
-offline, from the log alone" toolchain question the cycle-5 plan parked as
-risk r1.
+global palette (25 colors — the SAME validated hues :mod:`league.replay.html`
+uses plus that face's own neutral steps, selected per ``--theme``: light
+Anthropic cream / dark Culture black-green) compresses well and always works,
+on any machine, with nothing to install. This keeps the runtime dependency-free
+(``dependencies = []`` in ``pyproject.toml`` is untouched) while resolving the
+"how do we ship a video, offline, from the log alone" toolchain question the
+cycle-5 plan parked as risk r1.
 
 An **optional** enhancement — piping the same raw frames through ``ffmpeg``
 for an MP4 — is offered by the CLI (``league match record --format mp4``),
@@ -28,19 +28,27 @@ bytes — the merge gate's reproducibility proof. Interpolation rounds to whole
 pixels, and ``--theme`` changes only the color table (the frame indices are
 theme-independent), so both stay reproducible.
 
-**Frame layout.** One opening title card (match id, scenario, teams with
-color swatches + rosters), one frame per turn actually played (skips the
-pre-turn-0 snapshot the title card already covers) with ``tween`` linearly
-interpolated frames between each adjacent pair of turns so movement flows
-instead of teleporting, and one closing frame (final score by axis) — a frame
-count of ``turns + (turns - 1) * tween + 2``. Board frames draw the grid,
-resource nodes (diamonds), missions (rings, colored by whoever completed them),
-control points (a tint disc + owner-colored ring), and units (team-colored
-discs with a role glyph, fanned out deterministically when several units share
-a cell — the same "never occluded" rule :mod:`league.replay.html` follows); a
-tween frame holds the starting turn's board furniture and glides only the
-units. Polish belongs to the HTML replay; this is a clean, legible, correct
-board, not a second design system.
+**Frame layout.** The GIF speaks the same design system as the HTML face
+(:mod:`league.replay.html`; rationale in ``docs/replay-design.md``): every
+frame sits on the theme's page matte, composed with generous margins, and only
+the color table differs between themes. One opening **title card** — a centered
+lockup (the title over a thin accent rule, the match id, a scenario/mode/seed
+metadata line, then one swatch-chipped row per team with its roster), framed by
+hairline corner marks. One frame per **turn** actually played (skips the
+pre-turn-0 snapshot the title card covers), where the board is the hero: a
+hairline grid on a subtly distinct board panel, shape-coded furniture (diamond
+resource nodes, mission rings, control-point discs with owner tint + ring),
+team-colored unit discs wearing a surface-colored ring (the raster cousin of
+the HTML face's 2px surface stroke) and a role glyph, fanned out
+deterministically when several share a cell — the same "never occluded" rule
+:mod:`league.replay.html` follows — under a muted caption and over a footer
+strip carrying the turn counter and per-team scores in aligned, swatch-labelled
+columns. ``tween`` linearly interpolated frames between each adjacent pair of
+turns keep movement flowing instead of teleporting; a tween frame holds the
+starting turn's board furniture and glides only the units. One **closing
+card** — big score numerals per team over swatch-labelled rows, the winner
+named beneath — closes the loop. Frame count: ``turns + (turns - 1) * tween +
+2``.
 """
 
 from __future__ import annotations
@@ -67,10 +75,24 @@ DEFAULT_TWEEN = 4
 MIN_TWEEN, MAX_TWEEN = 0, 12
 DEFAULT_THEME = "light"
 
-_MARGIN = 12
-_GAP = 4
-_TEXT_SCALE = 2
-_TITLE_SCALE = 3
+# --- composition constants (the raster face's spacing scale) ----------------
+
+_MARGIN = 20  # generous outer margin around every composition
+_GAP = 4  # small intra-line gap (swatch <-> text)
+_DIM_GAP = 10  # gap between a line's primary text and its muted segment
+_PANEL_PAD = 10  # board-panel padding around the grid
+_FOOTER_PAD = 8  # footer-strip inner padding
+_ROW_LEADING = 5  # vertical gap between footer team rows
+_CARD_INSET = 10  # corner-mark inset on the title/closing cards
+_MARK_LEN = 12  # corner-mark arm length
+_RULE_W = 36  # accent rule width
+_RULE_H = 2  # accent rule height
+_CAPTION_TRACK = 1  # extra letter-spacing (px per glyph) for small-caps captions
+
+# Typographic hierarchy — integer scales of the 5x7 glyph grid.
+_TEXT_SCALE = 2  # section text (match id, turn counter, winner)
+_TITLE_SCALE = 3  # the title lockup
+_SCORE_SCALE = 5  # the closing card's big score numerals
 
 _FONT_COLS = 5
 _FONT_ROWS = 7
@@ -128,20 +150,24 @@ _FONT: dict[str, tuple[str, ...]] = {
     "+": (".....", "..#..", "..#..", "#####", "..#..", "..#..", "....."),
     "%": ("#...#", "....#", "...#.", "..#..", ".#...", "#....", "#...#"),
     "'": (".#...", ".#...", ".....", ".....", ".....", ".....", "....."),
+    "·": (".....", ".....", ".....", "..#..", ".....", ".....", "....."),
 }
 
+_MDOT = "·"  # the middle-dot metadata separator (kept escaped for tooling)
 
-def _text_width(s: str, scale: int) -> int:
+
+def _text_width(s: str, scale: int, tracking: int = 0) -> int:
     if not s:
         return 0
-    return len(s) * (_FONT_COLS + 1) * scale - scale
+    advance = (_FONT_COLS + 1) * scale + tracking
+    return len(s) * advance - scale - tracking
 
 
 def _text_height(scale: int) -> int:
     return _FONT_ROWS * scale
 
 
-# --- palette (per-theme, match-independent — the same 20 index SLOTS every
+# --- palette (per-theme, match-independent — the same 25 index SLOTS every
 # render; only the RGB behind them changes with the theme, so frame INDICES are
 # theme-independent and it is the GIF's global color table that carries the
 # theme) ------------------------------------------------------------------
@@ -161,13 +187,40 @@ def _blend_hex(bg_hex: str, fg_hex: str, alpha: float) -> str:
 
 _OWNED_TINT_ALPHA = 0.28
 
+# Neutral/chrome steps beyond the tokens ``THEMES`` exports — lifted VERBATIM
+# from the HTML face's CSS custom properties (the ``:root`` blocks in
+# ``league/replay/html.py``'s template), so the raster face composes with the
+# identical, already-designed surface system: the page matte the cards sit on
+# (``--plane``), the card surface (``--surface`` — also the unit-marker ring,
+# the raster cousin of ``.u-body { stroke: var(--surface) }``), the hairline
+# grid (``--grid``), secondary ink (``--ink-2``), and the chrome accent
+# (``--accent`` — chrome only, never a team, per docs/replay-design.md).
+_THEME_EXTRAS: dict[str, dict[str, str]] = {
+    "light": {
+        "matte": "#f0eee5",
+        "surface": "#faf8f1",
+        "grid": "#ded9c9",
+        "ink2": "#5a5546",
+        "accent": "#1e7a4d",
+    },
+    "dark": {
+        "matte": "#0c1210",
+        "surface": "#111a16",
+        "grid": "#1e2a24",
+        "ink2": "#aebcb2",
+        "accent": "#46c79e",
+    },
+}
 
-def _theme_palette_hex(theme: Mapping[str, Any]) -> tuple[str, ...]:
-    """The 20 palette hexes for a theme, in slot order — the SAME validated hues
+
+def _theme_palette_hex(name: str, theme: Mapping[str, Any]) -> tuple[str, ...]:
+    """The 25 palette hexes for a theme, in slot order — the SAME validated hues
     :mod:`league.replay.html` uses for that theme (board plane/line/ink/muted,
-    status good/critical, resource, glyph ink, then the team hues and their
-    ownership tints)."""
+    status good/critical, resource, glyph ink, the team hues and their
+    ownership tints), then the HTML face's own neutral steps (page matte, card
+    surface, hairline grid, secondary ink, chrome accent)."""
     teams = tuple(theme["teams"])
+    extras = _THEME_EXTRAS[name]
     return (
         (
             theme["plane"],
@@ -181,6 +234,7 @@ def _theme_palette_hex(theme: Mapping[str, Any]) -> tuple[str, ...]:
         )
         + teams
         + tuple(_blend_hex(theme["plane"], c, _OWNED_TINT_ALPHA) for c in teams)
+        + (extras["matte"], extras["surface"], extras["grid"], extras["ink2"], extras["accent"])
     )
 
 
@@ -191,7 +245,7 @@ def build_palette(theme: str = DEFAULT_THEME) -> tuple[tuple[int, int, int], ...
         tokens = THEMES[theme]
     except KeyError as err:
         raise ValueError(f"unknown theme {theme!r}; expected one of: {', '.join(THEMES)}") from err
-    return tuple(_hex_to_rgb(h) for h in _theme_palette_hex(tokens))
+    return tuple(_hex_to_rgb(h) for h in _theme_palette_hex(theme, tokens))
 
 
 # Default (light) palette — kept as a module constant for back-compat with
@@ -202,6 +256,14 @@ _N_TEAM_SLOTS = len(THEMES[DEFAULT_THEME]["teams"])
 _BG, _LINE, _INK, _MUTED, _GOOD, _CRITICAL, _RESOURCE, _GLYPH = range(8)
 _TEAM0 = 8
 _TINT0 = _TEAM0 + _N_TEAM_SLOTS
+# The HTML face's neutral steps (slots 20..24): page matte, card surface,
+# hairline grid, secondary ink, chrome accent. Slot 0 (_BG) stays the *board*
+# plane — the tone the panel wears; the canvas itself sits on _MATTE.
+_MATTE = _TINT0 + _N_TEAM_SLOTS
+_SURFACE = _MATTE + 1
+_GRID = _MATTE + 2
+_INK2 = _MATTE + 3
+_ACCENT = _MATTE + 4
 
 # _GOOD/_CRITICAL are reserved status slots (parity with the HTML replay's
 # fixed status scale) — this raster face doesn't animate event flashes, but
@@ -243,7 +305,7 @@ def indices_to_rgb(indices: bytes, palette: Sequence[tuple[int, int, int]] = PAL
 class _Canvas:
     __slots__ = ("width", "height", "buf")
 
-    def __init__(self, width: int, height: int, bg: int = _BG) -> None:
+    def __init__(self, width: int, height: int, bg: int = _MATTE) -> None:
         self.width = width
         self.height = height
         self.buf = bytearray([bg]) * (width * height)
@@ -263,6 +325,12 @@ class _Canvas:
 
     def vline(self, x: int, y0: int, length: int, color: int) -> None:
         self.fill_rect(x, y0, 1, length, color)
+
+    def outline_rect(self, x: int, y: int, w: int, h: int, color: int) -> None:
+        self.hline(x, y, w, color)
+        self.hline(x, y + h - 1, w, color)
+        self.vline(x, y, h, color)
+        self.vline(x + w - 1, y, h, color)
 
     def disc(self, cx: int, cy: int, r: int, color: int) -> None:
         r2 = r * r
@@ -293,7 +361,7 @@ class _Canvas:
                 continue
             self.fill_rect(cx - span, y, 2 * span + 1, 1, color)
 
-    def text(self, x: int, y: int, s: str, color: int, scale: int = 1) -> int:
+    def text(self, x: int, y: int, s: str, color: int, scale: int = 1, tracking: int = 0) -> int:
         cursor = x
         for ch in s.upper():
             rows = _FONT.get(ch, _FONT[" "])
@@ -303,7 +371,7 @@ class _Canvas:
                         self.fill_rect(
                             cursor + col_i * scale, y + row_i * scale, scale, scale, color
                         )
-            cursor += (_FONT_COLS + 1) * scale
+            cursor += (_FONT_COLS + 1) * scale + tracking
         return cursor
 
     def to_bytes(self) -> bytes:
@@ -315,9 +383,20 @@ class _Canvas:
 
 @dataclass(frozen=True)
 class _Line:
-    text: str
-    scale: int
+    """One centered row of a card: text (optionally swatch-chipped and/or
+    followed by a muted segment), or a thin accent rule. ``pad_before`` is the
+    vertical space above the row — the card's typographic leading lives in the
+    content builders, so measuring and drawing can never disagree."""
+
+    text: str = ""
+    scale: int = 1
+    color: int = _INK
+    dim: str = ""  # secondary segment, drawn scale-1 in dim_color after the text
+    dim_color: int = _INK2
     swatch_team: str | None = None
+    tracking: int = 0
+    pad_before: int = 0
+    rule: bool = False
 
 
 def _swatch_side(scale: int) -> int:
@@ -325,88 +404,136 @@ def _swatch_side(scale: int) -> int:
 
 
 def _line_width(line: _Line) -> int:
-    w = _text_width(line.text, line.scale)
+    if line.rule:
+        return _RULE_W
+    w = _text_width(line.text, line.scale, line.tracking)
     if line.swatch_team is not None:
-        w += _swatch_side(line.scale) + _GAP
+        w += _swatch_side(line.scale) + _GAP + 2
+    if line.dim:
+        w += _DIM_GAP + _text_width(line.dim, 1)
     return w
 
 
 def _line_height(line: _Line) -> int:
-    return _text_height(line.scale)
+    return _RULE_H if line.rule else _text_height(line.scale)
 
 
 def _block_height(lines: Sequence[_Line]) -> int:
-    if not lines:
-        return 0
-    return sum(_line_height(line) + _GAP for line in lines) - _GAP
+    return sum(line.pad_before + _line_height(line) for line in lines)
 
 
-def _draw_lines(canvas: _Canvas, x: int, y: int, lines: Sequence[_Line], team_index: dict) -> int:
+def _draw_lines_centered(
+    canvas: _Canvas, cx: int, y: int, lines: Sequence[_Line], team_index: dict
+) -> int:
     for line in lines:
-        cur_x = x
-        if line.swatch_team is not None:
-            side = _swatch_side(line.scale)
-            canvas.fill_rect(cur_x, y, side, side, _team_color(team_index[line.swatch_team]))
-            cur_x += side + _GAP
-        canvas.text(cur_x, y, line.text, _INK, line.scale)
-        y += _line_height(line) + _GAP
+        y += line.pad_before
+        w = _line_width(line)
+        x = cx - w // 2
+        if line.rule:
+            canvas.fill_rect(x, y, _RULE_W, _RULE_H, _ACCENT)
+        else:
+            if line.swatch_team is not None:
+                side = _swatch_side(line.scale)
+                canvas.fill_rect(x, y, side, side, _team_color(team_index[line.swatch_team]))
+                x += side + _GAP + 2
+            cursor = canvas.text(x, y, line.text, line.color, line.scale, line.tracking)
+            if line.dim:
+                dim_x = cursor - line.scale - line.tracking + _DIM_GAP
+                dim_y = y + (_text_height(line.scale) - _text_height(1))
+                canvas.text(dim_x, dim_y, line.dim, line.dim_color, 1)
+        y += _line_height(line)
     return y
 
 
 def _title_content(data: Mapping[str, Any]) -> list[_Line]:
+    """The opening lockup: title over an accent rule, match id, a metadata
+    line, then one swatch-chipped row per team with its roster."""
+    meta = f"{data['scenario_id']} {_MDOT} {data['mode']} {_MDOT} seed {data['seed']}"
     lines = [
-        _Line("LEAGUE OF AGENTS", _TITLE_SCALE),
-        _Line(f"MATCH {data['match_id']}", _TEXT_SCALE),
-        _Line(
-            f"SCENARIO {data['scenario_id']}  MODE {data['mode']}  SEED {data['seed']}",
-            _TEXT_SCALE,
-        ),
+        _Line("LEAGUE OF AGENTS", _TITLE_SCALE, tracking=1),
+        _Line(rule=True, pad_before=12),
+        _Line(f"MATCH {data['match_id']}", _TEXT_SCALE, color=_INK2, pad_before=14),
+        _Line(meta, 1, color=_MUTED, tracking=_CAPTION_TRACK, pad_before=8),
     ]
+    pad = 22
     for t in data["teams"]:
-        agents = ", ".join(f"{a['id']}:{a['role']}" for a in t["agents"])
-        lines.append(_Line(f"{t['name']} ({t['id']}): {agents}", _TEXT_SCALE, swatch_team=t["id"]))
+        roster = "  ".join(f"{a['id']}:{a['role']}" for a in t["agents"])
+        lines.append(_Line(t["name"], 1, swatch_team=t["id"], dim=roster, pad_before=pad))
+        pad = 8
     return lines
 
 
-def _closing_content(data: Mapping[str, Any]) -> list[_Line]:
+# --- the closing card (big numerals, per-team columns, the winner) ----------
+
+
+def _closing_head() -> list[_Line]:
+    return [
+        _Line("FINAL SCORE", 1, color=_MUTED, tracking=2),
+        _Line(rule=True, pad_before=10),
+    ]
+
+
+def _closing_tail(data: Mapping[str, Any]) -> list[_Line]:
+    # ``winner`` is a team id, the literal "draw", or None (see tick.py's
+    # _pick_winner) — only a real team gets the swatch-chipped name row.
+    winner = data["scores"].get("winner")
+    names = {t["id"]: t["name"] for t in data["teams"]}
+    if winner in names:
+        return [
+            _Line("WINNER", 1, color=_MUTED, tracking=2, pad_before=24),
+            _Line(names[winner], _TEXT_SCALE, swatch_team=winner, pad_before=6),
+        ]
+    label = "DRAW" if winner == "draw" else "NO WINNER"
+    return [_Line(label, _TEXT_SCALE, color=_MUTED, tracking=1, pad_before=24)]
+
+
+def _closing_columns(data: Mapping[str, Any]) -> list[dict[str, str]]:
     scores = data["scores"]
-    lines = [_Line("FINAL SCORE", _TITLE_SCALE)]
+    cols = []
     for t in data["teams"]:
         outcome = scores["outcome"][t["id"]]
         coop = scores["cooperation"][t["id"]]
-        lines.append(
-            _Line(
-                f"{t['name']}: OUTCOME {outcome['total']} (M{outcome['missions']} "
-                f"C{outcome['control']} R{outcome['resources']})  COOP {coop['score']}",
-                _TEXT_SCALE,
-                swatch_team=t["id"],
-            )
+        detail = (
+            f"M {outcome['missions']} {_MDOT} C {outcome['control']} {_MDOT} "
+            f"R {outcome['resources']} {_MDOT} COOP {coop['score']}"
         )
-    winner = scores.get("winner")
-    lines.append(_Line(f"WINNER {winner}" if winner else "WINNER NONE (DRAW)", _TEXT_SCALE))
-    return lines
-
-
-def _footer_content(data: Mapping[str, Any], frame: Mapping[str, Any]) -> list[_Line]:
-    resources = {t["id"]: t["resources"] for t in frame["teams"]}
-    lines = []
-    for t in data["teams"]:
-        done = sum(1 for m in frame["missions"] if t["id"] in m["completed_by"])
-        lines.append(
-            _Line(
-                f"{t['name']}  RES {resources.get(t['id'], 0)}  MISSIONS {done}",
-                _TEXT_SCALE,
-                swatch_team=t["id"],
-            )
+        cols.append(
+            {"team": t["id"], "name": t["name"], "total": str(outcome["total"]), "detail": detail}
         )
-    return lines
+    return cols
 
 
-def _header_content(data: Mapping[str, Any], frame: Mapping[str, Any]) -> _Line:
-    return _Line(
-        f"{data['match_id']}  {data['scenario_id']}  TURN {frame['turn']}/{data['turn_limit']}",
-        _TEXT_SCALE,
+def _closing_col_width(col: Mapping[str, str]) -> int:
+    return max(
+        _text_width(col["total"], _SCORE_SCALE),
+        _swatch_side(1) + _GAP + 2 + _text_width(col["name"], 1),
+        _text_width(col["detail"], 1),
     )
+
+
+_COL_GAP = 32
+_COLS_PAD = 20  # space between the closing head and the score columns
+
+
+def _closing_cols_height() -> int:
+    return _text_height(_SCORE_SCALE) + 8 + _text_height(1) + 5 + _text_height(1)
+
+
+def _closing_block_height(data: Mapping[str, Any]) -> int:
+    return (
+        _block_height(_closing_head())
+        + _COLS_PAD
+        + _closing_cols_height()
+        + _block_height(_closing_tail(data))
+    )
+
+
+def _closing_width(data: Mapping[str, Any]) -> int:
+    cols = _closing_columns(data)
+    cols_w = sum(_closing_col_width(c) for c in cols) + _COL_GAP * (len(cols) - 1)
+    head_w = max(_line_width(line) for line in _closing_head())
+    tail_w = max(_line_width(line) for line in _closing_tail(data))
+    return max(cols_w, head_w, tail_w)
 
 
 # --- board drawing -----------------------------------------------------------
@@ -426,20 +553,26 @@ def _stack_offset(i: int, n: int, spread: int) -> tuple[int, int]:
 
 
 def _draw_grid(canvas: _Canvas, x0: int, y0: int, grid_w: int, grid_h: int, cell_px: int) -> None:
+    # Hairline, low-contrast grid — the raster cousin of the HTML face's
+    # ``.gl { stroke: var(--grid) }`` on the board gradient.
     for gx in range(grid_w + 1):
-        canvas.vline(x0 + gx * cell_px, y0, grid_h * cell_px, _LINE)
+        canvas.vline(x0 + gx * cell_px, y0, grid_h * cell_px + 1, _GRID)
     for gy in range(grid_h + 1):
-        canvas.hline(x0, y0 + gy * cell_px, grid_w * cell_px, _LINE)
+        canvas.hline(x0, y0 + gy * cell_px, grid_w * cell_px + 1, _GRID)
 
 
 def _draw_resource_nodes(canvas: _Canvas, x0: int, y0: int, cell_px: int, nodes) -> None:
+    # Diamonds — shape-coded, never a round mark, so a node can never be
+    # mistaken for a unit or a control point even in grayscale.
     for n in nodes:
         cx, cy = _cell_center(x0, y0, cell_px, n["pos"])
         r = max(3, cell_px // 3)
-        canvas.diamond(cx, cy, r, _RESOURCE if n["remaining"] else _MUTED)
+        canvas.diamond(cx, cy, r, _RESOURCE if n["remaining"] else _LINE)
 
 
 def _draw_missions(canvas: _Canvas, x0: int, y0: int, cell_px: int, missions, team_index) -> None:
+    # Open missions: a thin muted ring; completed: a heavier ring in the
+    # completing team's hue (ink when shared) — parity with ``.m-ring.done``.
     for m in missions:
         cx, cy = _cell_center(x0, y0, cell_px, m["pos"])
         r = max(4, cell_px // 2 - 2)
@@ -450,14 +583,17 @@ def _draw_missions(canvas: _Canvas, x0: int, y0: int, cell_px: int, missions, te
                 if len(m["completed_by"]) == 1
                 else _INK
             )
+            canvas.ring(cx, cy, r, 2, color)
         else:
-            color = _MUTED
-        canvas.ring(cx, cy, r, 2, color)
+            canvas.ring(cx, cy, r, 1, _MUTED)
 
 
 def _draw_control_points(
     canvas: _Canvas, x0: int, y0: int, cell_px: int, control_points, team_index
 ) -> None:
+    # Owned: the owner's tint disc under a team-colored ring. Unowned: a quiet
+    # hairline ring with a center dot (the dot keeps it distinct from an open
+    # mission ring by shape, not just weight).
     for c in control_points:
         cx, cy = _cell_center(x0, y0, cell_px, c["pos"])
         r = max(4, cell_px // 2 - 3)
@@ -466,7 +602,8 @@ def _draw_control_points(
             canvas.disc(cx, cy, r, _team_tint(idx))
             canvas.ring(cx, cy, r, 2, _team_color(idx))
         else:
-            canvas.ring(cx, cy, r, 2, _LINE)
+            canvas.ring(cx, cy, r, 1, _LINE)
+            canvas.disc(cx, cy, max(1, r // 4), _LINE)
 
 
 def _unit_positions(units, x0: int, y0: int, cell_px: int) -> dict[str, dict[str, Any]]:
@@ -501,12 +638,19 @@ def _unit_positions(units, x0: int, y0: int, cell_px: int) -> dict[str, dict[str
 
 def _paint_unit(canvas: _Canvas, p: Mapping[str, Any], team_index) -> None:
     ux, uy, base_r = p["x"], p["y"], p["r"]
+    # A surface-colored ring under the team disc — the raster cousin of the
+    # HTML face's ``.u-body { stroke: var(--surface); stroke-width: 2.4 }`` —
+    # separates units from furniture and from each other when stacked.
+    ring_w = 1 if base_r <= 6 else 2
+    canvas.disc(ux, uy, base_r + ring_w, _SURFACE)
     canvas.disc(ux, uy, base_r, _team_color(team_index[p["team"]]))
     glyph = _ROLE_GLYPH.get(p["role"], (p["role"][:1] or "?").upper())
     gw = _text_width(glyph, 1)
     canvas.text(ux - gw // 2, uy - _FONT_ROWS // 2, glyph, _GLYPH, 1)
     if p["carrying"]:
-        canvas.disc(ux + base_r - 2, uy - base_r + 2, max(2, base_r // 3), _RESOURCE)
+        dot_r = max(2, base_r // 3)
+        canvas.disc(ux + base_r - 2, uy - base_r + 2, dot_r + 1, _SURFACE)
+        canvas.disc(ux + base_r - 2, uy - base_r + 2, dot_r, _RESOURCE)
 
 
 def _paint_units(canvas: _Canvas, positions: Mapping[str, dict[str, Any]], team_index) -> None:
@@ -543,96 +687,273 @@ def _tween_positions(
     return out
 
 
-def _layout(data: Mapping[str, Any], cell_px: int) -> tuple[int, int, int, int, int]:
+# --- layout (computed once per render; every frame kind shares it) -----------
+
+
+@dataclass(frozen=True)
+class _FooterCols:
+    """Fixed column widths for the footer strip, measured across ALL frames so
+    the columns never shift as scores grow."""
+
+    turn_w: int  # the turn-counter block (widest "limit/limit" at _TEXT_SCALE)
+    name_w: int  # widest team name, scale 1
+    res_w: int  # widest resource numeral, scale 1
+    msn_w: int  # widest missions numeral, scale 1
+
+
+@dataclass(frozen=True)
+class _Layout:
+    width: int
+    height: int
+    board_x: int
+    board_y: int
+    caption_y: int
+    panel: tuple[int, int, int, int]  # x, y, w, h — the board's panel plate
+    footer: tuple[int, int, int, int]  # x, y, w, h — the score strip
+    footer_cols: _FooterCols
+
+
+def _footer_metrics(data: Mapping[str, Any]) -> _FooterCols:
+    board_frames = data["frames"][1:] or data["frames"]
+    limit = data["turn_limit"]
+    turn_w = max(
+        _text_width(f"{limit}/{limit}", _TEXT_SCALE),
+        _text_width("TURN", 1, _CAPTION_TRACK),
+    )
+    name_w = max((_text_width(t["name"], 1) for t in data["teams"]), default=0)
+    max_res = max((t["resources"] for f in board_frames for t in f["teams"]), default=0)
+    res_w = _text_width(str(max_res), 1)
+    msn_w = _text_width(str(len(data["frames"][0]["missions"])), 1)
+    return _FooterCols(turn_w=turn_w, name_w=name_w, res_w=res_w, msn_w=msn_w)
+
+
+def _footer_size(data: Mapping[str, Any], cols: _FooterCols) -> tuple[int, int]:
+    n_teams = len(data["teams"])
+    rows_w = (
+        _swatch_side(1)
+        + _GAP
+        + 2
+        + cols.name_w
+        + 16
+        + _text_width("RES", 1)
+        + 6
+        + cols.res_w
+        + 14
+        + _text_width("MSN", 1)
+        + 6
+        + cols.msn_w
+    )
+    width = _FOOTER_PAD + cols.turn_w + 24 + rows_w + _FOOTER_PAD
+    turn_block_h = _text_height(1) + 3 + _text_height(_TEXT_SCALE)
+    rows_h = n_teams * _text_height(1) + max(0, n_teams - 1) * _ROW_LEADING
+    height = max(turn_block_h, rows_h) + 2 * _FOOTER_PAD
+    return width, height
+
+
+def _caption_text(data: Mapping[str, Any]) -> str:
+    return f"{data['match_id']} {_MDOT} {data['scenario_id']}"
+
+
+def _compute_layout(data: Mapping[str, Any], cell_px: int) -> _Layout:
     grid_w = data["grid"]["width"]
     grid_h = data["grid"]["height"]
-    board_w = grid_w * cell_px
-    board_h = grid_h * cell_px
-    board_frames = data["frames"][1:]
+    board_w, board_h = grid_w * cell_px, grid_h * cell_px
+    panel_w, panel_h = board_w + 2 * _PANEL_PAD, board_h + 2 * _PANEL_PAD
 
-    widths = [board_w]
-    for f in board_frames:
-        widths.append(_line_width(_header_content(data, f)))
-        widths.extend(_line_width(line) for line in _footer_content(data, f))
-    widths.extend(_line_width(line) for line in _title_content(data))
-    widths.extend(_line_width(line) for line in _closing_content(data))
-    content_w = max(widths)
+    cols = _footer_metrics(data)
+    footer_min_w, footer_h = _footer_size(data, cols)
+    caption_w = _text_width(_caption_text(data), 1, _CAPTION_TRACK)
+    title_w = max(_line_width(line) for line in _title_content(data))
 
-    header_h = _text_height(_TEXT_SCALE)
-    footer_h = _block_height(_footer_content(data, board_frames[0])) if board_frames else 0
-    turn_h = _MARGIN + header_h + _GAP + board_h + _GAP + footer_h + _MARGIN
-    title_h = _MARGIN + _block_height(_title_content(data)) + _MARGIN
-    closing_h = _MARGIN + _block_height(_closing_content(data)) + _MARGIN
-
+    content_w = max(panel_w, footer_min_w, caption_w, title_w, _closing_width(data))
     width = content_w + 2 * _MARGIN
-    height = max(turn_h, title_h, closing_h)
+
+    turn_block_h = _text_height(1) + 8 + panel_h + 10 + footer_h
+    title_h = _block_height(_title_content(data))
+    closing_h = _closing_block_height(data)
+    height = max(turn_block_h, title_h, closing_h) + 2 * _MARGIN
+
+    y0 = (height - turn_block_h) // 2  # the board composition is centered too
+    caption_y = y0
+    panel_y = y0 + _text_height(1) + 8
     board_x = (width - board_w) // 2
-    board_y = _MARGIN + header_h + _GAP
-    footer_y = board_y + board_h + _GAP
-    return width, height, board_x, board_y, footer_y
+    board_y = panel_y + _PANEL_PAD
+    footer_w = max(footer_min_w, panel_w)
+    footer = ((width - footer_w) // 2, panel_y + panel_h + 10, footer_w, footer_h)
+    panel = (board_x - _PANEL_PAD, panel_y, panel_w, panel_h)
+    return _Layout(
+        width=width,
+        height=height,
+        board_x=board_x,
+        board_y=board_y,
+        caption_y=caption_y,
+        panel=panel,
+        footer=footer,
+        footer_cols=cols,
+    )
 
 
-def _draw_turn_frame(
+# --- frame drawing -----------------------------------------------------------
+
+
+def _draw_corner_marks(canvas: _Canvas) -> None:
+    """Hairline corner marks framing the title/closing cards — quiet chrome in
+    the line tone, symmetric on all four corners."""
+    inset, arm = _CARD_INSET, _MARK_LEN
+    w, h = canvas.width, canvas.height
+    canvas.hline(inset, inset, arm, _LINE)
+    canvas.vline(inset, inset, arm, _LINE)
+    canvas.hline(w - inset - arm, inset, arm, _LINE)
+    canvas.vline(w - inset - 1, inset, arm, _LINE)
+    canvas.hline(inset, h - inset - 1, arm, _LINE)
+    canvas.vline(inset, h - inset - arm, arm, _LINE)
+    canvas.hline(w - inset - arm, h - inset - 1, arm, _LINE)
+    canvas.vline(w - inset - 1, h - inset - arm, arm, _LINE)
+
+
+def _draw_footer(
     canvas: _Canvas,
+    layout: _Layout,
+    data: Mapping[str, Any],
+    frame: Mapping[str, Any],
+    team_index: dict,
+) -> None:
+    """The score strip: a surface-toned card carrying the turn counter and one
+    swatch-chipped row per team with RES/MSN numerals right-aligned in fixed
+    columns (tabular by construction — the font is monospaced)."""
+    fx, fy, fw, fh = layout.footer
+    cols = layout.footer_cols
+    canvas.fill_rect(fx, fy, fw, fh, _SURFACE)
+    canvas.outline_rect(fx, fy, fw, fh, _GRID)
+
+    turn_block_h = _text_height(1) + 3 + _text_height(_TEXT_SCALE)
+    tx = fx + _FOOTER_PAD
+    ty = fy + (fh - turn_block_h) // 2
+    canvas.text(tx, ty, "TURN", _MUTED, 1, _CAPTION_TRACK)
+    counter = f"{frame['turn']}/{data['turn_limit']}"
+    canvas.text(tx, ty + _text_height(1) + 3, counter, _INK, _TEXT_SCALE)
+
+    resources = {t["id"]: t["resources"] for t in frame["teams"]}
+    n_teams = len(data["teams"])
+    rows_h = n_teams * _text_height(1) + max(0, n_teams - 1) * _ROW_LEADING
+    ry = fy + (fh - rows_h) // 2
+    rx = fx + _FOOTER_PAD + cols.turn_w + 24
+    side = _swatch_side(1)
+    res_label_w = _text_width("RES", 1)
+    msn_label_w = _text_width("MSN", 1)
+    for t in data["teams"]:
+        canvas.fill_rect(rx, ry, side, side, _team_color(team_index[t["id"]]))
+        canvas.text(rx + side + _GAP + 2, ry, t["name"], _INK, 1)
+        x = rx + side + _GAP + 2 + cols.name_w + 16
+        canvas.text(x, ry, "RES", _MUTED, 1)
+        x += res_label_w + 6
+        res_val = str(resources.get(t["id"], 0))
+        canvas.text(x + cols.res_w - _text_width(res_val, 1), ry, res_val, _INK, 1)
+        x += cols.res_w + 14
+        canvas.text(x, ry, "MSN", _MUTED, 1)
+        x += msn_label_w + 6
+        done = str(sum(1 for m in frame["missions"] if t["id"] in m["completed_by"]))
+        canvas.text(x + cols.msn_w - _text_width(done, 1), ry, done, _INK, 1)
+        ry += _text_height(1) + _ROW_LEADING
+
+
+def _draw_board_chrome(
+    canvas: _Canvas,
+    layout: _Layout,
     data: Mapping[str, Any],
     frame: Mapping[str, Any],
     team_index: dict,
     cell_px: int,
-    board_x: int,
-    board_y: int,
-    footer_y: int,
 ) -> None:
-    canvas.fill_rect(0, 0, canvas.width, canvas.height, _BG)
-    header = _header_content(data, frame)
-    canvas.text(_MARGIN, _MARGIN, header.text, _INK, header.scale)
+    """Everything on a board frame except the units: the muted caption, the
+    board panel with its hairline grid and furniture, and the footer strip.
+    Turn frames and tween frames share this exactly, so their chrome can never
+    drift apart."""
+    caption = _caption_text(data)
+    caption_w = _text_width(caption, 1, _CAPTION_TRACK)
+    caption_x = (canvas.width - caption_w) // 2
+    canvas.text(caption_x, layout.caption_y, caption, _MUTED, 1, _CAPTION_TRACK)
+    px, py, pw, ph = layout.panel
+    canvas.fill_rect(px, py, pw, ph, _BG)
+    canvas.outline_rect(px, py, pw, ph, _LINE)
     grid_w, grid_h = data["grid"]["width"], data["grid"]["height"]
-    _draw_grid(canvas, board_x, board_y, grid_w, grid_h, cell_px)
-    _draw_resource_nodes(canvas, board_x, board_y, cell_px, frame["resource_nodes"])
-    _draw_missions(canvas, board_x, board_y, cell_px, frame["missions"], team_index)
-    _draw_control_points(canvas, board_x, board_y, cell_px, frame["control_points"], team_index)
-    _draw_units(canvas, board_x, board_y, cell_px, frame["units"], team_index)
-    _draw_lines(canvas, _MARGIN, footer_y, _footer_content(data, frame), team_index)
+    _draw_grid(canvas, layout.board_x, layout.board_y, grid_w, grid_h, cell_px)
+    _draw_resource_nodes(canvas, layout.board_x, layout.board_y, cell_px, frame["resource_nodes"])
+    _draw_missions(canvas, layout.board_x, layout.board_y, cell_px, frame["missions"], team_index)
+    _draw_control_points(
+        canvas, layout.board_x, layout.board_y, cell_px, frame["control_points"], team_index
+    )
+    _draw_footer(canvas, layout, data, frame, team_index)
+
+
+def _draw_turn_frame(
+    canvas: _Canvas,
+    layout: _Layout,
+    data: Mapping[str, Any],
+    frame: Mapping[str, Any],
+    team_index: dict,
+    cell_px: int,
+) -> None:
+    _draw_board_chrome(canvas, layout, data, frame, team_index, cell_px)
+    _draw_units(canvas, layout.board_x, layout.board_y, cell_px, frame["units"], team_index)
 
 
 def _draw_tween_frame(
     canvas: _Canvas,
+    layout: _Layout,
     data: Mapping[str, Any],
     frame_a: Mapping[str, Any],
     frame_b: Mapping[str, Any],
     team_index: dict,
     cell_px: int,
-    board_x: int,
-    board_y: int,
-    footer_y: int,
     frac: float,
 ) -> None:
     """An in-between frame: the board furniture (grid, nodes, missions, control
-    points, header, footer) is the *starting* turn's discrete state; only the
+    points, caption, footer) is the *starting* turn's discrete state; only the
     units move, linearly interpolated toward the next turn. So resource counts,
     captures and the turn number land crisply on turn frames while movement
     flows continuously between them."""
-    canvas.fill_rect(0, 0, canvas.width, canvas.height, _BG)
-    header = _header_content(data, frame_a)
-    canvas.text(_MARGIN, _MARGIN, header.text, _INK, header.scale)
-    grid_w, grid_h = data["grid"]["width"], data["grid"]["height"]
-    _draw_grid(canvas, board_x, board_y, grid_w, grid_h, cell_px)
-    _draw_resource_nodes(canvas, board_x, board_y, cell_px, frame_a["resource_nodes"])
-    _draw_missions(canvas, board_x, board_y, cell_px, frame_a["missions"], team_index)
-    _draw_control_points(canvas, board_x, board_y, cell_px, frame_a["control_points"], team_index)
-    pa = _unit_positions(frame_a["units"], board_x, board_y, cell_px)
-    pb = _unit_positions(frame_b["units"], board_x, board_y, cell_px)
+    _draw_board_chrome(canvas, layout, data, frame_a, team_index, cell_px)
+    pa = _unit_positions(frame_a["units"], layout.board_x, layout.board_y, cell_px)
+    pb = _unit_positions(frame_b["units"], layout.board_x, layout.board_y, cell_px)
     _paint_units(canvas, _tween_positions(pa, pb, frac), team_index)
-    _draw_lines(canvas, _MARGIN, footer_y, _footer_content(data, frame_a), team_index)
 
 
 def _draw_title_frame(canvas: _Canvas, data: Mapping[str, Any], team_index: dict) -> None:
-    canvas.fill_rect(0, 0, canvas.width, canvas.height, _BG)
-    _draw_lines(canvas, _MARGIN, _MARGIN, _title_content(data), team_index)
+    _draw_corner_marks(canvas)
+    lines = _title_content(data)
+    y = (canvas.height - _block_height(lines)) // 2
+    _draw_lines_centered(canvas, canvas.width // 2, y, lines, team_index)
 
 
 def _draw_closing_frame(canvas: _Canvas, data: Mapping[str, Any], team_index: dict) -> None:
-    canvas.fill_rect(0, 0, canvas.width, canvas.height, _BG)
-    _draw_lines(canvas, _MARGIN, _MARGIN, _closing_content(data), team_index)
+    _draw_corner_marks(canvas)
+    cx = canvas.width // 2
+    y = (canvas.height - _closing_block_height(data)) // 2
+    y = _draw_lines_centered(canvas, cx, y, _closing_head(), team_index)
+    y += _COLS_PAD
+
+    cols = _closing_columns(data)
+    widths = [_closing_col_width(c) for c in cols]
+    total_w = sum(widths) + _COL_GAP * (len(cols) - 1)
+    x = cx - total_w // 2
+    side = _swatch_side(1)
+    for col, col_w in zip(cols, widths):
+        col_cx = x + col_w // 2
+        total_txt_w = _text_width(col["total"], _SCORE_SCALE)
+        canvas.text(col_cx - total_txt_w // 2, y, col["total"], _INK, _SCORE_SCALE)
+        name_y = y + _text_height(_SCORE_SCALE) + 8
+        name_w = side + _GAP + 2 + _text_width(col["name"], 1)
+        name_x = col_cx - name_w // 2
+        canvas.fill_rect(name_x, name_y, side, side, _team_color(team_index[col["team"]]))
+        canvas.text(name_x + side + _GAP + 2, name_y, col["name"], _INK, 1)
+        detail_y = name_y + _text_height(1) + 5
+        detail_w = _text_width(col["detail"], 1)
+        canvas.text(col_cx - detail_w // 2, detail_y, col["detail"], _INK2, 1)
+        x += col_w + _COL_GAP
+
+    y += _closing_cols_height()
+    _draw_lines_centered(canvas, cx, y, _closing_tail(data), team_index)
 
 
 # --- frames -------------------------------------------------------------
@@ -700,7 +1021,8 @@ def build_frames(
     palette = build_palette(theme)  # also validates the theme name
     team_index = {t["id"]: i for i, t in enumerate(replay_data["teams"])}
     board_frames = replay_data["frames"][1:]
-    width, height, board_x, board_y, footer_y = _layout(replay_data, cell_px)
+    layout = _compute_layout(replay_data, cell_px)
+    width, height = layout.width, layout.height
     # Split a turn's screen time exactly across its (tween + 1) sub-frames —
     # integer division, remainder spread over the leading sub-frames — so the
     # delays sum to turn_delay_cs. Each sub-frame must clear the 2cs floor GIF
@@ -722,7 +1044,7 @@ def build_frames(
     last = len(board_frames) - 1
     for i, f in enumerate(board_frames):
         canvas = _Canvas(width, height)
-        _draw_turn_frame(canvas, replay_data, f, team_index, cell_px, board_x, board_y, footer_y)
+        _draw_turn_frame(canvas, layout, replay_data, f, team_index, cell_px)
         # The final turn rests the full hold; earlier turns share time with the
         # tween frames that follow them.
         frames.append(Frame(canvas.to_bytes(), turn_delay_cs if i == last else sub_delays[0]))
@@ -733,14 +1055,12 @@ def build_frames(
                 tcanvas = _Canvas(width, height)
                 _draw_tween_frame(
                     tcanvas,
+                    layout,
                     replay_data,
                     f,
                     nxt,
                     team_index,
                     cell_px,
-                    board_x,
-                    board_y,
-                    footer_y,
                     frac,
                 )
                 frames.append(Frame(tcanvas.to_bytes(), sub_delays[k]))
