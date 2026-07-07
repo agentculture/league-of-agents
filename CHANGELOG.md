@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-07
+
+### Added
+
+- Deterministic arena engine: immutable match state, event-log single source of truth, skirmish-1 scenario (coop + competitive from one definition), pure seedable tick with canonical-order resolution
+- Dual scoring from the log alone: mission outcome + cooperation quality (4 documented weighted signals) with legibility guarantees
+- Self-contained HTML match replay (validated blue/red palette, light+dark themes) rendered from the same fold as --json
+- CLI noun groups: league arena|team|match (+ rematch), standings/history trend verbs, harness noun — all write verbs dry-run by default with --apply
+- Determinism CI gate: canonical scripted match replayed against a committed end-state hash on every PR
+- Agent-player harness: bot + command drivers playing full matches through the public CLI surface only
+- docs/process/cycle.md: the operable spec→plan→implement→live-test cycle with the live-test-between-specs rule
+
 ## [0.5.0] - 2026-07-07
 
 ### Added

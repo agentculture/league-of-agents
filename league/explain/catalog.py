@@ -27,6 +27,16 @@ buildable/deployable package baseline. Clone it, rename the package, edit
 - `league-of-agents doctor` — check the agent-identity invariants.
 - `league-of-agents cli overview` — describe the CLI surface.
 
+## Arena (season 0)
+
+- `league arena list|show` — the scenario catalog (read-only).
+- `league team register|list|show` — the competitors' rosters.
+- `league match new|act|tick|show|list|score|replay` — the play loop:
+  declare orders, deterministic resolution, dual scoring, HTML replay.
+
+Write verbs (`team register`, `match new/act/tick`) are dry-run by default;
+add `--apply` to commit. Every read verb takes `--json`.
+
 ## Exit-code policy
 
 - `0` success
@@ -116,6 +126,108 @@ itself (distinct from the global `overview`, which describes the agent).
 """
 
 
+_ARENA = """\
+# league arena
+
+The scenario catalog — the maps, objectives, and economies matches run on.
+Read-only: `list` names the scenarios, `show` prints one in full (grid, roles
+and their move/carry stats, control points, missions, resource nodes).
+
+Scenarios deliberately force coordination tradeoffs: role stats are lopsided
+and the turn limit sits below the best solo run, so teams that don't divide
+labour lose (see `docs/specs/` for the season-0 spec).
+
+## Usage
+
+    league arena list [--json]
+    league arena show skirmish-1 [--json]
+"""
+
+_TEAM = """\
+# league team
+
+The competitors. A team is a named roster of agent seats — each seat an
+`id:model:role` triple, so different models and role compositions can be
+fielded and compared fairly. Rosters persist under `.league/teams/`.
+
+`register` is a write verb: **dry-run by default, `--apply` writes.**
+
+## Usage
+
+    league team register blue --name "Blue Foundry" \\
+        --agent blue-1:claude-sonnet-5:scout \\
+        --agent blue-2:colleague/qwen:harvester \\
+        --agent blue-3:colleague/qwen:defender --apply
+    league team list [--json]
+    league team show blue [--json]
+"""
+
+_MATCH = """\
+# league match
+
+The play loop. Matches live under `.league/matches/<id>/log.jsonl` — the
+event log is the single source of truth: state, scores, and the HTML replay
+are all derived from it.
+
+Turns are simultaneous: each team stages orders with `act`; the turn resolves
+deterministically once every team has staged (or when `tick` forces it).
+Write verbs (`new`, `act`, `tick`) are **dry-run by default; `--apply`
+commits** — a stray call never silently advances the game.
+
+## Usage
+
+    league match new --scenario skirmish-1 --team blue --team red --seed 7 --apply
+    league match show <id> --json          # full state + staged teams
+    league match act <id> --team blue --plan "..." \\
+        --action blue-u1:move:3,1 --action blue-u2:gather \\
+        --message blue-1:"east is open" --apply
+    league match tick <id> --apply         # force-resolve (timeouts)
+    league match score <id> --json         # outcome + cooperation
+    league match replay <id> > match.html  # self-contained human replay
+
+Orders can also be one JSON object: `--orders-json '{"plan": ..., "messages":
+[...], "actions": [...]}'`.
+"""
+
+
+_STANDINGS = """\
+# league standings / league history
+
+Read-only trend verbs, computed straight from the match logs (the queryable
+store), so they can never disagree with the record.
+
+- `league standings [--json]` — per-team W/L/D, outcome totals, cooperation
+  averages and trend; per-agent records (matches, wins, cooperation average,
+  orders declared/rejected). This is where per-agent improvement shows up.
+- `league history [--json]` — finished matches in id order with both scores
+  per team.
+"""
+
+_HARNESS = """\
+# league harness
+
+Runs a whole match with live team drivers, acting **only** through the public
+CLI surface (`match show --json` → orders → `match act --orders-json --apply`).
+
+Driver types (per team, in the config JSON):
+
+- `{"type": "bot"}` — the deterministic greedy baseline (no model).
+- `{"type": "command", "argv": ["claude", "-p", "--model", "claude-sonnet-5"],
+   "timeout": 300}` — any external agent as a subprocess: prompt (rules +
+  state JSON) on stdin, orders JSON on stdout. A colleague model, a Sonnet
+  subagent, or an orchestrator is a config change, not a code change.
+
+## Usage
+
+    league harness run --config playtest.json          # dry-run
+    league harness run --config playtest.json --apply  # play it
+
+Config shape: {"match": {"scenario", "mode", "seed", "id"},
+"teams": [{"id", "name", "driver", "agents": [{"id", "model", "role"}]}],
+"max_rounds": N}.
+"""
+
+
 ENTRIES: dict[tuple[str, ...], str] = {
     (): _ROOT,
     # Both the console command (`league`) and the distribution/display name
@@ -131,4 +243,28 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("doctor",): _DOCTOR,
     ("cli",): _CLI,
     ("cli", "overview"): _CLI,
+    ("arena",): _ARENA,
+    ("arena", "overview"): _ARENA,
+    ("arena", "list"): _ARENA,
+    ("arena", "show"): _ARENA,
+    ("team",): _TEAM,
+    ("team", "overview"): _TEAM,
+    ("team", "register"): _TEAM,
+    ("team", "list"): _TEAM,
+    ("team", "show"): _TEAM,
+    ("match",): _MATCH,
+    ("match", "overview"): _MATCH,
+    ("match", "new"): _MATCH,
+    ("match", "list"): _MATCH,
+    ("match", "show"): _MATCH,
+    ("match", "act"): _MATCH,
+    ("match", "tick"): _MATCH,
+    ("match", "score"): _MATCH,
+    ("match", "replay"): _MATCH,
+    ("match", "rematch"): _MATCH,
+    ("standings",): _STANDINGS,
+    ("history",): _STANDINGS,
+    ("harness",): _HARNESS,
+    ("harness", "overview"): _HARNESS,
+    ("harness", "run"): _HARNESS,
 }

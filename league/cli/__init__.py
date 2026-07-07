@@ -62,11 +62,16 @@ def _argv_has_json(argv: list[str] | None) -> bool:
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    from league.cli._commands import arena as _arena_group
     from league.cli._commands import cli as _cli_group
     from league.cli._commands import doctor as _doctor_cmd
     from league.cli._commands import explain as _explain_cmd
+    from league.cli._commands import harness as _harness_group
     from league.cli._commands import learn as _learn_cmd
+    from league.cli._commands import match as _match_group
     from league.cli._commands import overview as _overview_cmd
+    from league.cli._commands import standings as _standings_cmd
+    from league.cli._commands import team as _team_group
     from league.cli._commands import whoami as _whoami_cmd
 
     parser = _CliArgumentParser(
@@ -88,6 +93,12 @@ def _build_parser() -> argparse.ArgumentParser:
     _overview_cmd.register(sub)
     _doctor_cmd.register(sub)
     _cli_group.register(sub)
+    # Arena domain noun groups (season 0):
+    _arena_group.register(sub)
+    _team_group.register(sub)
+    _match_group.register(sub)
+    _standings_cmd.register(sub)
+    _harness_group.register(sub)
     # Register your own noun groups here:
     #   from league.cli._commands import my_noun as _my_noun_group
     #   _my_noun_group.register(sub)
