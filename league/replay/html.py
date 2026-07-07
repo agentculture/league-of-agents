@@ -250,6 +250,13 @@ const CELL = 44, PAD = 10;
 const teamIndex = {}; M.teams.forEach((t, i) => teamIndex[t.id] = i);
 const teamColor = id => `var(--team-${teamIndex[id] ?? 0})`;
 const GLYPH = { scout: 'S', harvester: 'H', defender: 'D', striker: 'K', support: 'U' };
+// Deterministic fan-out for units sharing a cell — nothing may ever be occluded.
+const STACK_OFFSETS = [
+  [[0, 0]],
+  [[-9, 0], [9, 0]],
+  [[0, -9], [-9, 8], [9, 8]],
+  [[-9, -9], [9, -9], [-9, 9], [9, 9]],
+];
 let frame = 0, playing = null;
 
 const $ = id => document.getElementById(id);
@@ -286,9 +293,17 @@ function drawBoard() {
       'font-weight': 700, fill: '#fff' }, n.remaining));
     svg.appendChild(g);
   }
-  for (const m of f.missions.filter(m => m.kind === 'deliver')) {
-    svg.appendChild(svgEl('circle', { cx: cx(m.pos[0]), cy: cy(m.pos[1]), r: 17,
-      fill: 'none', stroke: 'var(--muted)', 'stroke-dasharray': '3 3' }));
+  for (const m of f.missions) {
+    const done = m.status === 'completed' && m.completed_by != null;
+    if (m.kind === 'deliver') {
+      svg.appendChild(svgEl('circle', { cx: cx(m.pos[0]), cy: cy(m.pos[1]), r: 17,
+        fill: 'none', stroke: done ? teamColor(m.completed_by) : 'var(--muted)',
+        'stroke-dasharray': '3 3', 'stroke-width': done ? 2 : 1 }));
+    }
+    svg.appendChild(svgEl('text', { x: cx(m.pos[0]), y: cy(m.pos[1]) + 28,
+      'text-anchor': 'middle', 'font-size': 9,
+      fill: done ? teamColor(m.completed_by) : 'var(--muted)' },
+      done ? `${m.id} → ${m.completed_by}` : `${m.id}: ${m.kind} ${m.amount}`));
   }
   for (const c of f.control_points) {
     const owned = c.owner != null;
@@ -302,21 +317,46 @@ function drawBoard() {
       y: cy(c.pos[1]) + 4, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700,
       fill: 'var(--ink-2)' }, c.hold[0][1]));
   }
+  const byCell = new Map();
   for (const u of f.units) {
     if (!u.alive) continue;
-    const g = svgEl('g', { transform: `translate(${cx(u.pos[0])},${cy(u.pos[1])})` });
-    g.appendChild(svgEl('circle', { r: 12, fill: teamColor(u.team),
-      stroke: 'var(--surface)', 'stroke-width': 2 }));
-    g.appendChild(svgEl('text', { y: 4, 'text-anchor': 'middle', 'font-size': 11,
-      'font-weight': 700, fill: '#fff' }, GLYPH[u.role] || u.role[0].toUpperCase()));
-    if (u.carrying > 0) {
-      g.appendChild(svgEl('circle', { cx: 10, cy: -10, r: 7, fill: 'var(--node)',
-        stroke: 'var(--surface)', 'stroke-width': 1.5 }));
-      g.appendChild(svgEl('text', { x: 10, y: -7, 'text-anchor': 'middle',
-        'font-size': 9, 'font-weight': 700, fill: '#fff' }, u.carrying));
-    }
-    g.appendChild(svgEl('title', {}, `${u.id} (${u.role}, ${u.agent})`));
-    svg.appendChild(g);
+    const key = u.pos.join(',');
+    if (!byCell.has(key)) byCell.set(key, []);
+    byCell.get(key).push(u);
+  }
+  for (const stack of byCell.values()) {
+    const n = stack.length;
+    // Predefined aesthetic patterns cover 1-4; beyond that, place units evenly
+    // on a circle so no two ever land on the same offset (nothing is occluded
+    // no matter how many units share a cell — e.g. the deliver square doubling
+    // as a control point can stack a full 6-unit match there).
+    const offs = n <= STACK_OFFSETS.length ? STACK_OFFSETS[n - 1] : Array.from(
+      { length: n },
+      (_, i) => {
+        const angle = (2 * Math.PI * i) / n - Math.PI / 2;
+        return [Math.round(13 * Math.cos(angle)), Math.round(13 * Math.sin(angle))];
+      },
+    );
+    stack.forEach((u, i) => {
+      const [dx, dy] = offs[i];
+      const r = stack.length > 1 ? 9 : 12;
+      const g = svgEl('g',
+        { transform: `translate(${cx(u.pos[0]) + dx},${cy(u.pos[1]) + dy})` });
+      g.appendChild(svgEl('circle', { r, fill: teamColor(u.team),
+        stroke: 'var(--surface)', 'stroke-width': 2 }));
+      g.appendChild(svgEl('text', { y: r > 9 ? 4 : 3, 'text-anchor': 'middle',
+        'font-size': r > 9 ? 11 : 9, 'font-weight': 700, fill: '#fff' },
+        GLYPH[u.role] || u.role[0].toUpperCase()));
+      if (u.carrying > 0) {
+        const bx = r - 2, by = 2 - r;
+        g.appendChild(svgEl('circle', { cx: bx, cy: by, r: 6, fill: 'var(--node)',
+          stroke: 'var(--surface)', 'stroke-width': 1.5 }));
+        g.appendChild(svgEl('text', { x: bx, y: by + 3, 'text-anchor': 'middle',
+          'font-size': 8, 'font-weight': 700, fill: '#fff' }, u.carrying));
+      }
+      g.appendChild(svgEl('title', {}, `${u.id} (${u.role}, ${u.agent})`));
+      svg.appendChild(g);
+    });
   }
 }
 
@@ -443,6 +483,12 @@ $('theme-toggle').onclick = () => {
   const cur = root.dataset.theme || (dark ? 'dark' : 'light');
   root.dataset.theme = cur === 'dark' ? 'light' : 'dark';
 };
+// Deep link: replay.html#t7 opens on turn 7, so reviewers can point at a frame.
+const hashTurn = (location.hash.match(/^#t(\\d+)$/) || [])[1];
+if (hashTurn != null) {
+  const idx = M.frames.findIndex(f => f.turn === +hashTurn);
+  if (idx >= 0) frame = idx;
+}
 drawScores(); render();
 </script>
 </body>

@@ -145,8 +145,10 @@ def resolve_turn(
     gathers: list[str] = []
     delivers: list[str] = []
     for team_id, action in declared:
-        unit = units.get(str(action.get("unit_id")))
-        verb = action.get("action")
+        # Trim pure-formatting noise (LLM drivers emit " hold" etc.); wrong
+        # verbs and ids still reject loudly below.
+        unit = units.get(str(action.get("unit_id") or "").strip())
+        verb = str(action.get("action") or "").strip()
         if unit is None or unit.team_id != team_id:
             reject(team_id, action, "no such unit on this team")
             continue

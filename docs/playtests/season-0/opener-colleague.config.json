@@ -1,0 +1,44 @@
+{
+  "match": {
+    "scenario": "skirmish-1",
+    "mode": "competitive",
+    "seed": 20260707,
+    "id": "m-season0-opener-colleague"
+  },
+  "_comment": "Fair rematch of m-season0-opener (same scenario + seed, t10): the Qwen seats are now fielded as the colleague AGENT (its work-item harness loop via scripts/colleague_driver.py), not raw chat/completions. Playtest directive from the season-0 human review: the harness is part of the agent.",
+  "teams": [
+    {
+      "id": "blue",
+      "name": "Sonnet Foundry",
+      "driver": {
+        "type": "command",
+        "per_seat": true,
+        "argv": ["claude", "-p", "--model", "claude-sonnet-5"],
+        "timeout": 240
+      },
+      "agents": [
+        {"id": "blue-1", "model": "claude-sonnet-5", "role": "scout"},
+        {"id": "blue-2", "model": "claude-sonnet-5", "role": "harvester"},
+        {"id": "blue-3", "model": "claude-sonnet-5", "role": "defender"}
+      ]
+    },
+    {
+      "id": "red",
+      "name": "Colleague Guild",
+      "driver": {
+        "type": "command",
+        "per_seat": true,
+        "argv": [
+          "python3", "scripts/colleague_driver.py",
+          "--model", "sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP"
+        ],
+        "timeout": 420
+      },
+      "agents": [
+        {"id": "red-1", "model": "colleague-agent/qwen3.6-27b", "role": "scout"},
+        {"id": "red-2", "model": "colleague-agent/qwen3.6-27b", "role": "harvester"},
+        {"id": "red-3", "model": "colleague-agent/qwen3.6-27b", "role": "defender"}
+      ]
+    }
+  ]
+}

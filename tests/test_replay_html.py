@@ -85,6 +85,49 @@ def test_user_controlled_fields_are_escaped_in_the_template() -> None:
         assert raw not in _TEMPLATE, f"unescaped interpolation {raw!r} in replay template"
 
 
+def test_stacked_units_fan_out_instead_of_occluding() -> None:
+    """Human-review regression (season-0 h15): co-located units must all stay
+    visible — the reviewer lost the scout under a defender and both carrying
+    harvesters under the defenders parked on the shared delivery cell."""
+    from league.replay.html import _TEMPLATE
+
+    assert "STACK_OFFSETS" in _TEMPLATE
+    # The renderer must group living units per cell before drawing.
+    assert "byCell" in _TEMPLATE
+    # Solitary units keep the full 12px radius; stacked ones shrink, never hide.
+    assert "stack.length > 1 ? 9 : 12" in _TEMPLATE
+
+
+def test_stack_offsets_beyond_four_units_do_not_reuse_positions() -> None:
+    """Human-review regression (Qodo 3534115613): STACK_OFFSETS only has
+    patterns for 1-4 units, but a cell can hold more (3 units/team, 6 total,
+    e.g. the deliver square doubling as a control point). The old
+    ``offs[i % offs.length]`` clamped the pattern index to 4 and then wrapped
+    with modulo, so a 5th/6th unit landed on an already-occupied offset and
+    was occluded again — violating "nothing is ever occluded"."""
+    from league.replay.html import _TEMPLATE
+
+    # No index-wrapping reuse of offsets — every unit in a stack gets its own.
+    assert "% offs.length" not in _TEMPLATE
+    # The general case computes n distinct offsets on a circle, deterministically.
+    assert "Math.cos(angle)" in _TEMPLATE and "Math.sin(angle)" in _TEMPLATE
+    assert "(2 * Math.PI * i) / n - Math.PI / 2" in _TEMPLATE
+    # The predefined aesthetic table is still used for the common n<=4 cases.
+    assert "n <= STACK_OFFSETS.length ? STACK_OFFSETS[n - 1]" in _TEMPLATE
+
+
+def test_mission_targets_are_labeled_with_owner_on_completion() -> None:
+    """Human-review regression (season-0 h15): the delivery square sits on a
+    capturable control point, so an unlabeled drop ring read as 'delivering to
+    the enemy base'. Every mission is labeled, and a completed one names and
+    wears the color of the team that actually earned it."""
+    from league.replay.html import _TEMPLATE
+
+    assert "${m.id}: ${m.kind} ${m.amount}" in _TEMPLATE
+    assert "${m.id} → ${m.completed_by}" in _TEMPLATE
+    assert "teamColor(m.completed_by)" in _TEMPLATE
+
+
 def test_both_themes_ship() -> None:
     html = render_html(_play_match())
     assert "prefers-color-scheme: dark" in html

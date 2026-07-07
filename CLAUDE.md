@@ -2,25 +2,26 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## What this repo is (and is not, yet)
+## What this repo is
 
-Two things are true at once — keep them separate:
+*League of Agents* — a strategic team arena where AI agent teams complete
+missions, control objectives, manage resources, and out-coordinate opposing
+teams. The requirements live in
+[issue #1](https://github.com/agentculture/league-of-agents/issues/1)
+(summarized under [Project intent](#project-intent-issue-1)); **season 0 is
+implemented**: a deterministic engine (`league/engine/`), the arena CLI noun
+groups, dual scoring, a self-contained HTML replay, tracking, and a live-agent
+harness (`league/harness.py`). The converged spec and plan are in
+`docs/specs/` / `docs/plans/`; playtest artifacts land in `docs/playtests/`.
 
-- **What it is today:** an *agent-first CLI scaffold* for an AgentCulture mesh
-  agent, cloned from the culture-agent-template. The runtime is a small,
-  dependency-free Python package (`league/`) exposing introspection verbs
-  (`whoami`, `learn`, `explain`, `overview`, `doctor`, `cli overview`) plus a
-  mesh identity, a vendored skill kit, and a build/deploy baseline. **None of the
-  arena/game domain is implemented.**
-- **What it is meant to become:** *League of Agents* — a strategic team arena
-  where AI agent teams complete missions, control objectives, manage resources,
-  and out-coordinate opposing teams. The product requirements live in
-  [issue #1](https://github.com/agentculture/league-of-agents/issues/1) and are
-  summarized under [Project intent](#project-intent-issue-1) below.
-
-So this is a **greenfield build on a working scaffold**. New domain work is added
-as CLI noun groups following the pattern in
-[Architecture](#architecture) — not by bolting a game engine onto the side.
+Development runs a **recursive spec → plan → implement → live-test cycle**
+(`docs/process/cycle.md`): every increment starts as a devague frame, and no
+new frame opens without a recorded live match from the previous increment. New
+domain work is added as CLI noun groups following the pattern in
+[Architecture](#architecture) — not by bolting features onto the side. Parked
+unknowns (cooperation-metric formula, benchmark methodology, orchestrator-mode
+fairness, map pipeline, live UI) stay parked until their own cycle picks them
+up.
 
 ## Project intent (issue #1)
 
@@ -87,10 +88,33 @@ uv run league doctor                        # checks the agent-identity invarian
 > `league` is the **console command** (`[project.scripts]`). Argparse's
 > `prog="league-of-agents"` is just the display name in `--help`/`explain`. So
 > `uv run league-of-agents …` doesn't resolve — there's no script by that name,
-> and that's by design, not a bug. (One stale spot: the README quickstart writes
-> `uv run league-of-agents <verb>`, which should be `uv run league <verb>`.)
+> and that's by design, not a bug.
 
 ## Architecture
+
+### The arena engine (`league/engine/`)
+
+Determinism is the load-bearing property; three rules keep it honest:
+
+- **State is immutable** (`state.py`): frozen dataclasses, canonical JSON,
+  stable `state_hash`. An AST test bans `random`/`time`/`datetime`/`secrets`/
+  `uuid` imports package-wide.
+- **The event log is the single source of truth** (`events.py`): the tick never
+  edits state — it emits events and folds them with `apply_event`, so replaying
+  a log reproduces the final state exactly. Scoring (`scoring.py`) and the HTML
+  replay (`league/replay/`) consume only the log.
+- **Resolution is canonical-order** (`tick.py`): declared actions process
+  sorted by `(team_id, unit_id)`; submission order can never matter. The
+  determinism CI gate (`tests/test_determinism_gate.py`) replays a canonical
+  scripted match against a committed hash — if a rule change is intentional,
+  regenerate `tests/fixtures/determinism.hash` and say so in the PR.
+
+Scenarios (`scenario.py`) force coordination by construction: lopsided role
+stats and a turn limit below the best solo run (proven by arithmetic in
+tests). Match/team persistence is `league/store.py` (`.league/` in CWD,
+gitignored); trends are `league/track.py`; live play is `league/harness.py`
+(per-seat minds coordinate only through in-game messages; drivers are `bot`
+or any external `command` — model choice is config, not code).
 
 ### CLI dispatch and the error contract
 

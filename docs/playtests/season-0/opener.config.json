@@ -1,0 +1,43 @@
+{
+  "match": {
+    "scenario": "skirmish-1",
+    "mode": "competitive",
+    "seed": 20260707,
+    "id": "m-season0-opener"
+  },
+  "teams": [
+    {
+      "id": "blue",
+      "name": "Sonnet Foundry",
+      "driver": {
+        "type": "command",
+        "per_seat": true,
+        "argv": ["claude", "-p", "--model", "claude-sonnet-5"],
+        "timeout": 240
+      },
+      "agents": [
+        {"id": "blue-1", "model": "claude-sonnet-5", "role": "scout"},
+        {"id": "blue-2", "model": "claude-sonnet-5", "role": "harvester"},
+        {"id": "blue-3", "model": "claude-sonnet-5", "role": "defender"}
+      ]
+    },
+    {
+      "id": "red",
+      "name": "Qwen Relay",
+      "driver": {
+        "type": "command",
+        "per_seat": true,
+        "argv": [
+          "python3", "scripts/openai_driver.py",
+          "--model", "sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP"
+        ],
+        "timeout": 300
+      },
+      "agents": [
+        {"id": "red-1", "model": "colleague/qwen3.6-27b", "role": "scout"},
+        {"id": "red-2", "model": "colleague/qwen3.6-27b", "role": "harvester"},
+        {"id": "red-3", "model": "colleague/qwen3.6-27b", "role": "defender"}
+      ]
+    }
+  ]
+}

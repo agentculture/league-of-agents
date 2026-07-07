@@ -38,6 +38,7 @@ import json
 
 # Command drivers run operator-configured argv without a shell.
 import subprocess  # nosec B404
+import sys
 from typing import Any, Callable, Mapping
 
 from league.cli import main as cli_main
@@ -147,16 +148,18 @@ def make_bot_driver(scenario: dict[str, Any]) -> Driver:
 
 # -- external agents as subprocesses ---------------------------------------
 
-_PROMPT = """You are the {team_id} team commander in a League of Agents match.
-Rules, briefly: turn-based, simultaneous orders. Each unit does ONE action per
+_RULES = """Rules, briefly: turn-based, simultaneous orders. Each unit does ONE action per
 turn: move (Manhattan distance <= its role's move stat), gather (on a resource
 node square, fills to carry capacity), deliver (on the deliver-mission square,
 unloads into team resources), or hold (stay; builds control-point streaks).
 Sole occupancy of a control point for {capture} consecutive turns captures it;
 holding it {capture}+N turns completes a hold mission of amount N. The deliver
 mission completes when team resources reach its amount. Declared plans and
-team messages are free and are scored for cooperation quality.
+team messages are free and are scored for cooperation quality."""
 
+_PROMPT = """You are the {team_id} team commander in a League of Agents match.
+{rules}
+{extra}
 Scenario: {scenario}
 
 Current match state (JSON):
@@ -168,6 +171,40 @@ You command team {team_id}. Reply with ONLY one JSON object, no prose:
   "actions": [{{"unit_id": "...", "action": "move|gather|deliver|hold",
                "to": [x, y]}}]}}
 """
+
+_SOLO_NOTE = """
+IMPORTANT HANDICAP: you are playing solo. You may issue an action for at most
+ONE unit this turn (any extra actions will be discarded). Your other units can
+only stand where they are. Choose the single action that matters most.
+"""
+
+_SEAT_PROMPT = """You are agent {agent_id}, one member of team {team_id} in a
+League of Agents match. You control ONLY unit {unit_id} (role: {role}).
+{rules}
+{extra}
+Scenario: {scenario}
+
+Current match state (JSON):
+{state}
+
+Messages your teammates already sent this turn:
+{team_messages}
+
+Coordinate through messages; you cannot command other units. Reply with ONLY
+one JSON object, no prose:
+{{"action": {{"unit_id": "{unit_id}", "action": "move|gather|deliver|hold",
+             "to": [x, y]}},
+  "messages": [{{"from": "{agent_id}", "text": "..."}}],
+  "plan": "<optional; only if proposing/refreshing the team plan>"}}
+"""
+
+
+def _as_list(value: Any) -> list[Any]:
+    """A driver's JSON is untrusted input: a field declared as a list in the
+    protocol may come back as a dict, string, or number. Coerce to an empty
+    list rather than let a type mismatch raise downstream — malformed driver
+    output should idle the team, not crash the match loop."""
+    return value if isinstance(value, list) else []
 
 
 def _extract_json(text: str) -> dict[str, Any]:
@@ -184,40 +221,133 @@ def _extract_json(text: str) -> dict[str, Any]:
     raise ValueError("no JSON object found in driver output")
 
 
+def _run_command(argv: list[str], prompt: str, timeout: float, who: str) -> dict[str, Any]:
+    """One driver call, retried once — live seats flake; matches must not die.
+
+    A second consecutive failure raises; the caller decides whether that seat
+    simply idles this turn (per-seat/commander loops) or the run aborts.
+    """
+    last_error: Exception | None = None
+    for _ in range(2):
+        try:
+            # Operator-configured argv, shell=False, bounded by timeout.
+            proc = subprocess.run(  # nosec B603
+                argv,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    f"driver {argv[0]} for {who} failed (exit {proc.returncode}): "
+                    f"{proc.stderr.strip()[:300]}"
+                )
+            return _extract_json(proc.stdout)
+        except (RuntimeError, ValueError, subprocess.TimeoutExpired) as err:
+            last_error = err
+    raise RuntimeError(f"driver for {who} failed twice: {last_error}")
+
+
 def make_command_driver(spec: Mapping[str, Any], scenario: dict[str, Any]) -> Driver:
     argv = list(spec["argv"])
     timeout = float(spec.get("timeout", 300))
+    solo = bool(spec.get("solo", False))
+    extra = str(spec.get("prompt", ""))
+    rules = _RULES.format(capture=scenario["capture_hold_turns"])
 
     def orders(state: dict[str, Any], team_id: str, turn: int) -> dict[str, Any]:
         prompt = _PROMPT.format(
             team_id=team_id,
-            capture=scenario["capture_hold_turns"],
+            rules=rules,
+            extra=(_SOLO_NOTE if solo else "") + (f"\n{extra}\n" if extra else ""),
             scenario=json.dumps(scenario, sort_keys=True),
             state=json.dumps(state, sort_keys=True),
         )
-        # Operator-configured argv, shell=False, bounded by timeout.
-        proc = subprocess.run(  # nosec B603
-            argv,
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(
-                f"driver {argv[0]} for {team_id} failed (exit {proc.returncode}): "
-                f"{proc.stderr.strip()[:300]}"
-            )
-        return _extract_json(proc.stdout)
+        try:
+            result = _run_command(argv, prompt, timeout, team_id)
+        except RuntimeError as err:
+            print(f"[harness] {team_id} commander idles this turn: {err}", file=sys.stderr)
+            return {"actions": []}
+        actions = _as_list(result.get("actions"))
+        result["actions"] = actions[:1] if solo else actions  # solo: handicap enforced, not asked
+        if "messages" in result:
+            result["messages"] = _as_list(result["messages"])
+        return result
 
     return orders
 
 
-def build_driver(spec: Mapping[str, Any], scenario: dict[str, Any]) -> Driver:
+def make_per_seat_driver(
+    spec: Mapping[str, Any], scenario: dict[str, Any], agents: list[dict[str, Any]]
+) -> Driver:
+    """One independent mind per seat, coordinating only through messages.
+
+    Seats are consulted in roster order each turn; every seat sees the shared
+    state plus the messages teammates have queued so far this turn (its own
+    channel to influence later seats). Each seat may command only its unit.
+    """
+    argv = list(spec["argv"])
+    timeout = float(spec.get("timeout", 300))
+    extra = str(spec.get("prompt", ""))
+    rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
+
+    def orders(state: dict[str, Any], team_id: str, turn: int) -> dict[str, Any]:
+        my_units = {
+            u["agent_id"]: u for u in state["units"] if u["team_id"] == team_id and u["alive"]
+        }
+        combined: dict[str, Any] = {"actions": [], "messages": []}
+        for agent in agents:
+            unit = my_units.get(agent["id"])
+            if unit is None:
+                continue
+            seat_extra = "\n".join(part for part in (extra, seat_prompts[agent["id"]]) if part)
+            prompt = _SEAT_PROMPT.format(
+                agent_id=agent["id"],
+                team_id=team_id,
+                unit_id=unit["id"],
+                role=unit["role"],
+                rules=rules,
+                extra=f"\n{seat_extra}\n" if seat_extra else "",
+                scenario=json.dumps(scenario, sort_keys=True),
+                state=json.dumps(state, sort_keys=True),
+                team_messages=json.dumps(combined["messages"], sort_keys=True) or "[]",
+            )
+            try:
+                result = _run_command(argv, prompt, timeout, agent["id"])
+            except RuntimeError as err:
+                print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
+                continue
+            action = result.get("action")
+            if isinstance(action, dict):
+                action["unit_id"] = unit["id"]  # a seat commands its own unit, only
+                combined["actions"].append(action)
+            for message in _as_list(result.get("messages")):
+                if isinstance(message, dict) and message.get("text"):
+                    combined["messages"].append({"from": agent["id"], "text": str(message["text"])})
+            if result.get("plan") and "plan" not in combined:
+                combined["plan"] = str(result["plan"])
+        if not combined["messages"]:
+            combined.pop("messages")
+        return combined
+
+    return orders
+
+
+def build_driver(
+    spec: Mapping[str, Any],
+    scenario: dict[str, Any],
+    agents: list[dict[str, Any]] | None = None,
+) -> Driver:
     kind = spec.get("type")
+    if spec.get("per_seat") and kind != "command":
+        raise ValueError("per_seat is only supported for 'command' drivers")
     if kind == "bot":
         return make_bot_driver(scenario)
+    if kind == "command" and spec.get("per_seat"):
+        return make_per_seat_driver(spec, scenario, agents or [])
     if kind == "command":
         return make_command_driver(spec, scenario)
     raise ValueError(f"unknown driver type {kind!r}; expected 'bot' or 'command'")
@@ -227,34 +357,45 @@ def build_driver(spec: Mapping[str, Any], scenario: dict[str, Any]) -> Driver:
 
 
 def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | None = None) -> dict:
-    """Register teams, create the match, and drive it to completion via the CLI."""
+    """Register teams, create the match, and drive it to completion via the CLI.
+
+    Resumable: if the configured match id already exists on disk, the loop
+    picks up from its current turn instead of failing — live matches can
+    outlast a shell window, and a crashed run must not orphan the game.
+    """
     match_cfg = config["match"]
     scenario = _cli_json(["arena", "show", match_cfg["scenario"]])
 
-    for team in config["teams"]:
-        argv = ["team", "register", team["id"], "--name", team.get("name", team["id"])]
-        for agent in team["agents"]:
-            argv += ["--agent", f"{agent['id']}:{agent['model']}:{agent['role']}"]
-        _cli_json(argv + ["--apply"])
+    existing = {row["match_id"] for row in _cli_json(["match", "list"])["matches"]}
+    if match_cfg.get("id") in existing:
+        match_id = match_cfg["id"]
+    else:
+        for team in config["teams"]:
+            argv = ["team", "register", team["id"], "--name", team.get("name", team["id"])]
+            for agent in team["agents"]:
+                argv += ["--agent", f"{agent['id']}:{agent['model']}:{agent['role']}"]
+            _cli_json(argv + ["--apply"])
 
-    new_argv = [
-        "match",
-        "new",
-        "--scenario",
-        match_cfg["scenario"],
-        "--mode",
-        match_cfg.get("mode", "competitive"),
-        "--seed",
-        str(match_cfg.get("seed", 1)),
-    ]
-    for team in config["teams"]:
-        new_argv += ["--team", team["id"]]
-    if match_cfg.get("id"):
-        new_argv += ["--id", match_cfg["id"]]
-    created = _cli_json(new_argv + ["--apply"])
-    match_id = created["match_id"]
+        new_argv = [
+            "match",
+            "new",
+            "--scenario",
+            match_cfg["scenario"],
+            "--mode",
+            match_cfg.get("mode", "competitive"),
+            "--seed",
+            str(match_cfg.get("seed", 1)),
+        ]
+        for team in config["teams"]:
+            new_argv += ["--team", team["id"]]
+        if match_cfg.get("id"):
+            new_argv += ["--id", match_cfg["id"]]
+        created = _cli_json(new_argv + ["--apply"])
+        match_id = created["match_id"]
 
-    drivers = {t["id"]: build_driver(t["driver"], scenario) for t in config["teams"]}
+    drivers = {
+        t["id"]: build_driver(t["driver"], scenario, t.get("agents")) for t in config["teams"]
+    }
     max_rounds = int(config.get("max_rounds", scenario["turn_limit"] + 2))
 
     for _ in range(max_rounds):
