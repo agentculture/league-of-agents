@@ -2,8 +2,15 @@
 
 - **Match:** `m-season0-coordination` · skirmish-1 · competitive · seed 20260708
 - **Teams:** *Solo Sonnet* (claude-sonnet-5 commander, **enforced one action per
-  turn**) vs *Gemma Swarm* (3 independent colleague/gemma-4-12b seats,
-  coordinating only through in-game messages)
+  turn**) vs *Gemma Swarm* (3 independent gemma-4-12b seats, coordinating only
+  through in-game messages)
+- **Driver caveat (post-review):** the swarm seats were driven **raw over the
+  vLLM endpoint** (`scripts/openai_driver.py`), not through the colleague
+  agent — the `colleague/gemma-4-12b` label in the config overstates the
+  routing. Per the season-0 review directive, local models are fielded as the
+  colleague *agent* (`scripts/colleague_driver.py`, its work-item harness
+  loop) from here on: the harness is part of the agent, the same way Sonnet
+  seats play through `claude -p` rather than the raw API.
 - **Result:** **solo wins 16–12** at turn 18 (all missions resolved)
 - **Artifacts:** [`coordination.log.jsonl`](coordination.log.jsonl) ·
   [`coordination.replay.html`](coordination.replay.html) ·
