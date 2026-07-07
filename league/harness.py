@@ -3,15 +3,42 @@
 Every driver interacts with the arena **only** via the public CLI surface
 (``league match show --json`` → orders → ``league match act --orders-json
 --apply``), so whatever plays here plays exactly what any external agent
-would (spec c2/h13). Two driver types ship:
+would (spec c2/h13). Four driver types ship:
 
 * ``bot`` — a deterministic greedy policy (stdlib only). The baseline
   opponent and the harness's own test double.
+* ``bot-file`` — the coded-strategy bot lane (plan task t2, spec c3/h2):
+  loads a committed strategy module from ``bots/<name>.py`` (contract in
+  ``bots/README.md``; reference strategy ``bots/rusher.py``) and calls its
+  ``decide(show_json, team_id)`` with EXACTLY the dict ``league match show
+  --json`` returns. Unlike ``bot``, the strategy never sees ``state`` or
+  ``context`` directly and never imports ``league.engine``/``league.store``
+  — it is honest opposition, not a hidden engine privilege.
 * ``command`` — any external agent as a subprocess: the harness feeds a
   prompt (rules + full state JSON) on stdin and parses the first JSON object
   from stdout as the team's orders. A colleague-backend model, a Sonnet
   subagent, an orchestrator, or Claude itself is **a roster-config change,
   not a code change** — swap ``argv`` and the roster's ``model`` labels.
+* ``resident`` — one long-lived session per seat for the whole match (plan
+  task t5; per-seat by definition). Turn 1 sends the full briefing (rules +
+  scenario + role); every later turn sends only a delta (new events since the
+  seat last acted, compact state, teammate messages, own rejections, own
+  legal actions) into the SAME session. Two transports ship, per the t3 spike
+  (docs/specs/notes/cultureagent-spike.md): ``"claude"`` — the spike's proven
+  zero-dep fallback, ``claude -p --session-id/--resume`` with driver-minted
+  UUIDs (labeled ``claude-cli``; chosen over importing cultureagent's
+  ``AgentRunner`` from the culture venv to keep league's runtime
+  dependency-free) — and ``"colleague"`` — a driver-held transcript against
+  the vLLM OpenAI endpoint, labeled ``colleague-direct`` because
+  cultureagent's colleague backend cannot thread sessions as shipped. Every
+  send/receive is appended to ``.league/matches/<id>/sessions/<agent>.jsonl``
+  for audit.
+
+Every driver also carries a declared *residency* — the fairness axis of spec
+c10/h7 (see :func:`driver_kind`): ``bot`` is always ``"bot"``; a ``command``
+driver is ``"stateless"`` (fresh subprocess per turn, today's default) unless
+its spec sets ``"residency": "resident"``. ``run_match`` records this per team
+in the match log header so teams stay comparable by more than final score.
 
 Config shape (JSON)::
 
@@ -27,23 +54,74 @@ Config shape (JSON)::
                                     "claude-sonnet-5"],
                            "timeout": 120},
                 "agents": [...]}],
-     "max_rounds": 40}
+     "max_rounds": 40, "fog": false}
+
+Fog of war (plan task t5, spec c5/h4) — ``"fog": true`` at the top of the
+config: **fog is a harness-layer projection only**; ``league/engine`` stays
+full-information and deterministic (spec c12 non-goal), the tick never
+narrows what it resolves. Each turn, for every ``command``/``resident`` team,
+``run_match`` fetches that team's own fogged view (``match show --team <id>
+--fog --json``) instead of the shared full-board ``state``/``context`` — a
+seat's briefing then contains only its unit's vision, the team's accumulated
+knowledge (``league.engine.knowledge``, seen facts with staleness turns / told
+facts flagged), and teammate/master messages, never the full board. The
+resident driver's per-turn delta becomes newly-seen/newly-told facts since
+its last successful turn (:func:`_knowledge_delta`) instead of the raw event
+feed, which would otherwise leak enemy moves regardless of vision. A unit's
+own legal actions are always kept (they derive from its own position, never
+the board) — see :func:`_format_legal_actions`.
+
+Orchestrator mode for real (plan task t6, spec c4/c6/h3/h5) — a per-seat
+``command`` team's driver spec may add an optional ``"master"`` sub-driver:
+``{"argv": [...], "id": "<agent-id>", "timeout": N, "prompt": "..."}``. The
+master is invoked once per turn, BEFORE any ground seat, and commands no
+unit — its only tool is guidance messages, always attributed to its declared
+``id`` (default ``"<team>-master"``) regardless of what its own reply claims,
+the same discipline :func:`_fold_seat_reply` already applies to every seat's
+``from``. This is the mode's two declared fairness axes, echoed in the match
+config and log (``league match new --map-read``/``--unit-comms``, ``match
+show --json``'s ``map_read``/``unit_comms``) — never a hidden privilege:
+``map_read`` — ``"full"`` gives the master the plain (unfogged) board even
+though the match is fogged; ``"fog"`` (default) gives it the same fogged view
+every ground seat gets; and ``unit_comms`` — ``False`` (orchestrator mode's
+own default: master-mediated only) narrows what a LATER ground seat's
+briefing shows to messages ``from`` the master identity, dropping teammate
+chatter; ``True`` keeps today's unfiltered relay (master + teammates). Every
+seat's own messages still land in the match log either way — filtering only
+trims what a later seat is *shown*, never what is recorded.
+
+**Bot drivers stay full-information under fog, for now.** ``make_bot_driver``
+and the ``bot-file`` lane read scenario furniture (control points, missions,
+resource nodes) directly out of ``state``/``match show --json`` with no
+vision check — turning them fog-aware would mean redesigning their policy to
+explore toward the unknown instead of the nearest known objective (not the
+"trivially easy" bar this task set). This is a **documented, temporary
+asymmetry** a fogged playtest must not gloss over: a fair fogged comparison
+keeps fog on for every driver in the match, or off for all of them, never a
+mix of a fogged agent team against an omniscient bot.
 """
 
 from __future__ import annotations
 
 import contextlib
+import hashlib
+import importlib.util
 import io
 import json
+import os
+import re
 
 # Command drivers run operator-configured argv without a shell.
 import subprocess  # nosec B404
 import sys
+import urllib.request
+from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from league.cli import main as cli_main
+from league.store import Store, validate_id
 
-Driver = Callable[[dict[str, Any], str, int], dict[str, Any]]
+Driver = Callable[[dict[str, Any], str, int, Mapping[str, Any] | None], dict[str, Any]]
 
 
 def _cli_json(argv: list[str]) -> Any:
@@ -57,6 +135,18 @@ def _cli_json(argv: list[str]) -> Any:
 
 
 # -- the deterministic greedy bot ------------------------------------------
+#
+# NOTE — fog asymmetry (plan t5, spec c5/h4), loud on purpose: this policy
+# reads ``state["missions"]``/``state["control_points"]``/
+# ``state["resource_nodes"]`` directly with no vision check, so it stays
+# FULL-INFORMATION even in a fog match — ``run_match`` deliberately never
+# fogs the ``state`` a ``bot``/``bot-file`` driver receives (see the module
+# docstring's "Fog of war" section). Making this greedy policy fog-honest
+# would mean it has to explore toward unknown ground instead of beelining
+# the nearest declared objective — a real redesign, not a trivial change —
+# so it is left omniscient for now. A fogged match pitting this bot against
+# a fogged agent team is NOT a fair comparison; playtests must record fog as
+# "on for everyone" or "off for everyone", never mixed.
 
 
 def _clamp_step(pos: list[int], target: list[int], move: int, grid: dict[str, int]) -> list[int]:
@@ -81,7 +171,12 @@ def make_bot_driver(scenario: dict[str, Any]) -> Driver:
     roles = scenario["roles"]
     grid = scenario["grid"]
 
-    def orders(state: dict[str, Any], team_id: str, turn: int) -> dict[str, Any]:
+    def orders(
+        state: dict[str, Any],
+        team_id: str,
+        turn: int,
+        context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         my_units = [u for u in state["units"] if u["team_id"] == team_id and u["alive"]]
         deliver = next((m for m in state["missions"] if m["kind"] == "deliver"), None)
         nodes = [n for n in state["resource_nodes"] if n["remaining"] > 0]
@@ -146,6 +241,74 @@ def make_bot_driver(scenario: dict[str, Any]) -> Driver:
     return orders
 
 
+# -- coded-strategy bots: bots/<name>.py, loaded as trusted repo source -----
+#
+# The "bot-file" lane (plan task t2, spec c3/h2) is deliberately NOT another
+# in-harness policy function like ``make_bot_driver`` above. A strategy is a
+# committed, readable file under ``bots/`` (contract: ``bots/README.md``);
+# the driver's job is only to load it and hand it the exact JSON dict any
+# external bot process would get from ``league match show --json`` — never
+# the engine's own objects, never anything the CLI itself doesn't expose.
+
+_BOTS_DIR = Path(__file__).resolve().parent.parent / "bots"
+
+
+def _load_bot_strategy(name: str) -> Callable[[dict[str, Any], str], dict[str, Any]]:
+    """Load ``bots/<name>.py``'s ``decide(show_json, team_id)`` function.
+
+    ``validate_id`` — the store's own path-traversal defense — rejects any
+    name that could escape ``bots/`` (``..``, path separators, a leading
+    dot) before it ever reaches the filesystem: strategies are trusted repo
+    code, but only from this one directory, by this one name pattern.
+    """
+    validate_id(name, what="bot strategy name")
+    path = _BOTS_DIR / f"{name}.py"
+    if not path.is_file():
+        raise ValueError(f"unknown bot strategy {name!r}: no such file {path}")
+    spec = importlib.util.spec_from_file_location(f"league_bots_{name}", path)
+    if spec is None or spec.loader is None:  # pragma: no cover - defensive
+        raise ValueError(f"could not load bot strategy {name!r} from {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    decide = getattr(module, "decide", None)
+    if not callable(decide):
+        raise ValueError(f"bots/{name}.py has no callable decide(show_json, team_id)")
+    return decide
+
+
+def make_bot_file_driver(spec: Mapping[str, Any]) -> Driver:
+    """A coded strategy played through the public JSON surface only.
+
+    The returned ``orders`` closure ignores the ``state``/``context`` the
+    run loop hands every driver and instead calls ``match show --json``
+    itself (the same ``_cli_json`` path every other driver uses) — exactly
+    what a subprocess bot would have to do — then passes ONLY that parsed
+    dict (plus ``team_id``) to the strategy's ``decide``. No scenario, no
+    engine dataclass, ever crosses into strategy code.
+
+    NOTE — fog asymmetry (plan t5, spec c5/h4): this driver calls the plain
+    ``match show --json`` (never ``--team --fog``), so a bot-file strategy is
+    full-information even in a fog match, same documented, temporary
+    asymmetry as :func:`make_bot_driver` (see the module docstring).
+    """
+    name = spec.get("strategy")
+    if not name:
+        raise ValueError("bot-file driver requires a 'strategy' name (bots/<name>.py)")
+    decide = _load_bot_strategy(str(name))
+
+    def orders(
+        state: dict[str, Any],
+        team_id: str,
+        turn: int,
+        context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        match_id = str(state.get("match_id") or "")
+        show_json = _cli_json(["match", "show", match_id])
+        return decide(show_json, team_id)
+
+    return orders
+
+
 # -- external agents as subprocesses ---------------------------------------
 
 _RULES = """Rules, briefly: turn-based, simultaneous orders. Each unit does ONE action per
@@ -161,7 +324,7 @@ _PROMPT = """You are the {team_id} team commander in a League of Agents match.
 {rules}
 {extra}
 Scenario: {scenario}
-
+{rejections}{legal_actions}
 Current match state (JSON):
 {state}
 
@@ -183,7 +346,7 @@ League of Agents match. You control ONLY unit {unit_id} (role: {role}).
 {rules}
 {extra}
 Scenario: {scenario}
-
+{rejections}{legal_actions}
 Current match state (JSON):
 {state}
 
@@ -197,6 +360,147 @@ one JSON object, no prose:
   "messages": [{{"from": "{agent_id}", "text": "..."}}],
   "plan": "<optional; only if proposing/refreshing the team plan>"}}
 """
+
+_MASTER_PROMPT = """You are {master_id}, the {team_id} team's ORCHESTRATOR/MASTER. This is a
+DECLARED capability of orchestrator mode (spec c4/h3), never a hidden
+privilege — it is recorded in the match config and log. You command no unit
+directly: your only tool is guidance messages relayed to your ground units.
+{rules}
+{extra}
+Scenario: {scenario}
+Current match state (JSON):
+{state}
+
+{comms_note}
+Reply with ONLY one JSON object, no prose:
+{{"messages": [{{"from": "{master_id}", "text": "..."}}],
+  "plan": "<optional standing plan>"}}
+"""
+
+
+# -- rejection feedback + legal-actions citation (spec c8/h5) ---------------
+#
+# Without this, a seat whose order is rejected never learns why: the engine
+# emits an ``action_rejected`` event with a plain-English ``reason``, but that
+# reason never made it into the next briefing — a weak model just repeats the
+# same illegal move for the whole match (19 of 53 orders in the season-0
+# coordination playtest). ``run_match`` reads ``last_turn_rejections`` and
+# ``legal_actions`` off ``match show --json`` (league/engine/legal.py, wired
+# in ``match show`` by task t1) each turn and hands both to every driver as a
+# ``context`` mapping, so a seat can both see *why* its last order failed and
+# check what is legal *before* declaring the next one.
+
+
+def _rejections_for(
+    rejections: list[Mapping[str, Any]],
+    *,
+    team_id: str | None = None,
+    unit_id: str | None = None,
+) -> list[Mapping[str, Any]]:
+    """Narrow last-turn ``action_rejected`` rows to one team and/or unit."""
+    return [
+        r
+        for r in rejections
+        if (team_id is None or r.get("team_id") == team_id)
+        and (unit_id is None or r.get("unit_id") == unit_id)
+    ]
+
+
+def _format_rejections(rejections: list[Mapping[str, Any]]) -> str:
+    """A REJECTIONS section citing the engine's own reason text verbatim."""
+    if not rejections:
+        return ""
+    lines = "\n".join(f"- {r.get('unit_id')}: {r.get('reason')}" for r in rejections)
+    return (
+        "\nREJECTIONS from your last turn — the engine's own reason, so you "
+        f"don't repeat it:\n{lines}\n"
+    )
+
+
+def _format_move_targets(moves: list[Any]) -> str:
+    """Keep the legal-actions line short even for a wide-ranging role."""
+    if len(moves) <= 8:
+        return json.dumps(moves)
+    xs = [m[0] for m in moves]
+    ys = [m[1] for m in moves]
+    return f"{len(moves)} cells, x in [{min(xs)}, {max(xs)}], y in [{min(ys)}, {max(ys)}]"
+
+
+def _format_legal_actions(legal_actions: Mapping[str, Any], unit_ids: list[str]) -> str:
+    """A compact 'legal now' line per unit — checkable before declaring, not
+    just discovered after the engine rejects it."""
+    lines = []
+    for unit_id in unit_ids:
+        legal = legal_actions.get(unit_id)
+        if legal is None:
+            continue
+        lines.append(
+            f"- {unit_id}: move to {_format_move_targets(legal.get('move', []))}; "
+            f"gather: {'yes' if legal.get('gather') else 'no'}; "
+            f"deliver: {'yes' if legal.get('deliver') else 'no'}; hold: yes"
+        )
+    if not lines:
+        return ""
+    return "\nLegal actions right now:\n" + "\n".join(lines) + "\n"
+
+
+# -- fog of war: briefing-boundary enforcement (plan t5, spec c5/h4) --------
+#
+# Fog is a HARNESS-layer projection only: league/engine (the tick, vision,
+# knowledge fold) stays full-information and deterministic — see the module
+# docstring's "Fog of war" section for the whole picture. The two pieces
+# below are what a `command`/`resident` driver's PROMPT TEXT must never leak
+# once fog is on: the once-per-match "Scenario:" block (which otherwise
+# dumps every control point / mission / resource node position up front,
+# regardless of vision) and the resident driver's per-turn delta (which
+# otherwise reads the raw event log — every team's moves, regardless of
+# vision). `run_match` separately swaps the "state" argument itself for the
+# team's fogged view via `match show --team <id> --fog --json`
+# (league/cli/_commands/match.py's `_fogged_state`) before ever calling a
+# driver — these two helpers close the two OTHER leaks that live in this
+# module's own prompt-building code.
+
+
+def _fogged_scenario(scenario: Mapping[str, Any]) -> dict[str, Any]:
+    """The once-per-match rules block under fog: drop map furniture positions
+    (control points, missions, resource nodes) so a fresh seat starts knowing
+    only the universal rules — grid size, role stats, capture/turn limits —
+    never the board. Furniture and objectives are learned the same way live
+    state is: a unit's own sightings and named teammate/master messages
+    (``league.engine.knowledge``), surfaced turn to turn in the fogged
+    ``state``/delta blocks around this one.
+    """
+    _redacted = ("control_points", "missions", "resource_nodes")
+    fogged = {k: v for k, v in scenario.items() if k not in _redacted}
+    fogged["fog_of_war"] = (
+        "on — control points, missions, and resource nodes are not listed here; "
+        "you learn them only when your own units see them or a teammate/master "
+        "message names them (watch your state/knowledge as the match unfolds)."
+    )
+    return fogged
+
+
+def _knowledge_delta(
+    prev: Mapping[str, Any] | None, current: Mapping[str, Any]
+) -> dict[str, list[Any]]:
+    """Facts a team's knowledge fold added or refreshed since ``prev`` — the
+    resident driver's fog delta (spec c5/h4): everything newly seen or told
+    since this seat's last successful turn, nothing it already had. Both
+    arguments are ``KnowledgeFrame.to_dict()`` shapes (or ``None`` for "never
+    briefed before"), fetched off the public CLI surface
+    (``match show --team <id> --fog --json``)'s ``"knowledge"`` key — this
+    module never imports ``league.engine.knowledge`` directly.
+    """
+
+    def _changed(key: str) -> list[Any]:
+        before = {fact["id"]: fact for fact in (prev or {}).get(key, [])}
+        return [fact for fact in current.get(key, []) if before.get(fact["id"]) != fact]
+
+    return {
+        "units": _changed("units"),
+        "resource_nodes": _changed("resource_nodes"),
+        "control_points": _changed("control_points"),
+    }
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -250,20 +554,49 @@ def _run_command(argv: list[str], prompt: str, timeout: float, who: str) -> dict
     raise RuntimeError(f"driver for {who} failed twice: {last_error}")
 
 
-def make_command_driver(spec: Mapping[str, Any], scenario: dict[str, Any]) -> Driver:
+def make_command_driver(
+    spec: Mapping[str, Any], scenario: dict[str, Any], *, fog: bool = False, map_read: str = "fog"
+) -> Driver:
     argv = list(spec["argv"])
     timeout = float(spec.get("timeout", 300))
     solo = bool(spec.get("solo", False))
     extra = str(spec.get("prompt", ""))
     rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    # The commander's whole team shares one fogged view (spec c5/h4): under
+    # fog the once-per-turn "Scenario:" block drops map furniture too — see
+    # _fogged_scenario. `state` itself is already the team's fogged
+    # projection by the time it reaches here (run_match swaps it in per team
+    # via `match show --team <id> --fog --json` before calling this driver).
+    scenario_for_prompt = _fogged_scenario(scenario) if fog else scenario
 
-    def orders(state: dict[str, Any], team_id: str, turn: int) -> dict[str, Any]:
+    def orders(
+        state: dict[str, Any],
+        team_id: str,
+        turn: int,
+        context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        context = context or {}
+        my_unit_ids = [u["id"] for u in state.get("units", []) if u.get("team_id") == team_id]
+        briefing_state, briefing_scenario = state, scenario_for_prompt
+        if fog and map_read == "full":
+            # Orchestrator mode's declared capability (plan t6, spec c4/h3):
+            # this team's single commander mind reads the whole board even
+            # though the match is fogged — a recorded exception (the match
+            # log's `map_read`), never a silent one.
+            match_id = str(state.get("match_id") or "")
+            if match_id:
+                briefing_state = _cli_json(["match", "show", match_id])["state"]
+            briefing_scenario = scenario
         prompt = _PROMPT.format(
             team_id=team_id,
             rules=rules,
             extra=(_SOLO_NOTE if solo else "") + (f"\n{extra}\n" if extra else ""),
-            scenario=json.dumps(scenario, sort_keys=True),
-            state=json.dumps(state, sort_keys=True),
+            scenario=json.dumps(briefing_scenario, sort_keys=True),
+            rejections=_format_rejections(
+                _rejections_for(context.get("rejections", []), team_id=team_id)
+            ),
+            legal_actions=_format_legal_actions(context.get("legal_actions", {}), my_unit_ids),
+            state=json.dumps(briefing_state, sort_keys=True),
         )
         try:
             result = _run_command(argv, prompt, timeout, team_id)
@@ -279,31 +612,129 @@ def make_command_driver(spec: Mapping[str, Any], scenario: dict[str, Any]) -> Dr
     return orders
 
 
+def _fold_seat_reply(
+    combined: dict[str, Any], result: Mapping[str, Any], unit_id: str, agent_id: str
+) -> None:
+    """Fold one seat's reply into the team's orders — shared by every per-seat
+    driver (command and resident): a seat commands its own unit only, its
+    messages are attributed to it, and the first offered plan wins."""
+    action = result.get("action")
+    if isinstance(action, dict):
+        action["unit_id"] = unit_id  # a seat commands its own unit, only
+        combined["actions"].append(action)
+    for message in _as_list(result.get("messages")):
+        if isinstance(message, dict) and message.get("text"):
+            combined["messages"].append({"from": agent_id, "text": str(message["text"])})
+    if result.get("plan") and "plan" not in combined:
+        combined["plan"] = str(result["plan"])
+
+
 def make_per_seat_driver(
-    spec: Mapping[str, Any], scenario: dict[str, Any], agents: list[dict[str, Any]]
+    spec: Mapping[str, Any],
+    scenario: dict[str, Any],
+    agents: list[dict[str, Any]],
+    *,
+    fog: bool = False,
+    map_read: str = "fog",
+    unit_comms: bool = True,
 ) -> Driver:
     """One independent mind per seat, coordinating only through messages.
 
     Seats are consulted in roster order each turn; every seat sees the shared
     state plus the messages teammates have queued so far this turn (its own
     channel to influence later seats). Each seat may command only its unit.
+    Under fog the "shared state" every seat on this team sees is the TEAM's
+    fogged view (run_match already swapped ``state`` for it per team), and
+    the once-per-turn scenario block drops map furniture too — see
+    :func:`_fogged_scenario`. Per-unit legal actions are unaffected: they
+    always derive from that unit's own position, fog or not.
+
+    Orchestrator mode for real (plan t6, spec c4/c6/h3/h5): an optional
+    ``spec["master"]`` — ``{"argv": [...], "id": "<agent-id>", "timeout": N,
+    "prompt": "..."}`` — runs once per turn, BEFORE any ground seat, and
+    commands no unit; its messages are always attributed to its declared
+    ``id`` (default ``f"{team_id}-master"``) regardless of what its own reply
+    claims, mirroring :func:`_fold_seat_reply`'s discipline for every other
+    seat's ``from``. Its briefing is this team's usual view UNLESS
+    ``map_read`` is ``"full"`` *and* the match is fogged, in which case it
+    fetches the plain (unfogged) board itself — a declared exception (spec
+    c4/h3), never a silent one. ``unit_comms`` decides what a LATER ground
+    seat's "teammates already sent" block is filtered to: ``False``
+    (orchestrator mode's own default) keeps only messages ``from`` the master
+    identity, dropping teammate chatter; ``True`` keeps today's unfiltered
+    relay. Every seat's own messages still land in the match log either way —
+    filtering only trims what a later seat is *shown*.
     """
     argv = list(spec["argv"])
     timeout = float(spec.get("timeout", 300))
     extra = str(spec.get("prompt", ""))
     rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    scenario_for_prompt = _fogged_scenario(scenario) if fog else scenario
     seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
 
-    def orders(state: dict[str, Any], team_id: str, turn: int) -> dict[str, Any]:
+    master_spec = spec.get("master")
+    master_argv = list(master_spec["argv"]) if master_spec else None
+    master_timeout = float(master_spec.get("timeout", timeout)) if master_spec else timeout
+    master_extra = str(master_spec.get("prompt", "")) if master_spec else ""
+    _comms_note = (
+        "Unit-to-unit messaging is OFF this match — you are their only channel."
+        if not unit_comms
+        else "Units can also message each other directly this match."
+    )
+
+    def orders(
+        state: dict[str, Any],
+        team_id: str,
+        turn: int,
+        context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        context = context or {}
+        legal_actions = context.get("legal_actions", {})
+        rejections = context.get("rejections", [])
         my_units = {
             u["agent_id"]: u for u in state["units"] if u["team_id"] == team_id and u["alive"]
         }
         combined: dict[str, Any] = {"actions": [], "messages": []}
+
+        master_id = None
+        if master_argv is not None:
+            master_id = str(master_spec.get("id") or f"{team_id}-master")
+            master_state, master_scenario = state, scenario_for_prompt
+            if fog and map_read == "full":
+                match_id = str(state.get("match_id") or "")
+                if match_id:
+                    master_state = _cli_json(["match", "show", match_id])["state"]
+                master_scenario = scenario
+            master_prompt = _MASTER_PROMPT.format(
+                master_id=master_id,
+                team_id=team_id,
+                rules=rules,
+                extra=f"\n{master_extra}\n" if master_extra else "",
+                scenario=json.dumps(master_scenario, sort_keys=True),
+                state=json.dumps(master_state, sort_keys=True),
+                comms_note=_comms_note,
+            )
+            try:
+                result = _run_command(master_argv, master_prompt, master_timeout, master_id)
+            except RuntimeError as err:
+                print(f"[harness] master {master_id} idles this turn: {err}", file=sys.stderr)
+            else:
+                for message in _as_list(result.get("messages")):
+                    if isinstance(message, dict) and message.get("text"):
+                        combined["messages"].append(
+                            {"from": master_id, "text": str(message["text"])}
+                        )
+
         for agent in agents:
             unit = my_units.get(agent["id"])
             if unit is None:
                 continue
             seat_extra = "\n".join(part for part in (extra, seat_prompts[agent["id"]]) if part)
+            visible_messages = (
+                combined["messages"]
+                if unit_comms
+                else [m for m in combined["messages"] if m.get("from") == master_id]
+            )
             prompt = _SEAT_PROMPT.format(
                 agent_id=agent["id"],
                 team_id=team_id,
@@ -311,24 +742,395 @@ def make_per_seat_driver(
                 role=unit["role"],
                 rules=rules,
                 extra=f"\n{seat_extra}\n" if seat_extra else "",
-                scenario=json.dumps(scenario, sort_keys=True),
+                scenario=json.dumps(scenario_for_prompt, sort_keys=True),
+                rejections=_format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
+                legal_actions=_format_legal_actions(legal_actions, [unit["id"]]),
                 state=json.dumps(state, sort_keys=True),
-                team_messages=json.dumps(combined["messages"], sort_keys=True) or "[]",
+                team_messages=json.dumps(visible_messages, sort_keys=True) or "[]",
             )
             try:
                 result = _run_command(argv, prompt, timeout, agent["id"])
             except RuntimeError as err:
                 print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
                 continue
-            action = result.get("action")
-            if isinstance(action, dict):
-                action["unit_id"] = unit["id"]  # a seat commands its own unit, only
-                combined["actions"].append(action)
-            for message in _as_list(result.get("messages")):
-                if isinstance(message, dict) and message.get("text"):
-                    combined["messages"].append({"from": agent["id"], "text": str(message["text"])})
-            if result.get("plan") and "plan" not in combined:
-                combined["plan"] = str(result["plan"])
+            _fold_seat_reply(combined, result, unit["id"], agent["id"])
+        if not combined["messages"]:
+            combined.pop("messages")
+        return combined
+
+    return orders
+
+
+# -- resident minds: one long-lived session per seat (plan task t5) ---------
+#
+# The session transport is abstracted behind SESSION_TRANSPORTS so tests
+# inject a fake session and no test ever needs a live model endpoint; the
+# real adapters below are thin shells over the exact invocations the t3 spike
+# proved live (docs/specs/notes/cultureagent-spike.md).
+
+
+def _mint_session_id(match_id: str, agent_id: str) -> str:
+    """A deterministic, UUID-shaped session id from (match, seat).
+
+    Deterministic on purpose: a crashed harness re-mints the same id for the
+    same seat, so ``claude -p --resume`` picks the conversation back up
+    mid-match (the spike's crash-resume property). ``hashlib`` keeps the
+    engine-wide no-``uuid``/no-``random`` determinism rule intact.
+    """
+    digest = hashlib.sha256(f"{match_id}/{agent_id}".encode("utf-8")).hexdigest()
+    return f"{digest[:8]}-{digest[8:12]}-4{digest[13:16]}-8{digest[17:20]}-{digest[20:32]}"
+
+
+class ClaudeCliSession:
+    """A claude seat: the spike's proven zero-dependency fallback transport.
+
+    ``claude -p --session-id <minted>`` on the first send, ``--resume`` on
+    every later one — mechanically the same session loop cultureagent's
+    ``AgentRunner`` runs internally, but owned by this driver so league's
+    runtime never imports the culture venv (the spike's recorded trade-off).
+    """
+
+    transport = "claude-cli"
+
+    def __init__(self, spec: Mapping[str, Any], match_id: str, agent_id: str) -> None:
+        self._command = str(spec.get("command", "claude"))
+        self._model = spec.get("model")
+        self.session_id = _mint_session_id(match_id, agent_id)
+        self._started = False
+
+    def _argv(self, flag: str) -> list[str]:
+        argv = [self._command, "-p", flag, self.session_id]
+        if self._model:
+            argv += ["--model", str(self._model)]
+        return argv
+
+    def _run(self, argv: list[str], prompt: str, timeout: float) -> subprocess.CompletedProcess:
+        try:
+            # Operator-configured command, shell=False, bounded by timeout.
+            return subprocess.run(  # nosec B603
+                argv, input=prompt, capture_output=True, text=True, timeout=timeout, check=False
+            )
+        except subprocess.TimeoutExpired as err:
+            raise RuntimeError(
+                f"claude-cli session {self.session_id} timed out after {timeout}s"
+            ) from err
+
+    def send(self, prompt: str, *, timeout: float) -> str:
+        proc = self._run(
+            self._argv("--resume" if self._started else "--session-id"), prompt, timeout
+        )
+        if proc.returncode != 0 and not self._started:
+            # The deterministic id may already exist on disk (crashed match):
+            # resume it instead of failing the seat.
+            proc = self._run(self._argv("--resume"), prompt, timeout)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"claude-cli session {self.session_id} failed (exit {proc.returncode}): "
+                f"{proc.stderr.strip()[:300]}"
+            )
+        self._started = True
+        return proc.stdout
+
+
+_DEFAULT_COLLEAGUE_BASE_URL = "http://localhost:8001/v1"
+
+
+def _http_post_json(url: str, payload: dict[str, Any], timeout: float) -> dict[str, Any]:
+    if not url.startswith(("http://", "https://")):
+        raise RuntimeError(f"colleague-direct base_url must be http(s), got {url!r}")
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310
+        return json.load(response)
+
+
+class ColleagueDirectSession:
+    """A colleague seat: the driver-held transcript IS the session.
+
+    Labeled ``colleague-direct`` everywhere it surfaces, never "cultureagent":
+    the spike proved cultureagent's colleague backend mints a fresh task per
+    message (no cross-message memory as shipped), so continuity lives in this
+    ``messages`` list POSTed to the vLLM OpenAI endpoint — stdlib ``urllib``,
+    zero dependencies, trivially auditable.
+    """
+
+    transport = "colleague-direct"
+
+    def __init__(self, spec: Mapping[str, Any], match_id: str, agent_id: str) -> None:
+        model = spec.get("model")
+        if not model:
+            raise ValueError("a 'colleague' resident transport needs a 'model' in the driver spec")
+        self._model = str(model)
+        self._base_url = str(
+            spec.get("base_url")
+            or os.environ.get("COLLEAGUE_BASE_URL", _DEFAULT_COLLEAGUE_BASE_URL)
+        ).rstrip("/")
+        self._temperature = float(spec.get("temperature", 0.6))
+        self._max_tokens = int(spec.get("max_tokens", 4096))
+        self._chat_template_kwargs = spec.get("chat_template_kwargs")
+        self._history: list[dict[str, str]] = []
+        self.session_id = f"colleague-direct-{_mint_session_id(match_id, agent_id)}"
+
+    def send(self, prompt: str, *, timeout: float) -> str:
+        self._history.append({"role": "user", "content": prompt})
+        payload: dict[str, Any] = {
+            "model": self._model,
+            "messages": list(self._history),
+            "max_tokens": self._max_tokens,
+            "temperature": self._temperature,
+        }
+        if self._chat_template_kwargs:
+            payload["chat_template_kwargs"] = dict(self._chat_template_kwargs)
+        try:
+            data = _http_post_json(f"{self._base_url}/chat/completions", payload, timeout)
+        except OSError as err:
+            # The model never saw this message — keep the transcript honest
+            # so the next attempt isn't preceded by a phantom user turn.
+            self._history.pop()
+            raise RuntimeError(f"colleague-direct session {self.session_id}: {err}") from err
+        message = data["choices"][0]["message"]
+        # The Qwen gotcha (spike, scripts/openai_driver.py): thinking models
+        # may return content=None with the answer in reasoning_content.
+        content = message.get("content") or message.get("reasoning_content") or ""
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.S).strip()
+        self._history.append({"role": "assistant", "content": content})
+        return content
+
+
+# name -> factory(spec, match_id, agent_id). Tests register a fake here so no
+# suite run ever touches a live endpoint; operators pick by spec["transport"].
+SESSION_TRANSPORTS: dict[str, Callable[[Mapping[str, Any], str, str], Any]] = {
+    "claude": ClaudeCliSession,
+    "colleague": ColleagueDirectSession,
+}
+
+_RESIDENT_NOTE = """This is a resident session: it lasts the whole match. This turn-1 briefing is
+the ONLY time you will see the rules and the scenario — remember them. Every
+later turn sends only a delta: new events, your own rejections, your legal
+actions, a compact state, and teammate messages."""
+
+_RESIDENT_DELTA_PROMPT = """Turn {turn} — delta briefing (rules, scenario and role are unchanged
+from turn 1; you still control ONLY unit {unit_id}).
+New events since your last turn (JSON):
+{events}
+{rejections}{legal_actions}
+Compact current state (JSON):
+{state}
+
+Messages your teammates already sent this turn:
+{team_messages}
+
+Reply as before: ONLY one JSON object — your single action for unit
+{unit_id}, plus optional messages/plan.
+"""
+
+
+def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
+    """The delta's state snapshot: what changes turn to turn, nothing that was
+    already taught (grid, roles, scenario constants stay in turn 1).
+
+    Under fog, ``state["units"]`` mixes two shapes: this team's own units, in
+    full, and a fog-of-war-known enemy unit (``KnowledgeFrame``'s
+    ``KnownUnit.to_dict()``), which carries no ``carrying`` field at all —
+    genuinely unknown, not zero — hence ``.get`` here, never ``[...]``.
+    """
+    return {
+        "turn": state.get("turn"),
+        "status": state.get("status"),
+        "winner": state.get("winner"),
+        "teams": {t["id"]: {"resources": t["resources"]} for t in state.get("teams", [])},
+        "units": [
+            {
+                "id": u["id"],
+                "team_id": u["team_id"],
+                "role": u["role"],
+                "pos": u["pos"],
+                "carrying": u.get("carrying"),
+                "alive": u["alive"],
+            }
+            for u in state.get("units", [])
+        ],
+        "control_points": [
+            {"id": c["id"], "pos": c["pos"], "owner": c.get("owner")}
+            for c in state.get("control_points", [])
+        ],
+        "missions": [
+            {
+                "id": m["id"],
+                "kind": m.get("kind"),
+                "pos": m.get("pos"),
+                "amount": m.get("amount"),
+                "status": m.get("status"),
+            }
+            for m in state.get("missions", [])
+        ],
+        "resource_nodes": [
+            {"id": n["id"], "pos": n["pos"], "remaining": n["remaining"]}
+            for n in state.get("resource_nodes", [])
+        ],
+    }
+
+
+def _events_since(match_id: str, since_turn: int, upto_turn: int) -> list[dict[str, Any]]:
+    """Events a seat hasn't seen yet, read off the log via the public CLI
+    (``match replay --json``) — the harness never opens the log file itself."""
+    if not match_id:
+        return []
+    events_by_turn = _cli_json(["match", "replay", match_id]).get("events_by_turn", {})
+    return [
+        {"turn": int(turn), **event}
+        for turn in sorted(events_by_turn, key=int)
+        if since_turn < int(turn) <= upto_turn
+        for event in events_by_turn[turn]
+    ]
+
+
+def make_resident_driver(
+    spec: Mapping[str, Any],
+    scenario: dict[str, Any],
+    agents: list[dict[str, Any]],
+    *,
+    fog: bool = False,
+) -> Driver:
+    """One long-lived session per seat for the whole match (per-seat by
+    definition). Turn 1 = full briefing into a fresh session; turn N>1 = delta
+    only, into the SAME session. Every exchange (and every failure) is
+    appended to ``.league/matches/<id>/sessions/<agent-id>.jsonl`` for audit.
+
+    Under fog (spec c5/h4): the once-per-match scenario block drops map
+    furniture (:func:`_fogged_scenario`), ``state`` itself is already this
+    team's fogged view (``run_match`` swaps it in before calling this
+    driver), and the delta's "new events" section becomes newly-seen/
+    newly-told facts since this seat's last successful turn
+    (:func:`_knowledge_delta`) instead of the raw log — the raw log would
+    otherwise show every team's moves regardless of vision. Legal actions are
+    unaffected: a unit always knows its own, fog or not.
+    """
+    transport = spec.get("transport")
+    if transport not in SESSION_TRANSPORTS:
+        raise ValueError(
+            f"unknown resident transport {transport!r}; "
+            f"expected one of {sorted(SESSION_TRANSPORTS)}"
+        )
+    timeout = float(spec.get("timeout", 300))
+    extra = str(spec.get("prompt", ""))
+    rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    scenario_for_prompt = _fogged_scenario(scenario) if fog else scenario
+    seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
+    sessions: dict[str, Any] = {}
+    briefed: set[str] = set()  # seats whose session has actually seen the rules
+    last_seen: dict[str, int] = {}  # state turn at the seat's last successful briefing
+    last_known: dict[str, Mapping[str, Any]] = {}  # fog only: last knowledge snapshot per seat
+
+    def _full_briefing(agent: dict[str, Any], unit: dict[str, Any], **fields: Any) -> str:
+        seat_extra = "\n".join(
+            part for part in (_RESIDENT_NOTE, extra, seat_prompts[agent["id"]]) if part
+        )
+        return _SEAT_PROMPT.format(
+            agent_id=agent["id"],
+            team_id=unit["team_id"],
+            unit_id=unit["id"],
+            role=unit["role"],
+            rules=rules,
+            extra=f"\n{seat_extra}\n",
+            scenario=json.dumps(scenario_for_prompt, sort_keys=True),
+            **fields,
+        )
+
+    def orders(
+        state: dict[str, Any],
+        team_id: str,
+        turn: int,
+        context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        context = context or {}
+        legal_actions = context.get("legal_actions", {})
+        rejections = context.get("rejections", [])
+        match_id = str(state.get("match_id") or "")
+        store = Store()
+        my_units = {
+            u["agent_id"]: u for u in state["units"] if u["team_id"] == team_id and u["alive"]
+        }
+        new_events: dict[str, list[dict[str, Any]]] = {}  # per since-turn, fetched lazily
+        # One team-wide knowledge snapshot per turn (every seat on a team
+        # shares the same fold; league/engine/knowledge.py is team-scoped).
+        current_knowledge: Mapping[str, Any] | None = None
+        if fog and match_id:
+            current_knowledge = _cli_json(["match", "show", match_id, "--team", team_id, "--fog"])[
+                "knowledge"
+            ]
+        combined: dict[str, Any] = {"actions": [], "messages": []}
+        for agent in agents:
+            unit = my_units.get(agent["id"])
+            if unit is None:
+                continue
+            session = sessions.get(agent["id"])
+            if session is None:
+                session = SESSION_TRANSPORTS[transport](spec, match_id, agent["id"])
+                sessions[agent["id"]] = session
+            shared = {
+                "rejections": _format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
+                "legal_actions": _format_legal_actions(legal_actions, [unit["id"]]),
+                "team_messages": json.dumps(combined["messages"], sort_keys=True),
+            }
+            if agent["id"] not in briefed:
+                # First contact (or every prior attempt failed): the seat has
+                # never seen the rules, so it gets the full briefing — never a
+                # delta it can't ground.
+                prompt = _full_briefing(
+                    agent, unit, state=json.dumps(state, sort_keys=True), **shared
+                )
+            elif fog:
+                delta = _knowledge_delta(last_known.get(agent["id"]), current_knowledge or {})
+                prompt = _RESIDENT_DELTA_PROMPT.format(
+                    turn=turn,
+                    unit_id=unit["id"],
+                    events=json.dumps(delta, sort_keys=True),
+                    state=json.dumps(_compact_state(state), sort_keys=True),
+                    **shared,
+                )
+            else:
+                since = last_seen.get(agent["id"], 0)
+                if str(since) not in new_events:
+                    new_events[str(since)] = _events_since(match_id, since, state["turn"])
+                prompt = _RESIDENT_DELTA_PROMPT.format(
+                    turn=turn,
+                    unit_id=unit["id"],
+                    events=json.dumps(new_events[str(since)], sort_keys=True),
+                    state=json.dumps(_compact_state(state), sort_keys=True),
+                    **shared,
+                )
+            record = {
+                "turn": turn,
+                "agent_id": agent["id"],
+                "session_id": session.session_id,
+                "transport": session.transport,
+                "sent": prompt,
+            }
+            try:
+                reply = session.send(prompt, timeout=timeout)
+            except RuntimeError as err:
+                if match_id:
+                    store.append_session_record(
+                        match_id, agent["id"], {**record, "error": str(err)}
+                    )
+                print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
+                continue
+            if match_id:
+                store.append_session_record(match_id, agent["id"], {**record, "received": reply})
+            briefed.add(agent["id"])
+            last_seen[agent["id"]] = state["turn"]
+            if fog and current_knowledge is not None:
+                last_known[agent["id"]] = current_knowledge
+            try:
+                result = _extract_json(reply)
+            except ValueError as err:
+                print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
+                continue
+            _fold_seat_reply(combined, result, unit["id"], agent["id"])
         if not combined["messages"]:
             combined.pop("messages")
         return combined
@@ -340,17 +1142,73 @@ def build_driver(
     spec: Mapping[str, Any],
     scenario: dict[str, Any],
     agents: list[dict[str, Any]] | None = None,
+    *,
+    fog: bool = False,
+    map_read: str = "fog",
+    unit_comms: bool = True,
 ) -> Driver:
+    """``fog`` only reaches the ``command``/``resident`` factories — bot and
+    bot-file drivers stay full-information regardless (documented asymmetry,
+    see the module docstring's "Fog of war" section). ``map_read``/
+    ``unit_comms`` are orchestrator mode's declared fairness axes (plan t6,
+    spec c4/c6/h3/h5) and only reach a ``command`` driver (plain or
+    per-seat) — see :func:`make_command_driver`/:func:`make_per_seat_driver`.
+    """
     kind = spec.get("type")
-    if spec.get("per_seat") and kind != "command":
-        raise ValueError("per_seat is only supported for 'command' drivers")
+    if spec.get("per_seat") and kind not in ("command", "resident"):
+        raise ValueError("per_seat is only supported for 'command' and 'resident' drivers")
     if kind == "bot":
         return make_bot_driver(scenario)
+    if kind == "bot-file":
+        return make_bot_file_driver(spec)
+    if kind == "resident":  # per-seat by definition
+        return make_resident_driver(spec, scenario, agents or [], fog=fog)
     if kind == "command" and spec.get("per_seat"):
-        return make_per_seat_driver(spec, scenario, agents or [])
+        return make_per_seat_driver(
+            spec, scenario, agents or [], fog=fog, map_read=map_read, unit_comms=unit_comms
+        )
     if kind == "command":
-        return make_command_driver(spec, scenario)
-    raise ValueError(f"unknown driver type {kind!r}; expected 'bot' or 'command'")
+        return make_command_driver(spec, scenario, fog=fog, map_read=map_read)
+    raise ValueError(
+        f"unknown driver type {kind!r}; expected 'bot', 'bot-file', 'command' or 'resident'"
+    )
+
+
+# -- residency: the declared fairness axis (spec c10/h7) --------------------
+
+DRIVER_KINDS = ("bot", "stateless", "resident")
+
+
+def driver_kind(spec: Mapping[str, Any]) -> str:
+    """The residency label recorded for a team's driver — metadata about HOW its
+    minds were invoked, never game state (it never touches ``MatchState``).
+
+    ``bot`` drivers are always ``"bot"``; ``bot-file`` drivers (coded
+    strategies loaded from ``bots/``) are ALSO ``"bot"`` — same fairness
+    axis, just a different, committed-source policy instead of the in-harness
+    greedy one. ``resident`` drivers are always ``"resident"`` — one
+    persistent session per seat for the whole match
+    (:func:`make_resident_driver`). ``command`` drivers default to
+    ``"stateless"`` (fresh subprocess per turn) unless the spec declares
+    ``"residency": "resident"`` — e.g. a command whose own process holds
+    per-seat sessions.
+    """
+    kind = spec.get("type")
+    if kind in ("bot", "bot-file"):
+        return "bot"
+    if kind == "resident":
+        return "resident"
+    if kind == "command":
+        residency = spec.get("residency", "stateless")
+        if residency not in ("stateless", "resident"):
+            raise ValueError(
+                f"unknown residency {residency!r} for a command driver; "
+                "expected 'stateless' or 'resident'"
+            )
+        return residency
+    raise ValueError(
+        f"unknown driver type {kind!r}; expected 'bot', 'bot-file', 'command' or 'resident'"
+    )
 
 
 # -- the run loop -----------------------------------------------------------
@@ -365,6 +1223,10 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
     """
     match_cfg = config["match"]
     scenario = _cli_json(["arena", "show", match_cfg["scenario"]])
+    # Fog of war (plan t5, spec c5/h4) — see the module docstring's "Fog of
+    # war" section for the whole picture: a harness-layer-only projection,
+    # never touching league/engine.
+    fog = bool(config.get("fog", False))
 
     existing = {row["match_id"] for row in _cli_json(["match", "list"])["matches"]}
     if match_cfg.get("id") in existing:
@@ -390,12 +1252,32 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
             new_argv += ["--team", team["id"]]
         if match_cfg.get("id"):
             new_argv += ["--id", match_cfg["id"]]
+        for team in config["teams"]:
+            new_argv += ["--driver", f"{team['id']}:{driver_kind(team['driver'])}"]
+            # Orchestrator mode's two declared fairness axes (plan t6, spec
+            # c4/c6/h3/h5): only echoed when a team's config actually opts
+            # in — same "omit it and it's simply unrecorded" contract
+            # ``--driver`` already has.
+            if "map_read" in team:
+                new_argv += ["--map-read", f"{team['id']}:{team['map_read']}"]
+            if "unit_comms" in team:
+                comms = "on" if team["unit_comms"] else "off"
+                new_argv += ["--unit-comms", f"{team['id']}:{comms}"]
         created = _cli_json(new_argv + ["--apply"])
         match_id = created["match_id"]
 
     drivers = {
-        t["id"]: build_driver(t["driver"], scenario, t.get("agents")) for t in config["teams"]
+        t["id"]: build_driver(
+            t["driver"],
+            scenario,
+            t.get("agents"),
+            fog=fog,
+            map_read=t.get("map_read", "fog"),
+            unit_comms=t.get("unit_comms", True),
+        )
+        for t in config["teams"]
     }
+    driver_types = {t["id"]: t["driver"].get("type") for t in config["teams"]}
     max_rounds = int(config.get("max_rounds", scenario["turn_limit"] + 2))
 
     for _ in range(max_rounds):
@@ -404,9 +1286,31 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
         if state["status"] != "active":
             break
         turn = state["turn"] + 1
+        # Rejection feedback + legal-actions citation (spec c8/h5): every
+        # driver gets the prior turn's rejections and the current legal-move
+        # surface, straight off the public `match show --json` projection —
+        # no bypassing the CLI to read the log directly.
+        context = {
+            "legal_actions": shown.get("legal_actions", {}),
+            "rejections": shown.get("last_turn_rejections", []),
+        }
         for team in config["teams"]:
             team_id = team["id"]
-            orders = drivers[team_id](state, team_id, turn)
+            # Fog boundary (spec c5/h4): a command/resident seat is fed that
+            # team's own fogged view — its vision + accumulated knowledge,
+            # never the shared full-board `state`/`context` above. Bot/
+            # bot-file drivers keep the full state (documented asymmetry,
+            # module docstring).
+            if fog and driver_types[team_id] in ("command", "resident"):
+                team_shown = _cli_json(["match", "show", match_id, "--team", team_id, "--fog"])
+                team_state = team_shown["state"]
+                team_context = {
+                    "legal_actions": team_shown.get("legal_actions", {}),
+                    "rejections": team_shown.get("last_turn_rejections", []),
+                }
+            else:
+                team_state, team_context = state, context
+            orders = drivers[team_id](team_state, team_id, turn, team_context)
             acted = _cli_json(
                 [
                     "match",

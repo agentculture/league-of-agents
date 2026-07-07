@@ -31,8 +31,9 @@ buildable/deployable package baseline. Clone it, rename the package, edit
 
 - `league arena list|show` — the scenario catalog (read-only).
 - `league team register|list|show` — the competitors' rosters.
-- `league match new|act|tick|show|list|score|replay` — the play loop:
-  declare orders, deterministic resolution, dual scoring, HTML replay.
+- `league match new|act|tick|show|list|score|brief|replay` — the play loop:
+  declare orders, deterministic resolution, dual scoring, markdown briefing
+  (the agents' face; `--team` fogs it), HTML replay.
 
 Write verbs (`team register`, `match new/act/tick`) are dry-run by default;
 add `--apply` to commit. Every read verb takes `--json`.
@@ -176,17 +177,69 @@ commits** — a stray call never silently advances the game.
 
 ## Usage
 
-    league match new --scenario skirmish-1 --team blue --team red --seed 7 --apply
-    league match show <id> --json          # full state + staged teams
+    league match new --scenario skirmish-1 --team blue --team red --seed 7 \\
+        --driver blue:bot --driver red:stateless --apply
+    league match show <id> --json          # full state + staged teams + driver_kinds
     league match act <id> --team blue --plan "..." \\
         --action blue-u1:move:3,1 --action blue-u2:gather \\
         --message blue-1:"east is open" --apply
     league match tick <id> --apply         # force-resolve (timeouts)
     league match score <id> --json         # outcome + cooperation
+    league match brief <id> [--team blue]  # markdown briefing (the agents' face)
     league match replay <id> > match.html  # self-contained human replay
+    league match tui <id> --frame N [--team blue] [--no-color]  # terminal view
+
+`brief` is the markdown face for agents, served from the agentfront faces
+registry (`league/faces/`): `--json` returns the SAME facts the markdown
+renders — one declaration, two projections, proven fact-for-fact by the
+face-agreement tests. `--team <id>` fogs the brief to that team's knowledge
+fold (seen/told facts only — never the full board, never scores).
 
 Orders can also be one JSON object: `--orders-json '{"plan": ..., "messages":
 [...], "actions": [...]}'`.
+
+`show --json` also includes `legal_actions`: for every living unit, its move
+targets in range plus gather/deliver/hold applicability — computed straight
+from state + scenario (deterministic, sorted, no engine mutation). Check it
+before declaring an order; the season-0 coordination playtest burned 19 of 53
+orders on exactly the misses this closes (10 beyond-move-range moves, 6
+off-square delivers).
+
+`--driver <team-id>:<bot|stateless|resident>` (repeatable) records how a
+team's minds were invoked — a declared fairness axis (spec c10/h7), not game
+state. It lives in the match log header and `match show --json`'s
+`driver_kinds`, never in engine state; omit it and the team's kind is simply
+unrecorded.
+
+`--map-read <team-id>:<full|fog>` and `--unit-comms <team-id>:<on|off>`
+(both repeatable) record orchestrator mode's two declared fairness axes
+(plan t6, spec c4/c6/h3/h5): `map_read` is the team's master/commander
+map-read capability under fog — `full` means the master reads the whole
+board (a DECLARED information-asymmetry rule of the mode, never a hidden
+privilege), `fog` (the implicit default when omitted) means the same fogged
+view as everyone; `unit_comms` is whether that team's ground units may
+message each other directly (`on`) or are master-mediated only (`off`,
+orchestrator mode's own default). Both live in the match log header and
+`match show --json`'s `map_read`/`unit_comms`, never in engine state; the
+harness (`league/harness.py`) reads them off each team's config to decide
+what the master's briefing sees and which messages a seat's briefing relays.
+
+`show --json` also includes `last_turn_rejections`: every `action_rejected`
+event from the turn just resolved (`{team_id, unit_id, reason}`), so a caller
+can see *why* an order failed without scraping the whole log. The harness
+folds this into each agent's next briefing (spec c8/h5) — a seat that never
+learns the reason otherwise repeats the mistake for the whole match.
+
+`--team <id>` scopes `legal_actions`/`last_turn_rejections` to that team.
+Add `--fog` (requires `--team`) for that team's fog-of-war projection (plan
+t5, spec c5/h4): `state` is replaced by that team's own roster in full plus
+every other unit / control point / resource node / discovered mission it has
+actually seen or been told about (`league.engine.knowledge`), and a new
+`knowledge` key carries the raw fold. The plain (no `--team`/`--fog`)
+response is untouched — this is additive. The harness calls this per team,
+per turn, for `command`/`resident` drivers when the match config sets
+`"fog": true`; bot drivers stay on the full, un-fogged state (documented,
+temporary asymmetry — see `league/harness.py`).
 """
 
 
@@ -217,6 +270,13 @@ Driver types (per team, in the config JSON):
   state JSON) on stdin, orders JSON on stdout. A colleague model, a Sonnet
   subagent, or an orchestrator is a config change, not a code change.
 
+Every driver also declares a residency (spec c10/h7): `bot` is always `"bot"`;
+`command` defaults to `"stateless"` (fresh subprocess per turn) unless the
+spec adds `"residency": "resident"` (one persistent session per seat, a later
+task). `run_match` records each team's kind in the match log header, so
+`match show --json`'s `driver_kinds` always answers "how was this team's mind
+driven?" alongside the score.
+
 ## Usage
 
     league harness run --config playtest.json          # dry-run
@@ -224,7 +284,14 @@ Driver types (per team, in the config JSON):
 
 Config shape: {"match": {"scenario", "mode", "seed", "id"},
 "teams": [{"id", "name", "driver", "agents": [{"id", "model", "role"}]}],
-"max_rounds": N}.
+"max_rounds": N, "fog": false}.
+
+`"fog": true` (plan t5, spec c5/h4) narrows every `command`/`resident`
+briefing to that team's own vision plus its accumulated knowledge
+(`match show --team <id> --fog --json`) — never the full board. Bot drivers
+(`bot`/`bot-file`) stay full-information under fog for now, a documented,
+temporary asymmetry (see `league/harness.py`); a fair fogged match keeps fog
+on for every driver or none.
 """
 
 
@@ -260,7 +327,9 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("match", "act"): _MATCH,
     ("match", "tick"): _MATCH,
     ("match", "score"): _MATCH,
+    ("match", "brief"): _MATCH,
     ("match", "replay"): _MATCH,
+    ("match", "tui"): _MATCH,
     ("match", "rematch"): _MATCH,
     ("standings",): _STANDINGS,
     ("history",): _STANDINGS,

@@ -174,7 +174,7 @@ def test_capture_then_hold_mission_completes() -> None:
     assert cp.owner == "blue"
     mission = next(m for m in state.missions if m.id == "ms-outpost")
     assert mission.status == "completed"
-    assert mission.completed_by == "blue"
+    assert mission.completed_by == ("blue",)
 
 
 def test_contested_point_resets_the_streak() -> None:
@@ -217,6 +217,137 @@ def test_deliver_mission_and_delivery_flow() -> None:
     assert state.status == "active"  # the hold mission is still open
 
 
+def test_dead_heat_deliver_awards_both_teams_the_full_reward() -> None:
+    """Regression for the season-0 orchestrator match (t16): both harvesters
+    delivered the mission's sixth resource on the same turn and the old rule
+    (larger total, then lexicographic team id) handed ms-supply to whichever
+    id sorted first. Spec decision c15: a dead-heat is a DUAL AWARD — every
+    qualifying team completes the mission for the full reward."""
+    state = active_match()
+    state = _move_unit(state, "blue-u2", (6, 5))
+    state = _move_unit(state, "red-u2", (6, 5))
+    units = tuple(
+        dataclasses.replace(u, carrying=3) if u.id in ("blue-u2", "red-u2") else u
+        for u in state.units
+    )
+    teams = tuple(dataclasses.replace(t, resources=3) for t in state.teams)
+    state = dataclasses.replace(state, units=units, teams=teams)
+    orders = {
+        "blue": {"actions": [{"unit_id": "blue-u2", "action": "deliver"}]},
+        "red": {"actions": [{"unit_id": "red-u2", "action": "deliver"}]},
+    }
+    state, events = resolve_turn(state, SCENARIO, orders)
+    completed = [e for e in events if e.kind == "mission_completed"]
+    assert [e.data["team_id"] for e in completed] == ["blue", "red"]
+    assert {e.data["mission_id"] for e in completed} == {"ms-supply"}
+    mission = next(m for m in state.missions if m.id == "ms-supply")
+    assert mission.status == "completed"
+    assert mission.completed_by == ("blue", "red")
+    points = outcome_points(state)
+    assert points["blue"] == points["red"] == mission.reward + 6  # full reward each
+
+
+def test_dead_heat_award_ignores_total_margin() -> None:
+    """The larger-total tiebreak is gone too: overshooting the amount claims
+    nothing extra — every team at or over it completes for the full reward."""
+    state = active_match()
+    state = _move_unit(state, "blue-u2", (6, 5))
+    state = _move_unit(state, "red-u2", (6, 5))
+    units = tuple(
+        dataclasses.replace(u, carrying=3) if u.id in ("blue-u2", "red-u2") else u
+        for u in state.units
+    )
+    teams = tuple(  # blue lands on 6 exactly; red overshoots to 7
+        dataclasses.replace(t, resources=3 if t.id == "blue" else 4) for t in state.teams
+    )
+    state = dataclasses.replace(state, units=units, teams=teams)
+    orders = {
+        "blue": {"actions": [{"unit_id": "blue-u2", "action": "deliver"}]},
+        "red": {"actions": [{"unit_id": "red-u2", "action": "deliver"}]},
+    }
+    state, _ = resolve_turn(state, SCENARIO, orders)
+    mission = next(m for m in state.missions if m.id == "ms-supply")
+    assert mission.completed_by == ("blue", "red")
+    points = outcome_points(state)
+    assert points["blue"] == mission.reward + 6
+    assert points["red"] == mission.reward + 7
+
+
+def _mirror_match(side0: str, side1: str) -> MatchState:
+    """Both seats play the identical script; only the team-id labels differ.
+
+    The board is deliberately asymmetric in one physical way — side 0 owns a
+    control point — so the finished match has a real winner the assertion can
+    track across the renaming."""
+    state = instantiate(
+        SCENARIO,
+        match_id="m-mirror",
+        seed=7,
+        mode="competitive",
+        teams=((side0, "Side Zero", _roster(side0)), (side1, "Side One", _roster(side1))),
+    )
+    state, _ = start_match(state)
+    state = _move_unit(state, f"{side0}-u2", (6, 5))
+    state = _move_unit(state, f"{side1}-u2", (6, 5))
+    units = tuple(
+        dataclasses.replace(u, carrying=3) if u.id.endswith("-u2") else u for u in state.units
+    )
+    teams = tuple(dataclasses.replace(t, resources=3) for t in state.teams)
+    cps = tuple(
+        dataclasses.replace(c, owner=side0) if c.id == "cp-east" else c
+        for c in state.control_points
+    )
+    state = dataclasses.replace(
+        state, units=units, teams=teams, control_points=cps, turn=state.turn_limit - 2
+    )
+    orders = {
+        side0: {"actions": [{"unit_id": f"{side0}-u2", "action": "deliver"}]},
+        side1: {"actions": [{"unit_id": f"{side1}-u2", "action": "deliver"}]},
+    }
+    state, _ = resolve_turn(state, SCENARIO, orders)  # the dead-heat turn
+    state, _ = resolve_turn(state, SCENARIO, {})  # the clock hits the limit
+    assert state.status == "finished"
+    return state
+
+
+def test_team_id_swap_leaves_outcomes_mirror_identical() -> None:
+    """No id-order bias: rename the teams of an otherwise identical scripted
+    match and the outcome is the exact mirror image. Under the old dead-heat
+    rule the lexicographically-first id took the mission in BOTH runs, so the
+    same seat won or lost depending on what it was called."""
+    a = _mirror_match("alpha", "zulu")  # side 0 sorts first
+    b = _mirror_match("zulu", "alpha")  # side 0 sorts last
+    points_a, points_b = outcome_points(a), outcome_points(b)
+    assert points_a["alpha"] == points_b["zulu"]  # side 0's tally, either name
+    assert points_a["zulu"] == points_b["alpha"]  # side 1's tally, either name
+    assert a.winner == "alpha"  # side 0 wins on the extra control point…
+    assert b.winner == "zulu"  # …whatever its id sorts like
+    for state in (a, b):
+        supply = next(m for m in state.missions if m.id == "ms-supply")
+        assert supply.completed_by == ("alpha", "zulu")
+
+
+def test_hold_mission_dead_heat_is_unreachable_by_construction() -> None:
+    """Why there is no hold-mission dual-award path: a hold mission completes
+    off its control point's streak, and ``ControlPoint.hold`` stores at most
+    one ``(team, turns)`` entry — sole occupancy builds it, any contest resets
+    it to ``()``. Two teams can therefore never satisfy the hold condition on
+    the same turn. This test pins that structural premise so the documentation
+    fails loudly if the streak model ever changes."""
+    state = active_match()
+    state = _move_unit(state, "blue-u3", (9, 2))
+    state = _move_unit(state, "red-u3", (9, 2))
+    cps = tuple(  # blue arrives with overwhelming prior progress on the books
+        dataclasses.replace(c, owner="blue", hold=(("blue", 99),)) if c.id == "cp-east" else c
+        for c in state.control_points
+    )
+    state = dataclasses.replace(state, control_points=cps)
+    state, events = resolve_turn(state, SCENARIO, {})
+    assert not [e for e in events if e.kind == "mission_completed"]
+    cp = next(c for c in state.control_points if c.id == "cp-east")
+    assert cp.hold == ()  # contested → the single-entry streak resets outright
+
+
 def test_turn_limit_ends_the_match_with_a_winner() -> None:
     state = active_match()
     teams = tuple(dataclasses.replace(t, resources=5) if t.id == "blue" else t for t in state.teams)
@@ -254,7 +385,7 @@ def test_cooperative_win_and_loss() -> None:
     assert lost.winner is None
     # Win: all missions completed inside the limit.
     missions = tuple(
-        dataclasses.replace(m, status="completed", completed_by="blue", completed_turn=1)
+        dataclasses.replace(m, status="completed", completed_by=("blue",), completed_turn=1)
         for m in coop.missions
     )
     won = dataclasses.replace(coop, missions=missions)

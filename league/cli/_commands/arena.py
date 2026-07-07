@@ -22,7 +22,10 @@ def _scenario_dict(s: Scenario) -> dict[str, object]:
         "turn_limit": s.turn_limit,
         "modes": list(s.modes),
         "capture_hold_turns": s.capture_hold_turns,
-        "roles": {name: {"move": st.move, "carry": st.carry} for name, st in s.role_stats},
+        "roles": {
+            name: {"move": st.move, "carry": st.carry, "vision": st.vision}
+            for name, st in s.role_stats
+        },
         "control_points": [{"id": c.id, "pos": list(c.pos)} for c in s.control_points],
         "missions": [
             {"id": m.id, "kind": m.kind, "pos": list(m.pos), "amount": m.amount, "reward": m.reward}
@@ -85,7 +88,10 @@ def cmd_arena_show(args: argparse.Namespace) -> int:
             f"grid {scenario.grid_width}x{scenario.grid_height}, "
             f"turn limit {scenario.turn_limit}, modes: {', '.join(scenario.modes)}",
             "roles: "
-            + ", ".join(f"{n} (move {s.move}, carry {s.carry})" for n, s in scenario.role_stats),
+            + ", ".join(
+                f"{n} (move {s.move}, carry {s.carry}, vision {s.vision})"
+                for n, s in scenario.role_stats
+            ),
             f"control points: {', '.join(c.id for c in scenario.control_points)}",
             f"missions: {', '.join(f'{m.id} ({m.kind} {m.amount})' for m in scenario.missions)}",
         ]

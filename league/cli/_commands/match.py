@@ -14,15 +14,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 from typing import Any
 
 from league.cli._errors import EXIT_USER_ERROR, CliError
 from league.cli._output import emit_result
 from league.engine.events import MatchLog
-from league.engine.scenario import get_scenario, instantiate
+from league.engine.knowledge import KnowledgeFrame, knowledge_by_turn, latest_knowledge
+from league.engine.legal import legal_actions
+from league.engine.scenario import Scenario, get_scenario, instantiate
 from league.engine.scoring import score_match
+from league.engine.state import MatchState
 from league.engine.tick import resolve_turn, start_match
-from league.replay import build_replay_data, render_html
+from league.faces import faces_app, render_brief_markdown
+from league.replay import build_replay_data, render_frame, render_html, run_interactive_shell
 from league.store import Store, validate_id
 
 
@@ -35,6 +41,151 @@ def _safe_id(value: str, what: str) -> str:
             message=str(err),
             remediation="ids become filenames; keep them to letters, digits, '.', '_', '-'",
         ) from err
+
+
+# Residency: the declared driver-kind fairness axis (spec c10/h7). Metadata
+# about HOW a team's minds were invoked — never game state, so it lives in the
+# match log header (league.engine.events.MatchLog.driver_kinds), not the state.
+_DRIVER_KINDS = ("bot", "stateless", "resident")
+
+
+def _driver_kinds_from_args(args: argparse.Namespace, team_ids: list[str]) -> dict[str, str]:
+    driver_kinds: dict[str, str] = {}
+    for spec in args.driver or ():
+        team_id, sep, kind = spec.partition(":")
+        if not sep or not team_id or not kind:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"bad --driver {spec!r}",
+                remediation="use --driver <team-id>:<bot|stateless|resident>",
+            )
+        if team_id not in team_ids:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"--driver references team {team_id!r}, not one of --team",
+                remediation=f"teams here: {', '.join(team_ids) or 'none'}",
+            )
+        if kind not in _DRIVER_KINDS:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"unknown driver kind {kind!r} for team {team_id!r}",
+                remediation=f"expected one of: {', '.join(_DRIVER_KINDS)}",
+            )
+        driver_kinds[team_id] = kind
+    return driver_kinds
+
+
+# Orchestrator mode's two declared fairness axes (plan t6, spec c4/c6/h3/h5):
+# metadata about the MODE's information-asymmetry rules, never game state —
+# same header-only treatment as ``_DRIVER_KINDS`` above.
+_MAP_READ_KINDS = ("full", "fog")
+
+
+def _map_read_from_args(args: argparse.Namespace, team_ids: list[str]) -> dict[str, str]:
+    map_read: dict[str, str] = {}
+    for spec in args.map_read or ():
+        team_id, sep, kind = spec.partition(":")
+        if not sep or not team_id or not kind:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"bad --map-read {spec!r}",
+                remediation="use --map-read <team-id>:<full|fog>",
+            )
+        if team_id not in team_ids:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"--map-read references team {team_id!r}, not one of --team",
+                remediation=f"teams here: {', '.join(team_ids) or 'none'}",
+            )
+        if kind not in _MAP_READ_KINDS:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"unknown map-read kind {kind!r} for team {team_id!r}",
+                remediation=f"expected one of: {', '.join(_MAP_READ_KINDS)}",
+            )
+        map_read[team_id] = kind
+    return map_read
+
+
+def _unit_comms_from_args(args: argparse.Namespace, team_ids: list[str]) -> dict[str, bool]:
+    unit_comms: dict[str, bool] = {}
+    for spec in args.unit_comms or ():
+        team_id, sep, kind = spec.partition(":")
+        if not sep or not team_id or not kind:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"bad --unit-comms {spec!r}",
+                remediation="use --unit-comms <team-id>:<on|off>",
+            )
+        if team_id not in team_ids:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"--unit-comms references team {team_id!r}, not one of --team",
+                remediation=f"teams here: {', '.join(team_ids) or 'none'}",
+            )
+        if kind not in ("on", "off"):
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"unknown unit-comms value {kind!r} for team {team_id!r}",
+                remediation="expected 'on' or 'off'",
+            )
+        unit_comms[team_id] = kind == "on"
+    return unit_comms
+
+
+# -- fog of war: one team's briefing-safe projection (plan t5, spec c5/h4) --
+#
+# The engine/tick stay full-information and deterministic (spec c12
+# non-goal); fog is a read-side projection layered on top, the same way
+# scoring and knowledge already are — it never touches ``state``, the log,
+# or ``state_hash``. ``_fogged_state`` is the substrate ``match show --team
+# --fog`` and the harness's briefings share: a team's own roster in full (it
+# always knows its own units — they report in), every other team's units and
+# every control point / resource node only as far as the team's knowledge
+# fold (``league.engine.knowledge``) has seen or been told, and a mission
+# revealed only once its declared position coincides with a control point or
+# resource node the team already knows about — a mission is board furniture
+# the team discovers the same way as anything else, never a free hint.
+
+
+def _fogged_state(
+    state: MatchState, scenario: Scenario, team_id: str, frame: KnowledgeFrame
+) -> dict[str, Any]:
+    known_units = {u.id: u for u in frame.units}
+    units: list[dict[str, Any]] = []
+    for unit in state.units:
+        if unit.team_id == team_id:
+            units.append(unit.to_dict())  # a team always knows its own roster
+        else:
+            known = known_units.get(unit.id)
+            if known is not None:
+                units.append(known.to_dict())
+    known_positions = {n.pos for n in frame.resource_nodes} | {c.pos for c in frame.control_points}
+    missions = [m.to_dict() for m in scenario.missions if m.pos in known_positions]
+    return {
+        "match_id": state.match_id,
+        "scenario_id": state.scenario_id,
+        "seed": state.seed,
+        "mode": state.mode,
+        "turn": state.turn,
+        "turn_limit": state.turn_limit,
+        "grid_width": state.grid_width,
+        "grid_height": state.grid_height,
+        "status": state.status,
+        "winner": state.winner,
+        # Own economy is always known; another team's is not ours to report
+        # on (nothing in the knowledge fold tracks it — a fair unknown, not a
+        # bug).
+        "teams": [
+            {**t.to_dict(), "resources": t.resources if t.id == team_id else None}
+            for t in state.teams
+        ],
+        "units": units,
+        "control_points": [c.to_dict() for c in frame.control_points],
+        "missions": missions,
+        "resource_nodes": [n.to_dict() for n in frame.resource_nodes],
+        "cells_seen": sorted([list(cell) for cell in frame.cells_seen]),
+    }
 
 
 def _load(store: Store, match_id: str) -> MatchLog:
@@ -64,7 +215,10 @@ def cmd_match_overview(args: argparse.Namespace) -> int:
             "(dry-run; --apply)",
             "tick": "force-resolve the turn with whatever is staged (dry-run; --apply)",
             "score": "outcome + cooperation scores from the log",
+            "brief": "markdown briefing from the faces registry (--team for the fogged view)",
             "replay": "self-contained HTML replay on stdout",
+            "tui": "replay-stepping terminal view: ground truth or --team fog "
+            "(--frame N for non-interactive; --no-color)",
         },
     }
     if json_mode:
@@ -104,6 +258,9 @@ def cmd_match_new(args: argparse.Namespace) -> int:
         f"m-{args.scenario}-{args.mode}-s{args.seed}-{len(store.list_matches()) + 1:03d}"
     )
     _safe_id(match_id, "match id")
+    driver_kinds = _driver_kinds_from_args(args, team_ids)
+    map_read = _map_read_from_args(args, team_ids)
+    unit_comms = _unit_comms_from_args(args, team_ids)
     try:
         state = instantiate(
             scenario, match_id=match_id, seed=args.seed, mode=args.mode, teams=teams
@@ -122,6 +279,9 @@ def cmd_match_new(args: argparse.Namespace) -> int:
         "mode": args.mode,
         "seed": args.seed,
         "teams": [t[0] for t in teams],
+        "driver_kinds": driver_kinds,
+        "map_read": map_read,
+        "unit_comms": unit_comms,
         "turn_limit": state.turn_limit,
         "applied": bool(args.apply),
     }
@@ -129,7 +289,13 @@ def cmd_match_new(args: argparse.Namespace) -> int:
         initial = instantiate(
             scenario, match_id=match_id, seed=args.seed, mode=args.mode, teams=teams
         )
-        log = MatchLog(initial_state=initial, events=events)
+        log = MatchLog(
+            initial_state=initial,
+            events=events,
+            driver_kinds=driver_kinds,
+            map_read=map_read,
+            unit_comms=unit_comms,
+        )
         try:
             path = store.create_match(log)
         except FileExistsError as err:
@@ -143,9 +309,14 @@ def cmd_match_new(args: argparse.Namespace) -> int:
         emit_result(payload, json_mode=True)
     else:
         verb = "created" if args.apply else "would create (dry-run; add --apply)"
+        drivers = (
+            f", drivers: {', '.join(f'{t}={k}' for t, k in sorted(driver_kinds.items()))}"
+            if driver_kinds
+            else ""
+        )
         emit_result(
             f"{verb}: {match_id} — {args.scenario} ({args.mode}, seed {args.seed}, "
-            f"teams: {', '.join(payload['teams']) or 'none'})",
+            f"teams: {', '.join(payload['teams']) or 'none'}{drivers})",
             json_mode=False,
         )
     return 0
@@ -188,8 +359,62 @@ def cmd_match_show(args: argparse.Namespace) -> int:
     log = _load(store, args.match_id)
     state = log.final_state()
     pending = sorted(store.pending_orders(args.match_id))
+    team_id = getattr(args, "team", None)
+    fog = bool(getattr(args, "fog", False))
+    if fog and not team_id:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message="--fog requires --team",
+            remediation="pass --team <team-id> --fog for that team's fogged view",
+        )
+    if team_id is not None and team_id not in {t.id for t in state.teams}:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"team {team_id!r} is not in this match",
+            remediation=f"teams here: {', '.join(t.id for t in state.teams)}",
+        )
     if json_mode:
-        emit_result({"state": state.to_dict(), "staged_teams": pending}, json_mode=True)
+        scenario = get_scenario(state.scenario_id)
+        living_actions = {
+            unit.id: legal_actions(state, scenario, unit.id)
+            for unit in state.units
+            if unit.alive and (team_id is None or unit.team_id == team_id)
+        }
+        # The rejections from the most recently resolved turn — the harness's
+        # rejection-feedback loop (spec c8/h5): a seat that never learns why an
+        # order was rejected repeats it for the whole match (season-0
+        # coordination playtest: 19 of 53 orders). ``event.turn`` on an
+        # ``action_rejected`` is the turn it was rejected in; that equals
+        # ``state.turn`` right after the fold, so this is exactly "last turn",
+        # never a history dump.
+        last_turn_rejections = [
+            {
+                "team_id": event.data.get("team_id"),
+                "unit_id": event.data.get("unit_id"),
+                "reason": event.data.get("reason"),
+            }
+            for event in log.events
+            if event.kind == "action_rejected"
+            and event.turn == state.turn
+            and (team_id is None or event.data.get("team_id") == team_id)
+        ]
+        payload: dict[str, Any] = {
+            "state": state.to_dict(),
+            "staged_teams": pending,
+            "legal_actions": living_actions,
+            "last_turn_rejections": last_turn_rejections,
+            "driver_kinds": log.driver_kinds,
+            "map_read": log.map_read,
+            "unit_comms": log.unit_comms,
+        }
+        if fog:
+            # Additive and read-only: swaps only this response's "state" for
+            # the team's fog-of-war projection and adds "knowledge" (the raw
+            # fold) — the plain (no --team/--fog) response above is untouched.
+            frame = latest_knowledge(log, scenario)[team_id]
+            payload["knowledge"] = frame.to_dict()
+            payload["state"] = _fogged_state(state, scenario, team_id, frame)
+        emit_result(payload, json_mode=True)
         return 0
     lines = [
         f"{state.match_id}: {state.status} — turn {state.turn}/{state.turn_limit} "
@@ -199,15 +424,18 @@ def cmd_match_show(args: argparse.Namespace) -> int:
         lines.append(f"winner: {state.winner}")
     for team in state.teams:
         units = [u for u in state.units if u.team_id == team.id and u.alive]
+        driver = log.driver_kinds.get(team.id)
         lines.append(
-            f"  {team.id}: resources {team.resources}, units "
+            f"  {team.id}: resources {team.resources}"
+            + (f", driver {driver}" if driver else "")
+            + ", units "
             + ", ".join(f"{u.id}@{u.pos[0]},{u.pos[1]}" for u in units)
         )
     for cp in state.control_points:
         hold = f", streak {cp.hold[0][1]} ({cp.hold[0][0]})" if cp.hold else ""
         lines.append(f"  {cp.id}: owner {cp.owner or '—'}{hold}")
     for mission in state.missions:
-        who = f" by {mission.completed_by}" if mission.completed_by else ""
+        who = f" by {', '.join(mission.completed_by)}" if mission.completed_by else ""
         lines.append(f"  {mission.id}: {mission.status}{who}")
     if pending:
         lines.append(f"staged orders: {', '.join(pending)}")
@@ -403,12 +631,96 @@ def cmd_match_score(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_match_brief(args: argparse.Namespace) -> int:
+    """The agents' face: markdown (or facts JSON) served from the faces registry.
+
+    The verb is a thin adapter — it resolves the ``("match", "brief")`` tool in
+    the agentfront registry (``league.faces.faces_app``) and renders whatever
+    that one declaration returns, so the markdown and JSON projections cannot
+    drift (face-agreement tests in ``tests/test_faces.py`` prove it).
+    """
+    json_mode = bool(getattr(args, "json", False))
+    entry = faces_app().get_by_path(("match", "brief"))
+    try:
+        facts = entry.func(args.match_id, args.team or "")
+    except FileNotFoundError as err:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=str(err),
+            remediation="run 'league match list' to see matches",
+        ) from err
+    except ValueError as err:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=str(err),
+            remediation="pass --team <id> for a team in this match, or omit --team",
+        ) from err
+    if json_mode:
+        emit_result(facts, json_mode=True)
+    else:
+        emit_result(render_brief_markdown(facts), json_mode=False)
+    return 0
+
+
 def cmd_match_replay(args: argparse.Namespace) -> int:
     log = _load(Store(), args.match_id)
     if getattr(args, "json", False):
         emit_result(build_replay_data(log), json_mode=True)
     else:
         emit_result(render_html(log), json_mode=False)
+    return 0
+
+
+def _color_enabled(args: argparse.Namespace) -> bool:
+    """``--no-color`` and the ``NO_COLOR`` convention both disable ANSI color."""
+    if getattr(args, "no_color", False):
+        return False
+    if os.environ.get("NO_COLOR"):
+        return False
+    return True
+
+
+def cmd_match_tui(args: argparse.Namespace) -> int:
+    """Replay-stepping terminal view: ground truth, or a team's fogged knowledge.
+
+    ``--frame N`` (or a non-tty stdin/stdout) renders one frame to stdout and
+    exits — the path the tests and pipes drive. With both stdin and stdout as
+    ttys and no ``--frame``, it launches the curses shell instead (arrow keys
+    step frames, Tab toggles the team).
+    """
+    store = Store()
+    log = _load(store, args.match_id)
+    data = build_replay_data(log)
+    team_ids = {t.id for t in log.initial_state.teams}
+
+    knowledge = None
+    if args.team is not None:
+        if args.team not in team_ids:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"team {args.team!r} is not in match {args.match_id!r}",
+                remediation=f"teams here: {', '.join(sorted(team_ids)) or 'none'}",
+            )
+        scenario = get_scenario(log.initial_state.scenario_id)
+        knowledge = knowledge_by_turn(log, scenario)
+
+    if args.frame is None and sys.stdin.isatty() and sys.stdout.isatty():
+        run_interactive_shell(data, knowledge, initial_team=args.team)
+        return 0
+
+    total = len(data["frames"])
+    frame_index = args.frame if args.frame is not None else total - 1
+    resolved = frame_index + total if frame_index < 0 else frame_index
+    if not 0 <= resolved < total:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"--frame {frame_index} out of range for {args.match_id!r} (0..{total - 1})",
+            remediation=f"pick a frame in 0..{total - 1} (or omit --frame for the last one)",
+        )
+    lines = render_frame(
+        data, resolved, team=args.team, knowledge=knowledge, color=_color_enabled(args)
+    )
+    emit_result("\n".join(lines), json_mode=False)
     return 0
 
 
@@ -511,6 +823,31 @@ def register(sub: argparse._SubParsersAction) -> None:
     new.add_argument("--team", action="append", help="Registered team id; repeatable.")
     new.add_argument("--seed", type=int, default=1, help="Deterministic seed (default 1).")
     new.add_argument("--id", help="Match id (default: derived from scenario/mode/seed).")
+    new.add_argument(
+        "--driver",
+        action="append",
+        metavar="TEAM:KIND",
+        help="Declared driver residency for a team — bot/stateless/resident "
+        "(fairness metadata only, recorded in the match log; repeatable).",
+    )
+    new.add_argument(
+        "--map-read",
+        action="append",
+        metavar="TEAM:full|fog",
+        help="Orchestrator mode's declared map-read capability for a team under "
+        "fog — 'full' (its master reads the whole board) or 'fog' (default: "
+        "same fogged view as everyone) — a declared information-asymmetry "
+        "rule, never a hidden privilege (spec c4/h3; repeatable).",
+    )
+    new.add_argument(
+        "--unit-comms",
+        action="append",
+        metavar="TEAM:on|off",
+        help="Orchestrator mode's declared unit-to-unit comms flag for a team — "
+        "'on' lets ground units message each other directly; 'off' (the "
+        "mode's default) means master-mediated only — a recorded fairness "
+        "axis (spec c6/h5; repeatable).",
+    )
     new.add_argument("--apply", action="store_true", help="Actually create (default: dry-run).")
     new.add_argument("--json", action="store_true", help="Emit structured JSON.")
     new.set_defaults(func=cmd_match_new)
@@ -521,6 +858,15 @@ def register(sub: argparse._SubParsersAction) -> None:
 
     show = noun_sub.add_parser("show", help="Show a match's current state.")
     show.add_argument("match_id", help="Match id.")
+    show.add_argument(
+        "--team", help="Scope legal_actions/last_turn_rejections (and, with --fog) to this team."
+    )
+    show.add_argument(
+        "--fog",
+        action="store_true",
+        help="Requires --team: replace 'state' with that team's fog-of-war "
+        "knowledge projection and add 'knowledge' (spec c5/h4).",
+    )
     show.add_argument("--json", action="store_true", help="Emit structured JSON.")
     show.set_defaults(func=cmd_match_show)
 
@@ -557,10 +903,36 @@ def register(sub: argparse._SubParsersAction) -> None:
     score.add_argument("--json", action="store_true", help="Emit structured JSON.")
     score.set_defaults(func=cmd_match_score)
 
+    brief = noun_sub.add_parser(
+        "brief", help="Markdown briefing of the match — the agents' face (--team for fog)."
+    )
+    brief.add_argument("match_id", help="Match id.")
+    brief.add_argument("--team", help="Render the fogged view: only what this team knows.")
+    brief.add_argument(
+        "--json", action="store_true", help="The same facts as JSON instead of markdown."
+    )
+    brief.set_defaults(func=cmd_match_brief)
+
     replay = noun_sub.add_parser("replay", help="Self-contained HTML replay on stdout.")
     replay.add_argument("match_id", help="Match id.")
     replay.add_argument("--json", action="store_true", help="Replay data as JSON instead of HTML.")
     replay.set_defaults(func=cmd_match_replay)
+
+    tui = noun_sub.add_parser(
+        "tui", help="Replay-stepping terminal view (ground truth or --team fog)."
+    )
+    tui.add_argument("match_id", help="Match id.")
+    tui.add_argument(
+        "--frame",
+        type=int,
+        help="Frame index to render non-interactively (default: last frame; "
+        "negative counts from the end).",
+    )
+    tui.add_argument("--team", help="Render this team's knowledge instead of ground truth.")
+    tui.add_argument(
+        "--no-color", action="store_true", help="Disable ANSI color (also honors NO_COLOR)."
+    )
+    tui.set_defaults(func=cmd_match_tui)
 
     rematch = noun_sub.add_parser(
         "rematch", help="Same scenario + seed with a new roster (dry-run by default)."

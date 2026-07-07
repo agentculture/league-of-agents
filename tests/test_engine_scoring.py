@@ -109,6 +109,57 @@ def _play_match() -> MatchLog:
     return MatchLog(initial_state=initial, events=tuple(all_events))
 
 
+def _dead_heat_log() -> MatchLog:
+    """A log whose one scripted turn is the orchestrator-t16 photo finish:
+    both harvesters unload the mission's sixth resource simultaneously.
+
+    The engineered board (both units on the delivery square carrying 3, both
+    teams at 3) is the log's *initial* state, so the events still fold to the
+    final state exactly — the log stays the single source of truth."""
+    state = instantiate(
+        SCENARIO,
+        match_id="m-dead-heat",
+        seed=11,
+        mode="competitive",
+        teams=(
+            ("blue", "Blue Foundry", _roster("blue")),
+            ("red", "Red Relay", _roster("red", model="claude-sonnet-5")),
+        ),
+    )
+    state, _ = start_match(state)
+    units = tuple(
+        dataclasses.replace(u, pos=(6, 5), carrying=3) if u.id.endswith("-u2") else u
+        for u in state.units
+    )
+    teams = tuple(dataclasses.replace(t, resources=3) for t in state.teams)
+    initial = dataclasses.replace(state, units=units, teams=teams, turn=state.turn_limit - 2)
+    orders = {
+        "blue": {"actions": [{"unit_id": "blue-u2", "action": "deliver"}]},
+        "red": {"actions": [{"unit_id": "red-u2", "action": "deliver"}]},
+    }
+    state, events = resolve_turn(initial, SCENARIO, orders)
+    all_events = list(events)
+    state, events = resolve_turn(state, SCENARIO, {}, seq_start=len(all_events))
+    all_events.extend(events)
+    assert state.status == "finished"
+    return MatchLog(initial_state=initial, events=tuple(all_events))
+
+
+def test_dual_award_missions_score_for_both_teams() -> None:
+    """Spec decision c15: a dead-heat mission pays its FULL reward into both
+    teams' outcome rows — scoring reads the same dual completion the tick
+    awarded, from the log alone."""
+    log = _dead_heat_log()
+    reward = next(m.reward for m in SCENARIO.missions if m.id == "ms-supply")
+    report = score_match(log)
+    assert report["outcome"]["blue"]["missions"] == reward
+    assert report["outcome"]["red"]["missions"] == reward
+    assert report["outcome"]["blue"]["total"] == report["outcome"]["red"]["total"] == reward + 6
+    assert report["winner"] == "draw"  # identical play, identical points
+    supply = next(m for m in log.final_state().missions if m.id == "ms-supply")
+    assert supply.completed_by == ("blue", "red")
+
+
 def test_both_scores_present_for_every_team_from_log_alone() -> None:
     log = _play_match()
     report = score_match(log)

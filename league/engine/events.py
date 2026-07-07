@@ -12,15 +12,28 @@ Two design rules (spec c11/h4, c12/h5):
   are first-class events — cooperation scoring (t7) and the human replay (t8)
   are built from them.
 
-The on-disk format is JSONL: line 1 is a header ``{"log_version", "initial_state"}``,
-every following line one event, all canonical JSON.
+The on-disk format is JSONL: line 1 is a header ``{"log_version", "initial_state",
+"driver_kinds", "map_read", "unit_comms"}``, every following line one event, all
+canonical JSON. ``driver_kinds`` is a per-team ``{team_id:
+"bot"|"stateless"|"resident"}`` map — the declared residency fairness axis
+(spec c10/h7): *how* a team's minds were invoked. ``map_read`` and
+``unit_comms`` are orchestrator mode's declared fairness axes (plan t6, spec
+c4/c6/h3/h5): ``map_read`` is a per-team ``{team_id: "full"|"fog"}`` map — the
+orchestrator/master's map-read capability under fog, a DECLARED
+information-asymmetry rule of the mode, never a hidden privilege; ``unit_comms``
+is a per-team ``{team_id: bool}`` map — whether that team's ground units may
+message each other directly (``True``) or are master-mediated only (``False``,
+orchestrator mode's default). All three fields are pure metadata about the
+harness, never game state — none of them touch ``MatchState``/``state_hash`` or
+the fold, and each defaults to ``{}`` so logs written before it existed still
+parse.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 from league.engine.state import MatchState
@@ -149,14 +162,20 @@ def apply_event(state: MatchState, event: Event) -> MatchState:
             state, units=_replace_one(state.units, data["unit_id"], alive=False)
         )
     if kind == "mission_completed":
+        # A dead-heat is a dual award (spec decision c15): the tick emits one
+        # completion event per qualifying team and the fold accumulates them
+        # into a canonically sorted tuple — the outcome is id-neutral.
+        mission = _find(state.missions, data["mission_id"])
         return dataclasses.replace(
             state,
             missions=_replace_one(
                 state.missions,
                 data["mission_id"],
                 status="completed",
-                completed_by=data["team_id"],
-                completed_turn=event.turn,
+                completed_by=tuple(sorted({*mission.completed_by, data["team_id"]})),
+                completed_turn=(
+                    mission.completed_turn if mission.completed_turn is not None else event.turn
+                ),
             ),
         )
     if kind == "turn_advanced":
@@ -176,16 +195,30 @@ def fold_events(initial: MatchState, events: Iterable[Event]) -> MatchState:
 
 @dataclass(frozen=True)
 class MatchLog:
-    """An initial state plus everything that happened — the whole match."""
+    """An initial state plus everything that happened — the whole match.
+
+    ``driver_kinds``/``map_read``/``unit_comms`` are header metadata only (see
+    module docstring): per-team declared-fairness labels, never folded and
+    never part of ``state_hash``.
+    """
 
     initial_state: MatchState
     events: tuple[Event, ...]
+    driver_kinds: dict[str, str] = field(default_factory=dict)
+    map_read: dict[str, str] = field(default_factory=dict)
+    unit_comms: dict[str, bool] = field(default_factory=dict)
 
     def final_state(self) -> MatchState:
         return fold_events(self.initial_state, self.events)
 
     def to_jsonl(self) -> str:
-        header = {"log_version": LOG_VERSION, "initial_state": self.initial_state.to_dict()}
+        header = {
+            "log_version": LOG_VERSION,
+            "initial_state": self.initial_state.to_dict(),
+            "driver_kinds": dict(self.driver_kinds),
+            "map_read": dict(self.map_read),
+            "unit_comms": dict(self.unit_comms),
+        }
         lines = [json.dumps(header, sort_keys=True, separators=(",", ":"), ensure_ascii=False)]
         lines.extend(
             json.dumps(e.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -204,4 +237,13 @@ class MatchLog:
             raise ValueError(f"unsupported log_version {version!r}; expected {LOG_VERSION}")
         initial = MatchState.from_dict(header["initial_state"])
         events = tuple(Event.from_dict(json.loads(line)) for line in lines[1:])
-        return cls(initial_state=initial, events=events)
+        driver_kinds = dict(header.get("driver_kinds", {}))
+        map_read = dict(header.get("map_read", {}))
+        unit_comms = dict(header.get("unit_comms", {}))
+        return cls(
+            initial_state=initial,
+            events=events,
+            driver_kinds=driver_kinds,
+            map_read=map_read,
+            unit_comms=unit_comms,
+        )

@@ -12,12 +12,15 @@ Criteria under test:
 from __future__ import annotations
 
 import dataclasses
+from pathlib import Path
 
 import pytest
 
 from league.engine.events import LOG_VERSION, Event, MatchLog, apply_event, fold_events
 from league.engine.scenario import get_scenario, instantiate
 from league.engine.state import AgentSlot, MatchState, state_hash
+
+_SEASON_0 = Path(__file__).parent.parent / "docs" / "playtests" / "season-0"
 
 
 def _roster(team: str, model: str) -> tuple[AgentSlot, ...]:
@@ -125,7 +128,7 @@ def test_fold_reproduces_final_state_exactly() -> None:
     assert not next(u for u in final.units if u.id == "red-u1").alive
     mission = next(m for m in final.missions if m.id == "ms-supply")
     assert mission.status == "completed"
-    assert mission.completed_by == "blue"
+    assert mission.completed_by == ("blue",)
     assert mission.completed_turn == 5
 
 
@@ -153,6 +156,66 @@ def test_jsonl_round_trip_is_byte_identical() -> None:
 def test_replaying_twice_is_deterministic() -> None:
     log = MatchLog(initial_state=initial_state(), events=sample_events())
     assert state_hash(log.final_state()) == state_hash(log.final_state())
+
+
+def test_driver_kinds_default_empty_and_round_trip() -> None:
+    """Residency is match-log metadata (spec c10/h7), not game state: it rides in
+    the header alongside ``log_version``/``initial_state`` and never touches the
+    fold, so a log without it still defaults cleanly."""
+    bare = MatchLog(initial_state=initial_state(), events=sample_events())
+    assert bare.driver_kinds == {}
+
+    log = MatchLog(
+        initial_state=initial_state(),
+        events=sample_events(),
+        driver_kinds={"blue": "resident", "red": "stateless"},
+    )
+    payload = log.to_jsonl()
+    restored = MatchLog.from_jsonl(payload)
+    assert restored == log
+    assert restored.driver_kinds == {"blue": "resident", "red": "stateless"}
+    # Metadata never leaks into the fold or the hash.
+    assert state_hash(restored.final_state()) == state_hash(bare.final_state())
+
+
+def test_from_jsonl_tolerates_logs_without_driver_kinds() -> None:
+    """The committed season-0 logs predate this field; they must still parse."""
+    path = _SEASON_0 / "orchestrator.log.jsonl"
+    log = MatchLog.from_jsonl(path.read_text(encoding="utf-8"))
+    assert log.driver_kinds == {}
+
+
+def test_map_read_and_unit_comms_default_empty_and_round_trip() -> None:
+    """Orchestrator mode's declared fairness axes (plan t6, spec c4/c6/h3/h5):
+    a team's map-read capability ('full'|'fog') and its unit-to-unit comms
+    flag ride in the header exactly like ``driver_kinds`` — metadata only,
+    never folded, defaulting cleanly on a log that predates them."""
+    bare = MatchLog(initial_state=initial_state(), events=sample_events())
+    assert bare.map_read == {}
+    assert bare.unit_comms == {}
+
+    log = MatchLog(
+        initial_state=initial_state(),
+        events=sample_events(),
+        map_read={"blue": "full", "red": "fog"},
+        unit_comms={"blue": False, "red": True},
+    )
+    payload = log.to_jsonl()
+    restored = MatchLog.from_jsonl(payload)
+    assert restored == log
+    assert restored.map_read == {"blue": "full", "red": "fog"}
+    assert restored.unit_comms == {"blue": False, "red": True}
+    # Metadata never leaks into the fold or the hash.
+    assert state_hash(restored.final_state()) == state_hash(bare.final_state())
+
+
+def test_from_jsonl_tolerates_logs_without_map_read_or_unit_comms() -> None:
+    """The committed season-0 logs predate these fields; they must still parse."""
+    path = _SEASON_0 / "orchestrator.log.jsonl"
+    log = MatchLog.from_jsonl(path.read_text(encoding="utf-8"))
+    assert log.map_read == {}
+    assert log.unit_comms == {}
+    assert log.final_state().status == "finished"
 
 
 def test_unknown_event_kind_rejected() -> None:

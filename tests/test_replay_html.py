@@ -120,12 +120,28 @@ def test_mission_targets_are_labeled_with_owner_on_completion() -> None:
     """Human-review regression (season-0 h15): the delivery square sits on a
     capturable control point, so an unlabeled drop ring read as 'delivering to
     the enemy base'. Every mission is labeled, and a completed one names and
-    wears the color of the team that actually earned it."""
+    wears the color of the team that actually earned it — or lists every
+    winner of a dual-award dead-heat (spec decision c15)."""
     from league.replay.html import _TEMPLATE
 
     assert "${m.id}: ${m.kind} ${m.amount}" in _TEMPLATE
-    assert "${m.id} → ${m.completed_by}" in _TEMPLATE
-    assert "teamColor(m.completed_by)" in _TEMPLATE
+    assert "${m.id} → ${m.completed_by.join(' + ')}" in _TEMPLATE
+    assert "teamColor(m.completed_by[0])" in _TEMPLATE
+
+
+def test_dual_award_missions_render_for_both_teams() -> None:
+    """A dead-heat mission (spec decision c15) lists both winners and counts
+    toward BOTH teams' mission tallies in the replay."""
+    from league.replay.html import _TEMPLATE
+    from tests.test_engine_scoring import _dead_heat_log
+
+    data = build_replay_data(_dead_heat_log())
+    supply = next(m for m in data["frames"][-1]["missions"] if m["id"] == "ms-supply")
+    assert supply["status"] == "completed"
+    assert supply["completed_by"] == ["blue", "red"]
+    # The team panel counts missions by membership, never by identity —
+    # a dual award shows up on both cards.
+    assert "m.completed_by.includes(t.id)" in _TEMPLATE
 
 
 def test_both_themes_ship() -> None:

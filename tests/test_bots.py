@@ -1,0 +1,403 @@
+"""The coded-strategy bot lane (plan task t2, spec c3/h2).
+
+Criteria under test:
+
+* the reference bot's strategy (``bots/rusher.py``) is readable committed
+  source, and its matches are deterministic given the seed: the same config
+  played twice produces identical logs (state hashes match);
+* a coded bot touches no league internals: the strategy function receives
+  ONLY the parsed JSON dict ``league match show --json`` returns (``state``,
+  ``legal_actions``, ``staged_teams``, ...) — never an engine object, never
+  anything the CLI itself doesn't expose.
+"""
+
+from __future__ import annotations
+
+import ast
+import json
+from pathlib import Path
+
+import pytest
+
+import bots.rusher as rusher
+import league.harness as harness
+from league.cli import main
+from league.engine.state import state_hash
+from league.harness import build_driver, driver_kind, run_match
+from league.store import Store
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+BOTS_DIR = REPO_ROOT / "bots"
+
+# The same determinism bar the engine itself is held to
+# (tests/test_engine_state.py::test_engine_never_imports_time_or_random).
+_BANNED_MODULES = {"random", "time", "datetime", "secrets", "uuid"}
+
+
+@pytest.fixture()
+def arena(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
+def _register(team: str, model: str = "bot-file:rusher") -> list[str]:
+    return [
+        "team",
+        "register",
+        team,
+        "--name",
+        f"Team {team}",
+        "--agent",
+        f"{team}-1:{model}:scout",
+        "--agent",
+        f"{team}-2:{model}:harvester",
+        "--agent",
+        f"{team}-3:{model}:defender",
+    ]
+
+
+def _new_match(match_id: str) -> list[str]:
+    return [
+        "match",
+        "new",
+        "--scenario",
+        "skirmish-1",
+        "--team",
+        "blue",
+        "--team",
+        "red",
+        "--seed",
+        "7",
+        "--id",
+        match_id,
+        "--apply",
+    ]
+
+
+# -- criterion 1: committed, readable source; no nondeterministic/internal --
+# -- imports ------------------------------------------------------------
+
+
+def test_rusher_strategy_is_committed_readable_source() -> None:
+    path = BOTS_DIR / "rusher.py"
+    assert path.is_file(), "bots/rusher.py must be committed source, not generated at runtime"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    top_level = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
+    assert "decide" in top_level, "bots/rusher.py must export a module-level decide(...)"
+
+
+def test_bots_never_import_nondeterministic_or_league_internal_modules() -> None:
+    """Every ``bots/*.py`` strategy is held to the engine's own determinism
+    bar (no random/time/datetime/secrets/uuid) PLUS a stricter rule: no
+    ``league.*`` import at all — a strategy sees only the JSON dict the
+    bot-file driver hands it, never engine or store code."""
+    offenders: list[str] = []
+    py_files = sorted(BOTS_DIR.glob("*.py"))
+    assert py_files, "expected at least one bots/*.py strategy to check"
+    for module in py_files:
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [alias.name.split(".")[0] for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [(node.module or "").split(".")[0]]
+            else:
+                continue
+            for name in names:
+                if name in _BANNED_MODULES or name == "league":
+                    offenders.append(f"{module.name}: {name}")
+    assert not offenders, f"banned imports in bots/: {offenders}"
+
+
+# -- criterion 1: rusher's own decision logic (direct, no harness) ----------
+
+
+def _show_json(units: list[dict], control_points: list[dict], legal_actions: dict) -> dict:
+    return {
+        "state": {"turn": 0, "units": units, "control_points": control_points},
+        "legal_actions": legal_actions,
+        "staged_teams": [],
+        "last_turn_rejections": [],
+        "driver_kinds": {},
+    }
+
+
+def test_rusher_rushes_the_nearest_control_point() -> None:
+    units = [
+        {
+            "id": "blue-u1",
+            "team_id": "blue",
+            "agent_id": "blue-1",
+            "role": "scout",
+            "pos": [0, 0],
+            "carrying": 0,
+            "alive": True,
+        }
+    ]
+    control_points = [
+        {"id": "cp-far", "pos": [9, 9], "owner": None, "hold": []},
+        {"id": "cp-near", "pos": [1, 0], "owner": None, "hold": []},
+    ]
+    legal_actions = {
+        "blue-u1": {
+            "move": [[0, 1], [1, 0], [1, 1]],
+            "gather": False,
+            "deliver": False,
+            "hold": True,
+        }
+    }
+
+    orders = rusher.decide(_show_json(units, control_points, legal_actions), "blue")
+
+    assert orders["actions"] == [{"unit_id": "blue-u1", "action": "move", "to": [1, 0]}]
+    assert orders["plan"].startswith("rusher:")
+
+
+def test_rusher_holds_once_arrived_at_its_target_control_point() -> None:
+    units = [
+        {
+            "id": "blue-u1",
+            "team_id": "blue",
+            "agent_id": "blue-1",
+            "role": "scout",
+            "pos": [1, 0],
+            "carrying": 0,
+            "alive": True,
+        }
+    ]
+    control_points = [{"id": "cp-near", "pos": [1, 0], "owner": None, "hold": []}]
+    legal_actions = {
+        "blue-u1": {"move": [[0, 0], [2, 0]], "gather": False, "deliver": False, "hold": True}
+    }
+    show_json = _show_json(units, control_points, legal_actions)
+    show_json["state"]["turn"] = 5  # not the first decision: no 'plan' expected
+
+    orders = rusher.decide(show_json, "blue")
+
+    assert orders["actions"] == [{"unit_id": "blue-u1", "action": "hold"}]
+    assert "plan" not in orders
+
+
+def test_rusher_breaks_control_point_ties_by_id_not_iteration_order() -> None:
+    units = [
+        {
+            "id": "blue-u1",
+            "team_id": "blue",
+            "agent_id": "blue-1",
+            "role": "scout",
+            "pos": [0, 0],
+            "carrying": 0,
+            "alive": True,
+        }
+    ]
+    # Both points are equidistant from (0, 0); listed in reverse-id order so a
+    # non-deterministic (e.g. dict/set-order-dependent) pick would show up.
+    control_points = [
+        {"id": "cp-b", "pos": [0, 2], "owner": None, "hold": []},
+        {"id": "cp-a", "pos": [2, 0], "owner": None, "hold": []},
+    ]
+    legal_actions = {
+        "blue-u1": {"move": [[1, 0], [0, 1]], "gather": False, "deliver": False, "hold": True}
+    }
+
+    orders = rusher.decide(_show_json(units, control_points, legal_actions), "blue")
+
+    # cp-a sorts before cp-b, so the unit heads for [2, 0] — the legal move
+    # that gets closest to it is [1, 0].
+    assert orders["actions"] == [{"unit_id": "blue-u1", "action": "move", "to": [1, 0]}]
+
+
+def test_rusher_ignores_dead_units_and_the_other_teams_units() -> None:
+    units = [
+        {
+            "id": "blue-u1",
+            "team_id": "blue",
+            "agent_id": "blue-1",
+            "role": "scout",
+            "pos": [0, 0],
+            "carrying": 0,
+            "alive": False,
+        },
+        {
+            "id": "red-u1",
+            "team_id": "red",
+            "agent_id": "red-1",
+            "role": "scout",
+            "pos": [0, 0],
+            "carrying": 0,
+            "alive": True,
+        },
+    ]
+    control_points = [{"id": "cp-a", "pos": [5, 5], "owner": None, "hold": []}]
+
+    orders = rusher.decide(_show_json(units, control_points, {}), "blue")
+
+    assert orders["actions"] == []
+
+
+# -- criterion 1: matches are deterministic given the seed ------------------
+
+
+def _rusher_vs_greedy_config(match_id: str) -> dict:
+    return {
+        "match": {
+            "scenario": "skirmish-1",
+            "mode": "competitive",
+            "seed": 7,
+            "id": match_id,
+        },
+        "teams": [
+            {
+                "id": "blue",
+                "name": "Blue Foundry",
+                "driver": {"type": "bot-file", "strategy": "rusher"},
+                "agents": [
+                    {"id": "blue-1", "model": "bot-file:rusher", "role": "scout"},
+                    {"id": "blue-2", "model": "bot-file:rusher", "role": "harvester"},
+                    {"id": "blue-3", "model": "bot-file:rusher", "role": "defender"},
+                ],
+            },
+            {
+                "id": "red",
+                "name": "Red Relay",
+                "driver": {"type": "bot"},
+                "agents": [
+                    {"id": "red-1", "model": "bot:greedy", "role": "scout"},
+                    {"id": "red-2", "model": "bot:greedy", "role": "harvester"},
+                    {"id": "red-3", "model": "bot:greedy", "role": "defender"},
+                ],
+            },
+        ],
+        "max_rounds": 10,
+    }
+
+
+def test_rusher_matches_are_deterministic_given_the_seed(tmp_path, monkeypatch, capsys) -> None:
+    config = _rusher_vs_greedy_config("m-rusher-det")
+
+    run1 = tmp_path / "run1"
+    run1.mkdir()
+    monkeypatch.chdir(run1)
+    run_match(config)
+    capsys.readouterr()
+    log1 = Store().load_match("m-rusher-det")
+
+    run2 = tmp_path / "run2"
+    run2.mkdir()
+    monkeypatch.chdir(run2)
+    run_match(config)
+    capsys.readouterr()
+    log2 = Store().load_match("m-rusher-det")
+
+    # Same config, same seed, played twice: byte-identical logs...
+    assert [e.to_dict() for e in log1.events] == [e.to_dict() for e in log2.events]
+    # ...and therefore identical final-state hashes (the same fingerprint the
+    # determinism CI gate compares — tests/test_determinism_gate.py).
+    assert state_hash(log1.final_state()) == state_hash(log2.final_state())
+    # Sanity: the match actually played (not a zero-turn no-op).
+    assert log1.final_state().turn > 0
+
+
+# -- criterion 2: the strategy touches no league internals ------------------
+
+_SPY_STRATEGY = '''"""Test-only spy: records exactly what the driver hands to decide()."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+_CAPTURE = Path(__file__).with_name("capture.json")
+
+
+def decide(show_json, team_id):
+    _CAPTURE.write_text(json.dumps({
+        "team_id": team_id,
+        "type": type(show_json).__name__,
+        "keys": sorted(show_json.keys()),
+        "state_type": type(show_json.get("state")).__name__,
+        "json_round_trips": json.loads(json.dumps(show_json, sort_keys=True)) == show_json,
+    }))
+    return {"actions": []}
+'''
+
+
+def test_bot_file_driver_hands_strategy_only_the_public_json_dict(
+    arena, monkeypatch, capsys
+) -> None:
+    """The bot-file driver never gives the strategy an engine object: it
+    calls `match show --json` itself and hands the strategy exactly that
+    parsed dict — the SAME public surface an external bot process would see
+    (spec c3/h2)."""
+    spy_dir = arena / "spybots"
+    spy_dir.mkdir()
+    (spy_dir / "spy.py").write_text(_SPY_STRATEGY)
+    monkeypatch.setattr(harness, "_BOTS_DIR", spy_dir)
+
+    assert main(_register("blue") + ["--apply"]) == 0
+    assert main(_register("red") + ["--apply"]) == 0
+    capsys.readouterr()
+    assert main(_new_match("m-spy")) == 0
+    capsys.readouterr()
+
+    assert main(["match", "show", "m-spy", "--json"]) == 0
+    shown = json.loads(capsys.readouterr().out)
+
+    driver = build_driver({"type": "bot-file", "strategy": "spy"}, scenario={})
+    context = {
+        "legal_actions": shown["legal_actions"],
+        "rejections": shown["last_turn_rejections"],
+    }
+    driver(shown["state"], "blue", 1, context)
+
+    capture = json.loads((spy_dir / "capture.json").read_text())
+    assert capture["team_id"] == "blue"
+    # Exactly a plain dict (never an engine dataclass)...
+    assert capture["type"] == "dict"
+    assert capture["state_type"] == "dict"
+    # ...with exactly the public `match show --json` fields, nothing more...
+    assert capture["keys"] == sorted(
+        [
+            "state",
+            "legal_actions",
+            "staged_teams",
+            "last_turn_rejections",
+            "driver_kinds",
+            "map_read",
+            "unit_comms",
+        ]
+    )
+    # ...and fully JSON-round-trippable — no non-serializable engine object
+    # could be hiding inside it.
+    assert capture["json_round_trips"] is True
+
+
+def test_build_driver_bot_file_requires_strategy_name() -> None:
+    with pytest.raises(ValueError, match="requires a 'strategy' name"):
+        build_driver({"type": "bot-file"}, {})
+
+
+def test_build_driver_bot_file_rejects_path_traversal_in_strategy_name() -> None:
+    with pytest.raises(ValueError, match="invalid bot strategy name"):
+        build_driver({"type": "bot-file", "strategy": "../evil"}, {})
+
+
+def test_build_driver_bot_file_rejects_unknown_strategy() -> None:
+    with pytest.raises(ValueError, match="unknown bot strategy"):
+        build_driver({"type": "bot-file", "strategy": "does-not-exist"}, {})
+
+
+def test_build_driver_bot_file_loads_rusher() -> None:
+    driver = build_driver({"type": "bot-file", "strategy": "rusher"}, {})
+    assert callable(driver)
+
+
+def test_driver_kind_reports_bot_file_as_bot() -> None:
+    """A coded strategy is the same fairness-axis peer as the in-harness
+    greedy bot — a residency question about HOW minds were invoked, and a
+    coded strategy is no more (or less) of a 'mind' than the greedy one."""
+    assert driver_kind({"type": "bot-file", "strategy": "rusher"}) == "bot"
+
+
+def test_build_driver_rejects_unknown_type_mentions_bot_file() -> None:
+    with pytest.raises(ValueError, match="bot-file"):
+        build_driver({"type": "telepathy"}, {})

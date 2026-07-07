@@ -1,6 +1,6 @@
 [project]
 name = "league-of-agents"
-version = "0.7.3"
+version = "0.8.0"
 description = "A cooperative/competitive strategy arena where agent teams complete missions, control objectives, manage resources, and out-coordinate opposing teams."
 readme = "README.md"
 license = "Apache-2.0"
@@ -13,7 +13,13 @@ classifiers = [
     "Topic :: Software Development",
     "Intended Audience :: Developers",
 ]
-dependencies = []
+# agentfront is the ONE runtime dependency (user decision c17, cycle 3):
+# the org's one-registry runtime (formerly teken, already the dev-only rubric
+# gate below). Only league/faces/ imports it — the engine stays dependency-free
+# and deterministic (tests/test_faces.py enforces the import boundary).
+# agentfront's CLI/HTTP surfaces are stdlib-pure, so this adds no transitive
+# third-party requirement to the install.
+dependencies = ["agentfront>=0.20"]
 
 [project.urls]
 Homepage = "https://github.com/agentculture/league-of-agents"
