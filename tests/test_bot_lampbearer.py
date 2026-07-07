@@ -593,7 +593,13 @@ def test_fogged_lampbearer_vs_lampbearer_match_completes_and_is_deterministic(
     capsys.readouterr()
     log2 = Store().load_match("m-lampbearer-fog")
 
-    assert [e.to_dict() for e in log1.events] == [e.to_dict() for e in log2.events]
+    # seat_latency is real wall-clock instrumentation (plan C4-t1, spec
+    # c10/h9) — a fold no-op that varies run to run by construction, so the
+    # byte-for-byte comparison excludes it; state_hash below is the real
+    # determinism invariant.
+    game1 = [e.to_dict() for e in log1.events if e.kind != "seat_latency"]
+    game2 = [e.to_dict() for e in log2.events if e.kind != "seat_latency"]
+    assert game1 == game2
     assert state_hash(log1.final_state()) == state_hash(log2.final_state())
     assert log1.final_state().turn > 0
     assert result1["turns_played"] > 0
