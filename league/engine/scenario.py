@@ -29,10 +29,17 @@ from league.engine.state import (
 
 @dataclass(frozen=True)
 class RoleStats:
-    """Per-role movement/carry stats — the specialization lever."""
+    """Per-role movement/carry/vision stats — the specialization lever.
+
+    ``vision`` is the Manhattan radius a unit of this role can see
+    (consumed by :mod:`league.engine.vision`); scouts see farther than
+    anyone else, the visibility axis issue #1 names. Vision never affects
+    movement or tick resolution — it only bounds what a unit *knows*.
+    """
 
     move: int
     carry: int
+    vision: int
 
 
 @dataclass(frozen=True)
@@ -75,9 +82,12 @@ def _skirmish_1() -> Scenario:
         capture_hold_turns=2,
         unit_roles=("scout", "harvester", "defender"),
         role_stats=(
-            ("scout", RoleStats(move=3, carry=1)),
-            ("harvester", RoleStats(move=2, carry=3)),
-            ("defender", RoleStats(move=2, carry=1)),
+            # Vision radii keep the scout the eyes of the team: strictly
+            # farther than every other role (spec c12 — visibility as the
+            # specialization axis).
+            ("scout", RoleStats(move=3, carry=1, vision=4)),
+            ("harvester", RoleStats(move=2, carry=3, vision=2)),
+            ("defender", RoleStats(move=2, carry=1, vision=2)),
         ),
         spawns=(
             ((0, 0), (1, 0), (0, 1)),
