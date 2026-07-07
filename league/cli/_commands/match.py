@@ -972,7 +972,9 @@ def register(sub: argparse._SubParsersAction) -> None:
         help="Declare a team's substrate for tempo conversion — e.g. --substrate "
         "blue=cloud (known: cloud/local/bot; unknown/undeclared falls back to an "
         "identity conversion, raw latency shown, not substrate-normalized; "
-        "repeatable). Raw latency is ALWAYS printed beside the converted score.",
+        "repeatable). Raw latency is ALWAYS printed beside the converted score. "
+        "See docs/tempo-methodology.md for the calibration/conversion methodology "
+        "and its own limits.",
     )
     score.set_defaults(func=cmd_match_score)
 

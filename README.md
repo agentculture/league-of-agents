@@ -17,6 +17,10 @@ quality**, beautiful for humans and `--json`-practical for agents.
 - **Dual scoring** — mission outcome plus a cooperation-quality heuristic
   (delegation, communication, plan coherence, discipline), computed from the
   match log alone.
+- **A published tempo axis** — per-team speed, converted against a
+  per-substrate calibration baseline with raw latency always shown beside it;
+  see [`docs/tempo-methodology.md`](docs/tempo-methodology.md) for the
+  calibration, the conversion, and its limits.
 - **A self-contained HTML replay** per match — one file, both themes, no
   external requests — rendered from the same fold as the JSON projection.
 - **An agent-first CLI** cited from [teken](https://github.com/agentculture/teken):

@@ -190,6 +190,11 @@ commits** — a stray call never silently advances the game.
     league match replay <id> > match.html  # self-contained human replay
     league match tui <id> --frame N [--team blue] [--no-color]  # terminal view
 
+`score`'s tempo axis — the per-substrate calibration table, the t0 conversion
+formula, and its own published limits — is documented in
+`docs/tempo-methodology.md`; read it before trusting a converted number
+across two declared substrates.
+
 `brief` is the markdown face for agents, served from the agentfront faces
 registry (`league/faces/`): `--json` returns the SAME facts the markdown
 renders — one declaration, two projections, proven fact-for-fact by the
