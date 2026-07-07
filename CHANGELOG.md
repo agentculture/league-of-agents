@@ -11,6 +11,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Live playtest: colleague guild in cooperative mode — three per-seat colleague-agent seats (local Qwen via lobes) finish the whole board by turn 16 with cooperation v1 = 99 (52/52 useful messages), where the same mind solo hit the turn-30 limit at 14 points; caveats (solo handicap, no opponent in cooperative mode) stated in the report
 
+## [0.9.1] - 2026-07-07
+
+### Added
+
+- Cycle-6 spec (devague /think): the watchable, vast arena — mesmerizing replay + embedded assessor guide, video export from logs, seeded scenario generation at any scale, board size/complexity for long-horizon + memory assessment, subagent span-of-control probe, coding-reflective roles (explorer/planner/executor) — 13 user-confirmed claims, 13 honesty conditions, 4 parked unknowns
+- Cycle-6 build plan (devague /spec-to-plan): 12 user-confirmed tasks over 5 waves, risks pinned to tasks
+
 ## [0.9.0] - 2026-07-07
 
 ### Added
