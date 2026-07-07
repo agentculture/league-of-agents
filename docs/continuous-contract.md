@@ -131,6 +131,42 @@ A driver returns one JSON object:
   scoring reads.
 - **`plan`** — optional standing plan (recorded once per seat).
 
+## Delivery contention
+
+A `deliver` is not unconditional: it can be **denied**. At the instant a
+delivery would complete, the resolver checks whether an **enemy** unit is
+standing at the delivery site (the same site the delivering unit already had
+to reach to be offered `deliver` at all — see the menu's `target`). If one is,
+the delivery fails instead of banking:
+
+```json
+{"kind": "action_failed", "data": {"unit_id": "blue-harv",
+ "reason": "delivery denied by enemy presence at the site"}}
+```
+
+Nothing is banked — the carried resources stay on the unit, exactly as if
+nothing had been delivered — and the unit goes idle with a fresh decision
+point, the same as any other failed or interrupted action (see "Decision
+cadence" above). A mind reading this reason knows the site is contested and
+can choose its own response: try the delivery again once the defender moves
+off, deliver somewhere else if another deliver site exists, or bring a
+teammate to clear the site first. This is the "lockdown" strategy issue #1's
+role-specialization ask implies but the engine never enforced before this
+cycle: a defended delivery square is now a real tradeoff, not an accident of
+no-rules.
+
+**Deny, not delay.** The rule denies rather than delaying-and-retrying at a
+later instant, so the outcome is always immediate and legible in the log — no
+"pending, contested" state a mind would have to track across decision points.
+
+**Same-team deliveries never contest each other.** Only an *enemy* presence
+denies a delivery — two teammates completing a delivery at the exact same
+instant both succeed (each earns its own `resource_delivered` /
+`action_completed` pair); when an instant is shared, canonical `(time,
+team_id, unit_id)` order — the same tie-break the outlook is built from —
+decides only which of the two events is written first, never whether either
+one happens.
+
 ## Substrate independence (honesty `h7`)
 
 The load-bearing property: **the same continuous match log emerges whether a
