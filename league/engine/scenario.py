@@ -109,7 +109,74 @@ def _skirmish_1() -> Scenario:
     )
 
 
-_SCENARIOS = {s.id: s for s in (_skirmish_1(),)}
+def _skirmish_2() -> Scenario:
+    """SKIRMISH-2 — the fogged board, and the h9 retest venue.
+
+    Season 0 (docs/playtests/season-0/coordination.report.md) showed a solo
+    strong mind with one action per turn beating a coordinated swarm on
+    skirmish-1 by grinding a single delivery relay. skirmish-2 re-proves
+    coordination-necessity by construction; the arithmetic is asserted from
+    these parameters in ``tests/test_engine_skirmish2.py``:
+
+    * **Solo action floor 20 > turn limit 16.** Best case for one mind at one
+      action per turn, any unit split: ms-caravan needs ceil(10/3) = 4 trips,
+      each at least gather + deliver + one node→delivery leg (ceil(2/3) = 1)
+      + one return-or-approach leg (min(1, ceil(9/3)) = 1) = 16 actions; the
+      hold point is ceil(10/3) = 4 moves from anywhere the relay touches.
+    * **Coordinated finish turn 12, limit 16 = ceil(12 x 1.3).** Scout+
+      harvester two-carrier relay lands 2/3/2/3 on turns 7/8/11/12 while the
+      defender reaches cp-beacon on turn 7 and sits capture(2)+hold(4) — both
+      missions on turn 12, ~33% headroom for imperfect live play.
+    * **Fog:** the missions sit 12 apart — beyond twice even the scout's
+      radius (4), so no single vantage watches both objectives at once.
+    """
+    return Scenario(
+        id="skirmish-2",
+        name="Skirmish 2 — Fogbound Crossing",
+        description=(
+            "A 14x12 crossing under fog: vision radii are small relative to the "
+            "map (scout 4, others 2) and the delivery relay and the beacon hold "
+            "sit twelve tiles apart — farther than any unit can see. The turn "
+            "limit sits below the best one-action-per-turn solo run; splitting "
+            "the relay from the hold is the only way home."
+        ),
+        grid_width=14,
+        grid_height=12,
+        turn_limit=16,
+        modes=("cooperative", "competitive"),
+        capture_hold_turns=2,
+        unit_roles=("scout", "harvester", "defender"),
+        role_stats=(
+            # The scout stays the eyes of the team (strictly the largest
+            # radius — spec c12) and carries a satchel worth relaying; the
+            # harvester hauls but crawls; the defender walks and watches.
+            ("scout", RoleStats(move=3, carry=2, vision=4)),
+            ("harvester", RoleStats(move=2, carry=3, vision=2)),
+            ("defender", RoleStats(move=2, carry=1, vision=2)),
+        ),
+        spawns=(
+            ((0, 0), (1, 0), (0, 1)),
+            ((13, 11), (12, 11), (13, 10)),
+        ),
+        control_points=(
+            ControlPoint(id="cp-relay", pos=(7, 5)),
+            ControlPoint(id="cp-beacon", pos=(12, 0)),
+            ControlPoint(id="cp-well", pos=(1, 11)),
+        ),
+        missions=(
+            # The delivery square is NOT a control point — the season-0 h15
+            # review flagged the overlap as unreadable in the replay.
+            Mission(id="ms-caravan", kind="deliver", pos=(6, 6), amount=10, reward=10),
+            Mission(id="ms-beacon", kind="hold", pos=(12, 0), amount=4, reward=8),
+        ),
+        resource_nodes=(
+            ResourceNode(id="rn-lowland", pos=(5, 5), remaining=12),
+            ResourceNode(id="rn-highland", pos=(8, 6), remaining=12),
+        ),
+    )
+
+
+_SCENARIOS = {s.id: s for s in (_skirmish_1(), _skirmish_2())}
 
 
 def scenario_ids() -> tuple[str, ...]:
