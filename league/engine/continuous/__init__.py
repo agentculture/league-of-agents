@@ -29,6 +29,14 @@ from league.engine.continuous.events import (
     apply_event,
     fold_events,
 )
+from league.engine.continuous.roles import (
+    DEFAULT_CROLE_STATS,
+    CRoleStats,
+    build_role_table,
+    role_table_hash,
+    role_table_to_json,
+    stats_for,
+)
 from league.engine.continuous.space import (
     ARRIVAL_TOLERANCE_MU,
     MAX_STEP_UNDERSHOOT_MU,
@@ -116,4 +124,11 @@ __all__ = [
     "CMatchLog",
     "apply_event",
     "fold_events",
+    # continuous role speed/duration data (roles.py)
+    "DEFAULT_CROLE_STATS",
+    "CRoleStats",
+    "build_role_table",
+    "role_table_hash",
+    "role_table_to_json",
+    "stats_for",
 ]
