@@ -140,12 +140,32 @@ class ControlPoint:
         )
 
 
+def _completed_by(value: Any) -> tuple[str, ...]:
+    """Normalize a serialized ``completed_by`` to the canonical sorted tuple.
+
+    Pre-dual-award logs (season 0) wrote ``null`` for open missions and a bare
+    team-id string for completed ones; both still load. The canonical form is
+    a sorted tuple so the JSON projection (and hence ``state_hash``) never
+    depends on award order.
+    """
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        return (value,)
+    return tuple(sorted(value))
+
+
 @dataclass(frozen=True)
 class Mission:
     """An objective a team completes for score.
 
     v0 kinds: ``deliver`` (bring ``amount`` resources to ``pos``) and ``hold``
     (own the control point at ``pos`` for ``amount`` consecutive turns).
+
+    ``completed_by`` is a canonically sorted tuple of team ids: usually one
+    team, but a dead-heat is a dual award (spec decision c15) — every team
+    that qualified on the completing turn is on it, each earning the full
+    ``reward``.
     """
 
     id: str
@@ -154,7 +174,7 @@ class Mission:
     amount: int
     reward: int
     status: str = "open"
-    completed_by: str | None = None
+    completed_by: tuple[str, ...] = field(default=())
     completed_turn: int | None = None
 
     def __post_init__(self) -> None:
@@ -173,7 +193,7 @@ class Mission:
             "amount": self.amount,
             "reward": self.reward,
             "status": self.status,
-            "completed_by": self.completed_by,
+            "completed_by": list(self.completed_by),
             "completed_turn": self.completed_turn,
         }
 
@@ -186,7 +206,7 @@ class Mission:
             amount=d["amount"],
             reward=d["reward"],
             status=d["status"],
-            completed_by=d["completed_by"],
+            completed_by=_completed_by(d["completed_by"]),
             completed_turn=d["completed_turn"],
         )
 

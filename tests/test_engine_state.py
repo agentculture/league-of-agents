@@ -102,7 +102,7 @@ def sample_state() -> MatchState:
                 amount=3,
                 reward=8,
                 status="completed",
-                completed_by="red",
+                completed_by=("red",),
                 completed_turn=2,
             ),
         ),

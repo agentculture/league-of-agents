@@ -55,7 +55,9 @@ def score_match(log: MatchLog) -> dict[str, Any]:
         missions = sum(
             m.reward
             for m in final.missions
-            if m.status == "completed" and m.completed_by == team.id
+            # Membership, not equality: a dead-heat dual award (spec decision
+            # c15) pays the full reward into every winning team's row.
+            if m.status == "completed" and team.id in m.completed_by
         )
         control = CP_POINTS * sum(1 for c in final.control_points if c.owner == team.id)
         outcome[team.id] = {

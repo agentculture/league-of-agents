@@ -262,7 +262,7 @@ def cmd_match_show(args: argparse.Namespace) -> int:
         hold = f", streak {cp.hold[0][1]} ({cp.hold[0][0]})" if cp.hold else ""
         lines.append(f"  {cp.id}: owner {cp.owner or '—'}{hold}")
     for mission in state.missions:
-        who = f" by {mission.completed_by}" if mission.completed_by else ""
+        who = f" by {', '.join(mission.completed_by)}" if mission.completed_by else ""
         lines.append(f"  {mission.id}: {mission.status}{who}")
     if pending:
         lines.append(f"staged orders: {', '.join(pending)}")

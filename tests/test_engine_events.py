@@ -128,7 +128,7 @@ def test_fold_reproduces_final_state_exactly() -> None:
     assert not next(u for u in final.units if u.id == "red-u1").alive
     mission = next(m for m in final.missions if m.id == "ms-supply")
     assert mission.status == "completed"
-    assert mission.completed_by == "blue"
+    assert mission.completed_by == ("blue",)
     assert mission.completed_turn == 5
 
 

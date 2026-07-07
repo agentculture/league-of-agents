@@ -234,7 +234,7 @@ def _fresh_missions() -> list[dict]:
             "amount": 6,
             "reward": 10,
             "status": "open",
-            "completed_by": None,
+            "completed_by": [],
             "completed_turn": None,
         },
         {
@@ -244,7 +244,7 @@ def _fresh_missions() -> list[dict]:
             "amount": 3,
             "reward": 8,
             "status": "open",
-            "completed_by": None,
+            "completed_by": [],
             "completed_turn": None,
         },
     ]
