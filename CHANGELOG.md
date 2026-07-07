@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2026-07-07
+
+### Added
+
+- Replay + video restyle from the first human review: Anthropic-cream light and Culture black-green dark themes (validator-passing, worst adjacent CVD dE 86.7 light / 85.7 dark), team identity moves to clay vs violet, chrome-green accent
+- 100% smooth playback: linear gapless waypoint flow while playing (eased snap only when paused), GIF gains deterministic tween frames (--tween, default 4) and a --theme light|dark flag
+- Tabbed side deck: Guide/Events/Teams/Score beside the sticky board hero — the assessor guide no longer scrolls away from the board
+
 ## [0.10.1] - 2026-07-07
 
 ### Added
