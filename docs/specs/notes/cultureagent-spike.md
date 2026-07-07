@@ -235,6 +235,17 @@ messages — do not label a driver-held transcript as a cultureagent session.
 coordination stays exclusively in-game messages — the driver only ever puts
 briefings and the seat's own history into a seat's context.
 
+## Shipped (t5 postscript)
+
+The resident driver (`league/harness.py`, driver type `resident`) shipped the
+**fallback of record** for claude seats — `claude -p --session-id/--resume`
+with driver-minted deterministic UUIDs, transport label `claude-cli` — keeping
+league's runtime dependency-free instead of subprocessing the culture venv's
+`AgentRunner`. Colleague seats shipped the driver-held transcript against the
+vLLM OpenAI endpoint, transport label `colleague-direct`, with the Qwen
+`content=None` → `reasoning_content` fallback. Per-seat transcripts are
+appended to `.league/matches/<id>/sessions/<agent-id>.jsonl`.
+
 ## Artifacts
 
 Probe scripts and raw outputs live in the spike scratchpad (session-local,
