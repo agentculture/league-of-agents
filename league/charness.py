@@ -548,6 +548,42 @@ def _try_get_cscenario() -> Callable[[str], Any] | None:
     return getattr(cscenario, "get_cscenario", None)
 
 
+def _instantiate_from_registry(
+    get: Callable[[str], Any], name: str, config: Mapping[str, Any]
+) -> CMatchState:
+    """The t6 wiring: resolve a registered continuous scenario and instantiate
+    it from the config's match/team declarations. Registry misses and roster
+    mismatches surface as :class:`CHarnessError` — the harness's one error
+    vocabulary — never a bare registry exception."""
+    from league.engine.continuous.scenario import instantiate as cinstantiate
+    from league.engine.continuous.state import CAgentSlot
+
+    try:
+        scenario = get(name)
+    except (KeyError, ValueError) as exc:
+        raise CHarnessError(f"unknown continuous scenario {name!r}: {exc}") from exc
+    match = config.get("match", {})
+    teams = []
+    for team in config.get("teams", []):
+        agents = tuple(
+            CAgentSlot(id=str(a["id"]), model=str(a.get("model", "")), role=str(a["role"]))
+            for a in team.get("agents", [])
+        )
+        teams.append((str(team["id"]), str(team.get("name", team["id"])), agents))
+    try:
+        return cinstantiate(
+            scenario,
+            match_id=str(match.get("id") or f"cm-{name}"),
+            seed=int(match.get("seed", 0)),
+            mode=str(match.get("mode", "competitive")),
+            teams=teams,
+        )
+    except (KeyError, ValueError) as exc:
+        raise CHarnessError(
+            f"cannot instantiate continuous scenario {name!r} from this config: {exc}"
+        ) from exc
+
+
 def _ensure_cstate(value: Any) -> CMatchState:
     if isinstance(value, CMatchState):
         return value
@@ -571,7 +607,7 @@ def _resolve_initial(config: Mapping[str, Any], initial_state: Any) -> CMatchSta
     if name:
         get = _try_get_cscenario()
         if get is not None:
-            return _ensure_cstate(get(str(name)))  # t6 seam
+            return _instantiate_from_registry(get, str(name), config)  # t6 seam
         raise CHarnessError(
             f"no continuous scenario registry yet to resolve {name!r}: pass initial_state=, "
             "config['state_builder'], or an inline config['match']['state'] dict "
