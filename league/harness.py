@@ -90,15 +90,23 @@ chatter; ``True`` keeps today's unfiltered relay (master + teammates). Every
 seat's own messages still land in the match log either way — filtering only
 trims what a later seat is *shown*, never what is recorded.
 
-**Bot drivers stay full-information under fog, for now.** ``make_bot_driver``
-and the ``bot-file`` lane read scenario furniture (control points, missions,
-resource nodes) directly out of ``state``/``match show --json`` with no
-vision check — turning them fog-aware would mean redesigning their policy to
-explore toward the unknown instead of the nearest known objective (not the
-"trivially easy" bar this task set). This is a **documented, temporary
-asymmetry** a fogged playtest must not gloss over: a fair fogged comparison
-keeps fog on for every driver in the match, or off for all of them, never a
-mix of a fogged agent team against an omniscient bot.
+**Bot drivers stay full-information under fog, by default.**
+``make_bot_driver`` (the in-harness greedy bot) always reads scenario
+furniture (control points, missions, resource nodes) directly out of
+``state``/``match show --json`` with no vision check, and is unchanged by
+this task — it stays full-information regardless of fog. The ``bot-file``
+lane can still be played the same omniscient way (its default too), but a
+strategy written to the fogged contract can opt in per-team with
+``{"type": "bot-file", "strategy": ..., "fogged": true}`` (plan task t3,
+spec c8/h4; ``make_bot_file_driver`` then calls ``match show --team <id>
+--fog`` instead of the plain view — see ``bots/lampbearer.py``, an
+explore-toward-unknown reference strategy). This is a **documented,
+opt-in-retired asymmetry**: a fogged playtest that pairs a ``"fogged":
+true`` bot-file team against a fogged agent team needs no omniscience
+caveat; one that doesn't (the flag unset, or the in-harness ``bot`` driver
+at all) must still declare it — fog on for every driver in the match, or
+off for all of them, never a silent mix of a fogged agent team against an
+omniscient bot.
 """
 
 from __future__ import annotations
@@ -286,15 +294,23 @@ def make_bot_file_driver(spec: Mapping[str, Any]) -> Driver:
     dict (plus ``team_id``) to the strategy's ``decide``. No scenario, no
     engine dataclass, ever crosses into strategy code.
 
-    NOTE — fog asymmetry (plan t5, spec c5/h4): this driver calls the plain
-    ``match show --json`` (never ``--team --fog``), so a bot-file strategy is
-    full-information even in a fog match, same documented, temporary
-    asymmetry as :func:`make_bot_driver` (see the module docstring).
+    NOTE — fog asymmetry, opt-in escape hatch (plan t3/t5, spec c5/c8/h4): by
+    default (``spec`` has no ``"fogged"``, or it's falsy) this driver still
+    calls the plain ``match show --json``, so a bot-file strategy stays
+    full-information under fog — unchanged, same documented asymmetry as
+    :func:`make_bot_driver` (see the module docstring). A strategy written
+    to the fogged contract instead (e.g. ``bots/lampbearer.py``) opts in
+    per-team with ``{"type": "bot-file", "strategy": ..., "fogged": true}``:
+    this driver then calls ``match show --team <team_id> --fog`` instead, so
+    the strategy sees EXACTLY the projection an agent team's own briefing is
+    built from. The standing omniscience-asymmetry warning applies only when
+    a bot-file team's spec omits (or sets false) ``"fogged"``.
     """
     name = spec.get("strategy")
     if not name:
         raise ValueError("bot-file driver requires a 'strategy' name (bots/<name>.py)")
     decide = _load_bot_strategy(str(name))
+    fogged = bool(spec.get("fogged", False))
 
     def orders(
         state: dict[str, Any],
@@ -303,7 +319,12 @@ def make_bot_file_driver(spec: Mapping[str, Any]) -> Driver:
         context: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         match_id = str(state.get("match_id") or "")
-        show_json = _cli_json(["match", "show", match_id])
+        argv = (
+            ["match", "show", match_id, "--team", team_id, "--fog"]
+            if fogged
+            else ["match", "show", match_id]
+        )
+        show_json = _cli_json(argv)
         return decide(show_json, team_id)
 
     return orders
@@ -1299,8 +1320,11 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
             # Fog boundary (spec c5/h4): a command/resident seat is fed that
             # team's own fogged view — its vision + accumulated knowledge,
             # never the shared full-board `state`/`context` above. Bot/
-            # bot-file drivers keep the full state (documented asymmetry,
-            # module docstring).
+            # bot-file drivers are handed the shared full state here
+            # regardless (documented asymmetry, module docstring) — a
+            # bot-file spec with "fogged": true (plan t3) ignores it anyway
+            # and fetches its own team-scoped fog view internally
+            # (make_bot_file_driver), so this loop needs no branch for it.
             if fog and driver_types[team_id] in ("command", "resident"):
                 team_shown = _cli_json(["match", "show", match_id, "--team", team_id, "--fog"])
                 team_state = team_shown["state"]

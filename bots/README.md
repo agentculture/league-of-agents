@@ -75,6 +75,36 @@ readable reference opponent, distinct from the harness's own in-process
 greedy bot (`league.harness.make_bot_driver`, which also runs the harvester
 economy and splits control points by role).
 
+## Fog-aware strategy: `lampbearer.py`
+
+`lampbearer.py` is the fog-aware counterpart to `rusher.py` (plan task t3,
+spec c8/h4): it is written against the **fogged** public surface —
+`league match show --team <id> --fog --json` — never the full board. Every
+living unit heads for the nearest control point the team's knowledge fold
+has already seen or been told about (rusher's own rush, applied to what fog
+allows); once no control point is known yet, it falls back to an
+explore-toward-unknown baseline, heading each unit toward the nearest grid
+cell the team has never seen (`state["cells_seen"]`), so a fogged
+bot-vs-agent match gets an opponent that plays the same information game
+instead of cheating past the fog.
+
+Wire it up with the `bot-file` driver's opt-in `"fogged"` flag —
+`league.harness.make_bot_file_driver` then calls `match show --team <id>
+--fog` instead of the plain view. Without the flag, a `bot-file` strategy
+still gets the full board (today's default, unchanged for `rusher.py` or
+any strategy that doesn't declare itself fog-aware):
+
+```json
+{"type": "bot-file", "strategy": "lampbearer", "fogged": true}
+```
+
+A match that pairs a `"fogged": true` bot-file team against a fogged agent
+team needs no omniscience caveat in its report — the standing asymmetry
+warning (`league/harness.py`'s module docstring) applies only when a
+bot-file team's spec omits `"fogged"` (or when the in-harness `bot` driver,
+`league.harness.make_bot_driver`, is used at all — that policy stays
+full-information regardless, unchanged by this task).
+
 ## Wiring a bot into a match
 
 Point a team's driver at a strategy by name — zero harness code changes
