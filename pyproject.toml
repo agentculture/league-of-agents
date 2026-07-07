@@ -1,6 +1,6 @@
 [project]
 name = "league-of-agents"
-version = "0.10.2"
+version = "0.10.3"
 description = "A cooperative/competitive strategy arena where agent teams complete missions, control objectives, manage resources, and out-coordinate opposing teams."
 readme = "README.md"
 license = "Apache-2.0"

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.3] - 2026-07-08
+
+### Changed
+
+- GIF/video face recomposed to the mesmerizing design system: centered title lockup, board-hero turn frames with hairline grid + unit rings + score footer, big-numeral closing card, typographic hierarchy via scaled glyphs — both themes, same indices
+
 ## [0.10.2] - 2026-07-07
 
 ### Added

@@ -392,6 +392,101 @@ def test_unknown_theme_is_rejected() -> None:
         build_frames(build_replay_data(_coop_log()), theme="midnight")
 
 
+# --- composition (the mesmerizing raster face) -------------------------------
+
+
+def test_palette_carries_the_html_face_neutral_steps() -> None:
+    """The raster face composes with the HTML face's own neutral/chrome steps
+    (page matte, card surface, hairline grid, secondary ink, chrome accent) —
+    slots 20..24, lifted verbatim from html.py's CSS custom properties. The
+    validated team/status hues (slots 0..19) are untouched."""
+    from league.replay.video import _hex_to_rgb, build_palette
+
+    light = build_palette("light")
+    dark = build_palette("dark")
+    assert len(light) == len(dark) == 25
+    expected = {
+        20: ("#f0eee5", "#0c1210"),  # page matte (--plane)
+        21: ("#faf8f1", "#111a16"),  # card surface / unit ring (--surface)
+        22: ("#ded9c9", "#1e2a24"),  # hairline grid (--grid)
+        23: ("#5a5546", "#aebcb2"),  # secondary ink (--ink-2)
+        24: ("#1e7a4d", "#46c79e"),  # chrome accent (--accent)
+    }
+    for slot, (light_hex, dark_hex) in expected.items():
+        assert light[slot] == _hex_to_rgb(light_hex)
+        assert dark[slot] == _hex_to_rgb(dark_hex)
+
+
+def test_title_card_is_a_centered_lockup_with_generous_margins() -> None:
+    """The opening card is a centered lockup, not top-left-crammed text over an
+    empty board: the outer margin band is pure matte on every side, the accent
+    rule under the title is centered to the pixel, and the whole composition's
+    left/right extents mirror each other."""
+    from league.replay.html import build_replay_data
+    from league.replay.video import _ACCENT, _INK, _MATTE
+
+    data = build_replay_data(_coop_log())
+    video = build_frames(data)
+    title = video.frames[0].indices
+    width, height = video.width, video.height
+
+    band = 8  # generous margins: the outer 8px band is pure matte on all sides
+    for y in range(band):
+        assert set(title[y * width : (y + 1) * width]) == {_MATTE}
+    for y in range(height - band, height):
+        assert set(title[y * width : (y + 1) * width]) == {_MATTE}
+    for y in range(height):
+        row = title[y * width : (y + 1) * width]
+        assert set(row[:band]) == {_MATTE}
+        assert set(row[width - band :]) == {_MATTE}
+
+    assert _INK in set(title)  # the lockup is composed, not an empty card
+    accent_xs = sorted({i % width for i, v in enumerate(title) if v == _ACCENT})
+    assert accent_xs, "the title lockup carries an accent rule"
+    assert abs((accent_xs[0] + accent_xs[-1]) - (width - 1)) <= 2  # rule centered
+    xs = sorted({i % width for i, v in enumerate(title) if v != _MATTE})
+    assert abs(xs[0] - (width - 1 - xs[-1])) <= 2  # extents mirror
+
+
+def test_turn_frames_carry_the_board_panel_and_score_footer() -> None:
+    """Board frames are composed, not a bare grid: the board sits on a distinct
+    panel tone with a hairline grid, and a surface-toned footer strip carries
+    the turn counter and per-team scores. Tween frames share the same chrome
+    (they interpolate only the units)."""
+    from league.replay.html import build_replay_data
+    from league.replay.video import _BG, _GRID, _INK, _MATTE, _MUTED, _SURFACE
+
+    data = build_replay_data(_coop_log())
+    video = build_frames(data, tween=1)
+    width, height = video.width, video.height
+    for frame in (video.frames[1], video.frames[2]):  # a turn frame, then a tween
+        pixels = frame.indices
+        present = set(pixels)
+        # page matte + board panel plane + hairline grid + footer card + inks
+        assert {_MATTE, _BG, _GRID, _SURFACE, _INK, _MUTED} <= present
+        # The footer strip is a real region in the lower third, not stray pixels.
+        lower = pixels[(2 * height // 3) * width :]
+        assert lower.count(_SURFACE) > width
+
+
+def test_closing_card_shows_big_score_numerals() -> None:
+    """The closing card leads with big score numerals (the scaled glyph
+    hierarchy): it must paint markedly more ink than a turn frame's footer
+    text alone, centered like the title card."""
+    from league.replay.html import build_replay_data
+    from league.replay.video import _ACCENT, _MATTE
+
+    data = build_replay_data(_coop_log())
+    video = build_frames(data)
+    closing = video.frames[-1].indices
+    width = video.width
+    accent_xs = sorted({i % width for i, v in enumerate(closing) if v == _ACCENT})
+    assert accent_xs, "the closing card carries the accent rule"
+    assert abs((accent_xs[0] + accent_xs[-1]) - (width - 1)) <= 2
+    xs = sorted({i % width for i, v in enumerate(closing) if v != _MATTE})
+    assert abs(xs[0] - (width - 1 - xs[-1])) <= 2  # centered composition
+
+
 def test_tween_frames_interpolate_and_stay_deterministic() -> None:
     """Interpolated tween frames flow movement between turns (linear, fixed
     count, integer-rounded → deterministic). Frame count matches the documented
