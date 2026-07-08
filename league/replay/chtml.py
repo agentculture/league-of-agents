@@ -28,7 +28,13 @@ What ships is the honest minimum the acceptance criteria demand:
   one dashed ring per concurrent taker, in the taker's own team color, so the
   instant both racers are mid-take is visible in the BOARD too, not just the
   feed — because the engine represents it that way in state
-  (``CControlPoint.takers``; see ``league/engine/continuous/state.py``).
+  (``CControlPoint.takers``; see ``league/engine/continuous/state.py``);
+* a **scorecard** (cycle-8 t8, spec c6/h6) — the per-unit grades from
+  :func:`league.engine.continuous.grades.cgrade_units`, listed in this face's
+  own minimal idiom: one static table (units ranked by grade, MVP/LVP marked,
+  the on-role cell bolded) and one plain-text paragraph explaining exactly
+  what the grade weighs. No tabs, no client JS — the grid deck's chrome stays
+  un-ported.
 
 Determinism and self-containedness (matching the repo's replay conventions,
 ``docs/replay-design.md``): every byte here comes from the log via
@@ -46,6 +52,17 @@ from html import escape as _esc
 from typing import Any
 
 from league.engine.continuous.events import TRANSITION_KINDS, CMatchLog, fold_events
+from league.engine.continuous.grades import (
+    GRADE_UNIT,
+    MOVE_POINTS_PER_BOARD_UNIT,
+    OFF_ROLE_DEN,
+    OFF_ROLE_NUM,
+    POST_TAKEN_POINTS,
+)
+from league.engine.continuous.grades import PURPOSES as GRADE_PURPOSES
+from league.engine.continuous.grades import (
+    cgrade_units,
+)
 from league.engine.continuous.resolve import outcome_points
 from league.engine.continuous.space import format_units
 from league.engine.continuous.state import CMatchState
@@ -162,6 +179,12 @@ def build_continuous_replay_data(log: CMatchLog) -> dict[str, Any]:
         "frames": _frames(log),
         "events": _event_entries(log),
         "race_moments": _race_moments(log),
+        # The per-unit scorecard (plan C8-t8, spec c6/h6): the continuous
+        # lane's own grades engine, verbatim — cgrade_units is already a pure
+        # function of the log, so the payload IS the engine's fold. Guarded
+        # only for the degenerate unitless log (cgrade_units refuses those
+        # loudly; a renderer should render, not crash).
+        "grades": cgrade_units(log) if initial.units else None,
         "outcome": {
             "status": final.status,
             "winner": final.winner,
@@ -362,6 +385,75 @@ def _render_teams(data: dict[str, Any]) -> str:
     return f'<section class="ccard"><h2>Teams</h2>{"".join(rows)}</section>'
 
 
+def _render_scorecard(data: dict[str, Any]) -> str:
+    """Per-unit grades in the face's minimal idiom (plan C8-t8, spec c6/h6):
+    one static server-rendered table plus one plain-text paragraph — no tabs,
+    no client JS, no grid deck chrome (frame v4 stays pinned minimal). Units
+    are ranked by grade descending with the canonical ``(team_id, unit_id)``
+    tie-break (the payload's ``grades.units`` list keeps cgrade_units' own
+    canonical team order — this re-sort is display only); MVP/LVP are marked
+    in their rows AND named in a verdict line; the bold cell in each row is
+    the unit's own role's purpose (full credit), everything else is off-role
+    (half credit). Every number in the paragraph is interpolated from
+    ``league.engine.continuous.grades``' pinned constants, so the explanation
+    can never drift from the formula it explains."""
+    grades = data["grades"]
+    if not grades:
+        return ""
+    team_ids = [t["id"] for t in data["teams"]]
+    mvp, lvp = grades["mvp"], grades["lvp"]
+    ranked = sorted(grades["units"], key=lambda u: (-u["grade"], u["team_id"], u["unit_id"]))
+
+    head = (
+        "<tr><th>unit</th><th>role</th><th>grade</th>"
+        + "".join(f"<th>{_esc(p)}</th>" for p in GRADE_PURPOSES)
+        + "</tr>"
+    )
+    rows = []
+    for u in ranked:
+        color = _team_color(team_ids, u["team_id"])
+        tags = ""
+        if u["unit_id"] == mvp["unit_id"]:
+            tags += ' <span class="cgrade-mvp">MVP</span>'
+        if u["unit_id"] == lvp["unit_id"]:
+            tags += ' <span class="cgrade-lvp">LVP</span>'
+        cells = []
+        for p in GRADE_PURPOSES:
+            entry = u["purposes"][p]
+            cls = "cgrade-num cgrade-home" if entry["on_role"] else "cgrade-num"
+            cells.append(f'<td class="{cls}">{entry["points"]}</td>')
+        rows.append(
+            '<tr class="cgrade-row">'
+            f'<td>{_esc(u["unit_id"])}'
+            f' <span class="cswatch" style="background:{color}"></span>{tags}</td>'
+            f'<td>{_esc(u["role"])}</td>'
+            f'<td class="cgrade-num cgrade-total">{u["grade"]}</td>'
+            f'{"".join(cells)}</tr>'
+        )
+
+    verdict = (
+        f"MVP: {_esc(mvp['unit_id'])} ({_esc(mvp['team_id'])}, grade {mvp['grade']}) · "
+        f"LVP: {_esc(lvp['unit_id'])} ({_esc(lvp['team_id'])}, grade {lvp['grade']})"
+    )
+    why = (
+        f"How the grade is computed: each unit's grade sums three purposes — race_hold "
+        f"(winning a take_post race earns {POST_TAKEN_POINTS} points; a banked hold mission "
+        f"credits its reward ×{GRADE_UNIT} to the holder), economy (each resource gathered "
+        f"or delivered earns its amount ×{GRADE_UNIT}; a banked deliver mission credits its "
+        f"reward ×{GRADE_UNIT} to the delivering unit), and eyes "
+        f"({MOVE_POINTS_PER_BOARD_UNIT} points per whole board-unit moved). The bold cell "
+        f"is the unit's own role's purpose and earns full credit; off-role work earns "
+        f"{OFF_ROLE_NUM}/{OFF_ROLE_DEN} credit — more than zero, never full. MVP is the "
+        f"highest grade, LVP the lowest; ties break by (team_id, unit_id)."
+    )
+    return (
+        '<section class="ccard cgrades-card"><h2>Scorecard — per-unit grades</h2>'
+        f'<p class="cgrade-verdict">{verdict}</p>'
+        f'<table class="cgrades">{head}{"".join(rows)}</table>'
+        f'<p class="cgrade-why">{_esc(why)}</p></section>'
+    )
+
+
 def _render_events(data: dict[str, Any]) -> str:
     rows = []
     for entry in data["events"]:
@@ -410,6 +502,7 @@ def _render_body(data: dict[str, Any]) -> str:
         + '<div class="cside">'
         + _render_teams(data)
         + _render_events(data)
+        + _render_scorecard(data)
         + "</div></div>"
     )
 
@@ -472,6 +565,18 @@ h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity:
 .cevt-observation { opacity: .55; }
 .cevt.race-win { color: __STATUS_GOOD__; font-weight: 700; }
 .cevt.race-fail { color: __STATUS_CRITICAL__; font-weight: 700; }
+.cgrades { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cgrades th, .cgrades td { text-align: left; padding: 3px 6px;
+  border-bottom: 1px solid rgba(127,127,127,.2); }
+.cgrades th { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; opacity: .6; }
+.cgrades .cgrade-num { font-variant-numeric: tabular-nums; text-align: right; }
+.cgrades .cgrade-total { font-weight: 700; }
+.cgrades .cgrade-home { font-weight: 700; }
+.cgrades .cswatch { display: inline-block; vertical-align: baseline; }
+.cgrade-mvp { color: __STATUS_GOOD__; font-weight: 700; font-size: 10.5px; }
+.cgrade-lvp { color: __STATUS_CRITICAL__; font-weight: 700; font-size: 10.5px; }
+.cgrade-verdict { font-size: 12.5px; margin-bottom: 8px; }
+.cgrade-why { margin-top: 8px; font-size: 11.5px; opacity: .75; }
 footer { margin-top: 16px; font-size: 11.5px; opacity: .6; }
 </style>
 </head>

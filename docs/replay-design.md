@@ -288,7 +288,8 @@ gate holds; a turn's total screen time is preserved by splitting it across its
 
 The reviewer had to scroll up and down between the board and the assessor guide,
 which lived in a full-width `<details>` at the bottom of the page. The right
-column is now a **tabbed side deck** (Guide / Events / Teams / Score) that uses
+column is now a **tabbed side deck** (Guide / Events / Teams / Score /
+Scorecard — the fifth tab is cycle-8 t8's per-unit scorecard, below) that uses
 the available width (`clamp(380px, 34vw, 560px)`); the board stays the hero on
 the left. The Guide is the default-active tab when present. On a wide viewport
 (≥ 1101px) the board and the side deck are sticky and the active tab panel
@@ -361,6 +362,55 @@ the same match seed, muxed into MP4) is a separate task (cycle-8 t9). The
 minimal — no transport, no client JS — so there is no idiomatic home for a
 toggle there yet; it inherits audio when the continuous lane earns its own
 visual cycle.
+
+## Scorecard — the per-unit axis in both faces (cycle 8)
+
+> **Provenance — the human review's ask, verbatim (cycle-8 spec c10):** *"We
+> need 'Best unit (MVP)' and 'Worst unit (LVP)' — grades per unit per role (a
+> unit should get more points for the designated purpose of its role — a
+> scout not scouting should still get points, but less if it's not a scouting
+> task, etc.)"* The reviewer was judging one level deeper than the guide
+> explained; cycle-8 t8 closes that gap in the replay itself.
+
+The grid deck gains a fifth tab, **Scorecard**, matching the deck's existing
+tab idiom exactly (a real `role="tab"` button, a `hidden`-toggling panel, the
+theme tokens in both modes). Its facts are
+`league.engine.grades.grade_units(log)` computed at render time — a pure
+function of the log, so the document stays byte-deterministic — reshaped into
+a ranked list (`build_scorecard`): units ordered by grade descending with the
+canonical `(team_id, unit_id)` tie-break, so the top row *is* the MVP. Each
+row shows a team dot (identity rides a mark, never the text), the unit id and
+role, MVP/LVP chips where earned — the **winner-chip vocabulary**: a `.chip`
+wearing the fixed status hues (`--good`/`--critical`) with a text label,
+never a team color — the grade, and the full four-purpose breakdown
+(economy / control / recon / coordination). The unit's **home purpose is
+typographically marked** — bold ink plus a small `×2 home` tag naming the
+on-role multiplier — a text-weight job, deliberately *not* a new color job
+(the accent stays chrome-only, the status hues stay verdict labels).
+
+The assessor guide gains a matching **"Scorecard — best and worst seat"**
+section that explains exactly what the grade weighs, every number
+interpolated from `league.engine.grades`' own pinned constants so the prose
+can never drift from the formula: the four buckets and the event kinds that
+feed them (`resource_gathered`/`resource_delivered` by amount;
+`control_point_captured` 3 pts / `control_point_held` 1 pt to the team's
+units standing on the point; `unit_moved` 1 pt; `message_sent` 1 pt), the
+on-role ×2 / off-role ×1 multiplier sentence, the MVP/LVP tie-break, and a
+verdict naming *this* match's MVP and LVP with their top bucket — the
+reviewer test (spec h6): guide + deck alone answer who carried, who sank,
+and why, without watching the match twice.
+
+The **continuous face lists the same facts in its minimal idiom** (frame v4
+stays pinned: no tabs, no client JS, no ported deck chrome): one static
+server-rendered table from
+`league.engine.continuous.grades.cgrade_units(clog)` — units ranked by grade,
+MVP/LVP marked in their rows and named in a verdict line, the on-role cell
+bolded — plus one plain-text paragraph explaining the continuous weights
+(`take_post` 300; gathered/delivered amounts and banked mission rewards
+×`GRADE_UNIT`; 100 per board-unit moved; off-role work earns 1/2 credit —
+more than zero, never full) and the same tie-break. Grades are a *new axis
+beside* the team score in both faces — they never feed it, and no ranking
+surface exists (spec boundary).
 
 ## Anti-pattern checklist
 
