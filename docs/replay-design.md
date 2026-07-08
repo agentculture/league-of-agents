@@ -357,10 +357,14 @@ guide's "Ambient score" section quotes the target verbatim — "content and
 relaxed, but also curious and intrigued" — and the next human review rates
 whether the score lands it; a miss is a finding for the next cycle, not a
 silent pass. The exported-video soundtrack (below) sits under the same
-obligation. The **continuous face deliberately stays silent this wave**:
-frame v4 is pinned minimal — no transport, no client JS — so there is no
-idiomatic home for a toggle there yet; it inherits audio when the continuous
-lane earns its own visual cycle.
+obligation. The **continuous face deliberately stayed silent this wave**:
+frame v4 was pinned minimal — no transport, no client JS — so there was no
+idiomatic home for a toggle yet. That inheritance has since happened: the
+cycle-8 human review delivered the verdict (the audio landed) together with
+the full-replay ask, and **frame v5 gave the continuous face a transport and
+with it this exact bed** — same seed formula (`fnv1a(match_id + "|" +
+seed)`), same OFF-by-default note toggle, so one match sounds the same on
+every face (see "Continuous face" below).
 
 ### The exported soundtrack — the same piece, offline (cycle-8 t9)
 
@@ -485,10 +489,15 @@ already knows, with the same k/n intra-turn offsets. Same log + same
 settings → byte-identical WAV, as before; an empty schedule reproduces the
 t9 bed bytes exactly (unit-tested). **The GIF stays byte-unchanged and
 silent** (format truth; the byte-pin in `tests/test_replay_video.py` still
-guards it). **The continuous face stays silent** this amendment too: frame
-v4 is pinned minimal — no client JS — so there is nothing for event audio to
-ride on; it inherits the event layer when the continuous lane earns its own
-interactive cycle (the same decision t4 recorded for the bed).
+guards it). **The continuous face stayed silent** this amendment too — frame
+v4 was pinned minimal, nothing for event audio to ride on — and inherited
+the layer exactly as recorded: frame v5's transport plays the motifs from
+the SAME injected `EVENT_SOUND` table, with
+`CONTINUOUS_EVENT_SOUND_ALIAS` (in `league/replay/audio.py`, beside the
+table) mapping the continuous kinds onto it — `post_taken` sounds as
+`control_point_captured`, `action_failed` as `action_rejected`; kinds absent
+from table+alias stay silent by the same bookkeeping-is-silence rule. One
+canonical table, now three renderers, still zero drift by construction.
 
 ## Scorecard — the per-unit axis in both faces (cycle 8)
 
@@ -527,9 +536,9 @@ verdict naming *this* match's MVP and LVP with their top bucket — the
 reviewer test (spec h6): guide + deck alone answer who carried, who sank,
 and why, without watching the match twice.
 
-The **continuous face lists the same facts in its minimal idiom** (frame v4
-stays pinned: no tabs, no client JS, no ported deck chrome): one static
-server-rendered table from
+The **continuous face lists the same facts in its minimal idiom** (frame v5
+keeps the scorecard exactly as v4 shipped it: static, server-rendered, no
+tabs, no ported deck chrome): one static table from
 `league.engine.continuous.grades.cgrade_units(clog)` — units ranked by grade,
 MVP/LVP marked in their rows and named in a verdict line, the on-role cell
 bolded — plus one plain-text paragraph explaining the continuous weights
@@ -563,7 +572,7 @@ hits**.
   side-deck tabs meet the hit-target minimum and are keyboard-operable, and all
   motion is reduced-motion-safe.
 
-## Continuous face (minimal, cycle 7)
+## Continuous face (cycle 7 minimal → the full replay)
 
 Cycle 7 (`league/engine/continuous/`) added a second engine lane with its own
 event vocabulary and fixed-point (milliunit) positions. `league/replay/chtml.py`
@@ -571,42 +580,58 @@ is its replay face — plan task C7-t9, spec c12/c2 — read beside `html.py`
 above, never over it: the grid face and this file are both untouched by the
 other (spec c11/h11, two lanes, both honest).
 
-**Frame v4 is pinned here as minimal-but-real.** The mesmerizing/video
-generalization this repo's replay conventions otherwise favor — tweened unit
-motion, a play/pause transport, the dual light/dark token system with a manual
-toggle, GIF/video export — is deliberately parked for a later cycle. `chtml.py`
-imports only the grid face's already-validated color constants
-(`TEAM_COLORS`, `STATUS_GOOD`, `STATUS_CRITICAL`, `RESOURCE_COLOR`); it does not
-port or reimplement any of `html.py`'s tween/GIF/theme machinery, so the two
-faces stay genuinely independent.
+**Frame v4 shipped minimal-but-real; the cycle-8 human review un-parked the
+rest.** V4 deliberately parked the playback generalization and printed a
+static sequence of key-moment board snapshots (the spec explicitly allowed a
+static sequence in place of a scrubber). Watching the first fogged live
+match on that face, the reviewer's finding, verbatim: *"I can only see key
+moments and not a full replay / video of the movements. We need full
+repeat."* **Frame v5 is that full replay:**
 
-What ships instead is the honest minimum the acceptance criteria name:
-
-- A **header** with match id, scenario, seed, mode, time limit, and the final
-  status/winner/outcome points.
-- An **event timeline** listing every event in canonical `(game_time, seq)`
-  order, each row timestamped with its integer game time. This is where a race
-  — a faster agent snatching a contested control point mid-capture — must read
-  clearly: a `post_taken` row always carries the `race-win` CSS class (and the
-  fixed status-good color), an `action_failed` row always carries the
-  `race-fail` class (and the fixed status-critical color) — two unmistakably
-  distinct, differently-styled moments, never merged into one ambiguous line.
-- A **static sequence of board snapshots**, one per distinct game-time step,
-  server-rendered as plain inline SVG (positions scaled down from the engine's
-  exact milliunits — never interpolated or tweened). A contested control point
-  draws one dashed ring per concurrent taker in that taker's own team color, so
-  the instant both racers are mid-take is visible on the board too, not only in
-  the feed — the engine already represents a race that way in state
-  (`CControlPoint.takers`; see `league/engine/continuous/state.py`), and the
-  face only has to draw what is already there. The spec explicitly allows a
-  static sequence in place of a scrubber, so no client-side stepping JS ships.
+- A **playable board** — one inline SVG redrawn along a continuous game-time
+  clock, with a transport: play/pause, a scrubber over the whole match,
+  step buttons that land on the distinct game-time steps (exactly the
+  moments v4 printed as its static sequence), and 0.5×–4× speed. Playback
+  runs at one game-time unit per wall second at 1×.
+- **Movement is the engine's own record, interpolated.** A moving unit
+  glides along the straight line its `CAction` names — `start_time`/
+  `completion_time`/`target_pos`, the exact pair
+  `league/engine/continuous/state.py` documents as "the pair the replay
+  interpolates a move over". Position between those instants is linear
+  interpolation of that record and nothing else; nothing is recomputed. The
+  client redraws with the same injected geometry constants the server used
+  for the static starting frame (one geometry, two drawers), and
+  `prefers-reduced-motion` collapses the glide to per-moment snaps.
+- A contested control point still draws **one dashed ring per concurrent
+  taker** (`CControlPoint.takers`) — now at the moment playback reaches the
+  race, not as a static print.
+- The **audio layer, inherited** the moment the face grew a transport: the
+  same seeded ambient bed (same `fnv1a(match_id + "|" + seed)` formula, so
+  one match sounds the same on every face) plus the event motifs from the
+  one canonical table + continuous alias (see the audio sections above).
+  OFF by default behind the transport's note toggle; motifs fire only when
+  the advancing clock crosses an event — scrubbing, stepping, and feed
+  clicks are navigation, not time passing, and never replay skipped events.
+- The **event timeline**, unchanged in meaning — every event in canonical
+  `(game_time, seq)` order; `post_taken` rows always carry `race-win`,
+  `action_failed` rows always carry `race-fail` (two unmistakably distinct
+  moments, never merged) — and upgraded into navigation: every row carries
+  its own game time (`data-t`) and click/Enter seeks the board to that
+  instant, with rows ahead of the clock dimmed during playback.
+- The **header and scorecard** stay exactly as they were: static,
+  server-rendered, no tabs, no ported deck chrome.
 
 **Determinism and self-containedness** hold the same way as the grid face:
 every fact is derived once via `fold_events`/`apply_event` (the log is the
 single source of truth; the renderer never recomputes game logic), there is no
 `Date.now`/`Math.random` and no external request of any kind, and the whole
 page is one self-contained file — the same log renders byte-identical HTML
-every time (`tests/test_replay_chtml.py`).
+every time (`tests/test_replay_chtml.py`). Playback wall-clock
+(`requestAnimationFrame` timestamps, `AudioContext` time) is runtime-only
+and never reaches the document's bytes. `chtml.py` still imports only the
+grid face's validated color constants plus the lane-neutral audio table —
+none of `html.py`'s own machinery is ported, so the two faces stay
+genuinely independent.
 
 **CLI wiring.** `league match replay` detects a continuous log two ways —
 a match id starting with `CONTINUOUS_ID_PREFIX` (`"c-"`, the same discipline

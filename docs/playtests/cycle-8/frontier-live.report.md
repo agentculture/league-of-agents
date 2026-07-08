@@ -183,17 +183,26 @@ The cycle-8 announcement, phrase by phrase, against what is now on record:
   completion-time arithmetic and menu discipline throughout this log are the
   contract working.
 
-## Queued for the next human review (h11)
+## Human review delivered (h11) — 2026-07-08
 
-The audio verdict slot. The reviewer should rate, on the record:
+The audio verdict slot, filled. The reviewer, on the record: **"I validated
+audio and the changes are great."** That closes both queued questions in one
+verdict — the ambient score lands the mood directive (*"content and relaxed,
+but also curious and intrigued"*) and the event layer honors the amendment
+(*"soundtrack + events sounds = this recording sounds"*), rated on
+`replay-preview/c8-audio-events.html` and the exported WAVs.
 
-1. Whether the ambient score lands the directive — *"a pleasent music that
-   will complement the experience and make me feel content and relaxed, but
-   also curious and intrigued"* — on
-   `replay-preview/c8-audio-events.html` (toggle ♪, press play) or any
-   regenerated replay.
-2. Whether the event layer honors the amendment — *"it should react or
-   describe what's going on in the game. (Or events have a sound, so
-   soundtrack + events sounds = this recording sounds)"* — including whether
-   the denial thud makes the bank standoff in **this match's** replay
-   audible.
+The same review produced the next finding, verbatim, watching **this
+match's** replay artifact: *"I can only see key moments and not a full
+replay / video of the movements. We need full repeat."* The continuous face
+was still frame v4 — deliberately parked as a static key-moment sequence in
+cycle 7 — so the first fogged live match was being judged through the
+minimal face. That un-parking became **frame v5** (the full replay:
+transport, movement interpolated from each action's own
+`start_time`/`completion_time`/`target_pos` record, seekable feed rows, and
+the audio layer inherited from the one canonical table —
+`docs/replay-design.md`, "Continuous face"); this match's committed
+`frontier-live.replay.html` is regenerated through it, so the standoff can
+now be *watched*: both harvesters converging on the shared bank, the
+defenders parked at their spawn and post, and the two mutual denials
+thudding at t=23 and t=29 (seq 57/60 and 63/65) with the note toggle on.

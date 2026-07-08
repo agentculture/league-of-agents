@@ -1,4 +1,5 @@
-"""Acceptance tests for the continuous replay face (plan C7-t9, spec c12/c2).
+"""Acceptance tests for the continuous replay face (plan C7-t9, spec c12/c2;
+frame v5 — the full-replay un-parking from the cycle-8 human review).
 
 Criteria under test:
 
@@ -8,9 +9,16 @@ Criteria under test:
    markers (``race-win`` / ``race-fail``), never merged into one line.
 2. The face is byte-deterministic from the log and self-contained (no
    external requests of any kind).
-3. Grid replay stays byte-identical to before this task — pinned against a
-   hash computed from ``league/replay/html.py`` BEFORE this task touched
-   anything (that file is untouched; only the CLI's routing changed).
+3. Grid replay stays byte-identical — pinned against the committed hash;
+   ``league/replay/html.py`` is untouched by the continuous face's own
+   evolution (the frame-v5 work must NOT move this pin).
+4. Frame v5 (the cycle-8 review's "we need full repeat"): the face ships a
+   playable transport, animates movement from each action's OWN engine
+   record (``start_time``/``completion_time``/``target_pos``), turns every
+   feed row into a seek target, and inherits the audio layer — the seeded
+   ambient bed plus the event motifs, injected verbatim from the ONE
+   canonical ``league.replay.audio`` table (with the continuous kind alias),
+   OFF by default.
 
 The race log is built in-test the way ``tests/test_continuous_resolve.py``'s
 ``_race_state``/``_race_decider`` do it: drive the real ``resolve_match`` on
@@ -217,8 +225,12 @@ def test_the_race_is_visible_on_the_board_mid_take_not_just_the_feed() -> None:
     assert cp_final["owner"] == "blue" and cp_final["takers"] == []
 
     html = render_chtml(_race_log())
-    # Both units' contested rings are drawn (one dashed ring per taker).
-    assert html.count('class="ctaker"') >= 2
+    # The contested rings (one dashed ring per taker) are drawn by the page's
+    # own renderer at the moment playback reaches the race — the drawing path
+    # ships in the document and reads the same ``takers`` the payload proves
+    # above (frame v4 printed them server-side; v5 draws them on the clock).
+    assert 'class="ctaker"' in html
+    assert "cp.takers.forEach" in html
 
 
 def test_event_timeline_lists_every_transition_event_with_its_game_time() -> None:
@@ -314,10 +326,12 @@ def test_grid_replay_is_byte_identical_to_before_this_task() -> None:
     assert hashlib.sha256(html.encode("utf-8")).hexdigest() == _GRID_HTML_SHA256
 
 
-def test_continuous_face_does_not_port_the_grid_faces_tween_gif_theme_machinery() -> None:
-    """Regression guard: the continuous face must never import/port the grid
-    face's tween/GIF/theme machinery (frame v4 pinned scope) — it only reads
-    the grid face's validated color constants."""
+def test_continuous_face_stays_independent_of_the_grid_faces_machinery() -> None:
+    """Regression guard, frame v5 edition: the continuous face grew its OWN
+    play machinery (a clock over game time, action-record interpolation) —
+    it still never imports/ports the grid face's turn-stepper/GIF/theme
+    machinery; from ``html.py`` it reads only the validated color constants
+    (the audio table comes from the lane-neutral ``league.replay.audio``)."""
     import league.replay.chtml as chtml_mod
 
     assert not hasattr(chtml_mod, "render_html")
@@ -325,6 +339,7 @@ def test_continuous_face_does_not_port_the_grid_faces_tween_gif_theme_machinery(
     html = render_chtml(_race_log())
     assert "theme-toggle" not in html
     assert "STACK_OFFSETS" not in html
+    assert "turn-slider" not in html  # the grid's turn transport is not this face's
 
 
 # --------------------------------------------------------------------------- #
@@ -391,12 +406,147 @@ def test_continuous_scorecard_explains_the_weights_in_plain_text() -> None:
         assert purpose in html
 
 
-def test_continuous_scorecard_keeps_the_minimal_idiom() -> None:
-    """Frame v4 stays pinned: the scorecard is a static server-rendered
-    section — the ONLY <script> in the document is still the JSON data block,
-    and no grid deck chrome (tabs, draw functions) is ported over."""
+# --------------------------------------------------------------------------- #
+# Frame v5 — the full replay (the cycle-8 human review's finding, verbatim:
+# "I can only see key moments and not a full replay / video of the movements.
+# We need full repeat."). The face plays the match on a continuous game-time
+# clock: a transport, movement interpolated from each action's OWN engine
+# record, seekable feed rows, and the audio layer inherited from the one
+# canonical table.
+# --------------------------------------------------------------------------- #
+
+
+def test_play_view_ships_a_full_transport() -> None:
+    """The board card is playable: play/pause, step-to-moment buttons, a
+    scrubber over the whole match clock, speed controls, and the note
+    toggle — with the static starting board still server-rendered so the
+    document degrades honestly without JavaScript."""
+    log = _race_log()
+    html = render_chtml(log)
+    data = build_continuous_replay_data(log)
+    for control in ("cbtn-first", "cbtn-prev", "cbtn-play", "cbtn-next", "cbtn-last"):
+        assert f'id="{control}"' in html
+    final_clock = data["frames"][-1]["clock"]
+    assert f'<input type="range" id="cclock" min="0" max="{final_clock}" step="any"' in html
+    for spd in ("0.5", "1", "2", "4"):
+        assert f'data-cspeed="{spd}"' in html
+    assert "Board — full replay" in html
+    assert 'id="cboard-host"' in html
+    assert html.count('class="cboard"') >= 1  # the server-drawn starting frame
+    assert "<noscript>" in html
+    # frame v4's static snapshot stack is gone — one playable board instead.
+    assert "key moments" not in html
+    assert 'class="cframe"' not in html
+
+
+def test_movement_animates_from_the_actions_own_record() -> None:
+    """The interpolation inputs are the engine's own: the payload's mid-move
+    unit carries ``start_time``/``completion_time``/``target_pos`` (the exact
+    pair ``CAction``'s docstring promises a replay), and the page's renderer
+    interpolates precisely that record — position between those instants is
+    presentation, never a recomputed rule."""
+    data = build_continuous_replay_data(_race_log())
+    folded_t0 = data["frames"][1]  # frames[0] is the pre-match initial snapshot
+    mover = next(u for u in folded_t0["units"] if u["action"] and u["action"]["kind"] == "move")
+    action = mover["action"]
+    assert action["target_pos"] is not None
+    assert action["completion_time"] > action["start_time"]
+
     html = render_chtml(_race_log())
-    assert html.count("<script") == 1
+    assert "function unitPosAt(" in html
+    assert "a.completion_time - a.start_time" in html
+    assert "a.target_pos.x - u.pos.x" in html
+
+
+def test_event_sound_table_and_alias_are_injected_verbatim() -> None:
+    """ONE canonical motif table, three renderers: the page's EVENT_SOUND is
+    ``league.replay.audio.EVENT_SOUND`` injected verbatim, and the continuous
+    kinds reach it through ``CONTINUOUS_EVENT_SOUND_ALIAS`` — every alias key
+    is a kind the table itself does not know, every alias value is a motif
+    the table does. No motif is re-declared in this module."""
+    from league.replay.audio import CONTINUOUS_EVENT_SOUND_ALIAS, EVENT_SOUND
+
+    html = render_chtml(_race_log())
+    match = re.search(r"const EVENT_SOUND = (\{.*?\});", html, re.S)
+    assert match, "injected EVENT_SOUND table missing"
+    assert json.loads(match.group(1)) == json.loads(json.dumps(EVENT_SOUND))
+    alias = re.search(r"const EVENT_SOUND_ALIAS = (\{.*?\});", html, re.S)
+    assert alias, "injected continuous alias missing"
+    assert json.loads(alias.group(1)) == CONTINUOUS_EVENT_SOUND_ALIAS
+    for key, value in CONTINUOUS_EVENT_SOUND_ALIAS.items():
+        assert key not in EVENT_SOUND["motifs"]
+        assert value in EVENT_SOUND["motifs"]
+    for placeholder in ("__CEVENT_SOUND__", "__CEVENT_ALIAS__"):
+        assert placeholder not in html  # the placeholders never leak
+
+
+def test_audio_is_off_by_default_behind_the_note_toggle() -> None:
+    """Same discipline as the grid face: the note toggle ships OFF, the
+    AudioContext is born inside the enable path (on the user's own gesture),
+    and one control governs bed + event sounds together."""
+    html = render_chtml(_race_log())
+    assert 'id="cbtn-audio"' in html
+    assert 'aria-pressed="false"' in html
+    assert 'title="score + event sounds (off)"' in html
+    assert html.count("new (window.AudioContext") == 1  # only the lazy build path
+
+
+def test_same_match_sounds_the_same_on_both_faces() -> None:
+    """The score seed formula is pinned identical across faces — fnv1a over
+    ``match_id + '|' + seed``, the exact data already embedded in each page —
+    so the SAME match plays the SAME music on the grid face, this face, and
+    the offline WAV (``league/replay/audio.py`` ports the same formula)."""
+    formula = "fnv1a(M.match_id + '|' + M.seed)"
+    assert formula in render_chtml(_race_log())
+    assert formula in render_html(_committed_grid_log())
+
+
+def test_every_feed_row_is_a_seek_target() -> None:
+    """Each event row carries its own game time as ``data-t`` — the page
+    turns every row into click/Enter navigation to that instant."""
+    log = _race_log()
+    html = render_chtml(log)
+    data = build_continuous_replay_data(log)
+    assert html.count('data-t="') == len(data["events"])
+    for entry in data["events"]:
+        assert f'data-t="{entry["game_time"]}"' in html
+
+
+def test_mission_sites_are_drawn_on_the_board() -> None:
+    """Frame v5 draws mission sites (a dashed square + id) so a delivery
+    contest converges somewhere the eye can see: one marker per mission in
+    the server-drawn starting frame, and the client renderer ships the same
+    drawing path for playback."""
+    log = _race_log()
+    html = render_chtml(log)
+    data = build_continuous_replay_data(log)
+    missions = data["frames"][0]["missions"]
+    assert missions  # c-skirmish-1 carries both a hold and a deliver mission
+    assert html.count('class="cmission"') == len(missions)  # all open at t=0
+    for ms in missions:
+        assert ms["id"] in html
+    assert "function missionSvg(" in html  # the playback drawer ships too
+
+
+def test_scrubbing_is_navigation_not_time_passing() -> None:
+    """The motif discipline the grid face pinned holds here in the continuous
+    idiom: motifs fire only when the advancing clock crosses an event
+    (``fireCrossed`` runs in the play tick), while ``seek`` — the scrubber,
+    the step buttons, the feed rows — resets the event pointer silently and
+    never schedules a note."""
+    html = render_chtml(_race_log())
+    assert "function fireCrossed(" in html
+    assert "fireCrossed(clock)" in html  # called from the play tick...
+    assert "navigation, not time passing: no motifs fire" in html  # ...never from seek
+
+
+def test_continuous_scorecard_stays_server_rendered_and_static() -> None:
+    """Frame v5 adds a playback script, but the scorecard idiom is unchanged:
+    a static server-rendered section — the document carries exactly two
+    scripts (the JSON data block and the playback app), and no grid deck
+    chrome (tabs, draw functions) is ported over."""
+    html = render_chtml(_race_log())
+    assert html.count("<script") == 2
     assert '<script id="cmatch-data" type="application/json">' in html
     assert 'role="tablist"' not in html and "tabpanel" not in html
     assert "drawScorecard" not in html

@@ -216,6 +216,22 @@ EVENT_SOUND: dict[str, Any] = {
     },
 }
 
+# The continuous lane's event vocabulary maps onto the SAME canonical motifs
+# wherever the concept matches — a won post IS a capture, a failed/denied
+# order IS a rejection. One table plus this alias keeps the third face
+# (``league/replay/chtml.py``, frame v5) drift-free by construction: the
+# continuous page injects both verbatim and never re-declares a motif of its
+# own. Kinds shared by name across the lanes (``resource_gathered``,
+# ``resource_delivered``, ``mission_completed``, ``message_sent``,
+# ``match_finished``) need no alias; continuous kinds absent from both the
+# table and this alias (``decision_point``, ``action_started``/``completed``,
+# ``unit_moved``, ``plan_declared``, ``seat_latency``) are silent BY DESIGN —
+# the same bookkeeping-is-silence rule the grid face documents above.
+CONTINUOUS_EVENT_SOUND_ALIAS: dict[str, str] = {
+    "post_taken": "control_point_captured",
+    "action_failed": "action_rejected",
+}
+
 
 def mulberry32(seed: int) -> Callable[[], float]:
     """The exact PRNG the HTML score embeds, bit-for-bit.

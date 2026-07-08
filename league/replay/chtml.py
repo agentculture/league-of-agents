@@ -1,40 +1,50 @@
-"""Render a continuous match log as a self-contained HTML replay — the race
-made visible (plan C7-t9, spec c12/c2).
+"""Render a continuous match log as a self-contained HTML replay — the match
+played back in full, movement and all (frame v5).
 
-Frame v4 is PINNED here as *minimal-but-real this cycle*: the mesmerizing/
-video generalization (tweened motion, a play/pause transport, the dual-theme
-token system, GIF/video export) is deliberately parked for a later cycle —
-this module reads ``league/replay/html.py`` beside it for the validated
-palette constants only, and never ports (or modifies) its tween/GIF/theme
-machinery. Two lanes, both honest (spec c11/h11): grid logs still render
-through the untouched grid face; this is the continuous lane's own face.
+Frame v4 (plan C7-t9, spec c12/c2) shipped this face as *minimal-but-real*: a
+static sequence of key-moment board snapshots, with the playback
+generalization deliberately parked for a later cycle. The cycle-8 human
+review un-parked it — the reviewer, watching the first fogged live match on
+this face, on the record: "I can only see key moments and not a full replay /
+video of the movements. We need full repeat." Frame v5 is that full replay:
 
-What ships is the honest minimum the acceptance criteria demand:
+* a **playable board** — one inline SVG redrawn along a continuous game-time
+  clock, with a transport (play/pause, a scrubber over the whole match, step
+  buttons that land on the old key moments, 0.5×–4× speed). A moving unit
+  glides along the straight line its own action record names — the engine's
+  ``CAction`` carries ``start_time``/``completion_time``/``target_pos``
+  precisely so a replay can interpolate a move (see
+  ``league/engine/continuous/state.py``); position between those instants is
+  linear interpolation of exactly that record, never a recomputed rule. A
+  contested control point still draws one dashed ring per concurrent taker
+  (``CControlPoint.takers``), now at the moment playback reaches the race —
+  and mission sites are drawn (a dashed square + id), so a delivery contest
+  converges somewhere the eye can see;
+* the **audio layer** (cycle-8 c17 + the audio-events amendment, inherited
+  the moment this face grew a transport): the same seeded ambient bed the
+  grid face plays — the seed is ``fnv1a(match_id + "|" + seed)`` in BOTH
+  faces, so one match sounds the same everywhere — plus the event-motif
+  layer, injected verbatim from :data:`league.replay.audio.EVENT_SOUND` (ONE
+  canonical table, now three renderers) with
+  :data:`league.replay.audio.CONTINUOUS_EVENT_SOUND_ALIAS` mapping this
+  lane's kinds onto it (a won post IS a capture, a denial IS a rejection).
+  OFF by default behind the transport's note toggle; motifs fire only when
+  the advancing clock crosses an event — scrubbing and jumping are
+  navigation, not time passing, and never replay skipped events;
+* an **event timeline** — every event in canonical ``(game_time, seq)``
+  order; ``post_taken`` rows carry the ``race-win`` marker, ``action_failed``
+  rows the ``race-fail`` marker (two unmistakably distinct moments, never
+  merged), and every row is a seek target — click it and the board jumps to
+  that instant;
+* a **header** and a **scorecard** (cycle-8 t8, spec c6/h6) — unchanged:
+  server-rendered, static, the per-unit grades from
+  :func:`league.engine.continuous.grades.cgrade_units` with MVP/LVP marked
+  and one plain-text paragraph explaining exactly what the grade weighs.
 
-* a **header** — match id, scenario, seed, mode, time limit, and the final
-  status/winner/outcome points;
-* an **event timeline** — every event in the log, in canonical ``(game_time,
-  seq)`` order, each row timestamped with its integer game time. This is
-  where the race must read clearly: a ``post_taken`` row always carries the
-  ``race-win`` marker class and a distinct color, an ``action_failed`` row
-  always carries the ``race-fail`` marker class and a distinct color — so the
-  winning take and the losing attempt are two unmistakably distinct,
-  differently-styled moments in the same feed, never merged into one
-  ambiguous line;
-* a **board snapshot per distinct game-time step** — a plain inline SVG,
-  positions drawn to scale from the fixed-point milliunits (never
-  interpolated/tweened — a static sequence of key moments, which the spec
-  explicitly allows in place of a scrubber). A contested control point draws
-  one dashed ring per concurrent taker, in the taker's own team color, so the
-  instant both racers are mid-take is visible in the BOARD too, not just the
-  feed — because the engine represents it that way in state
-  (``CControlPoint.takers``; see ``league/engine/continuous/state.py``);
-* a **scorecard** (cycle-8 t8, spec c6/h6) — the per-unit grades from
-  :func:`league.engine.continuous.grades.cgrade_units`, listed in this face's
-  own minimal idiom: one static table (units ranked by grade, MVP/LVP marked,
-  the on-role cell bolded) and one plain-text paragraph explaining exactly
-  what the grade weighs. No tabs, no client JS — the grid deck's chrome stays
-  un-ported.
+The two-lane honesty (spec c11/h11) still holds: grid logs render through
+the untouched grid face (its bytes are pinned), and this module imports only
+the grid face's validated palette constants plus the lane-neutral audio
+table — none of ``html.py``'s own machinery.
 
 Determinism and self-containedness (matching the repo's replay conventions,
 ``docs/replay-design.md``): every byte here comes from the log via
@@ -42,7 +52,9 @@ Determinism and self-containedness (matching the repo's replay conventions,
 truth, and this module never recomputes game logic, only formats it. No
 ``Date.now``/``Math.random``, no external request of any kind (no
 ``http(s)://``, ``fetch``, ``@import``, remote font/CDN) — a single
-self-contained file, byte-identical for the same log, every time.
+self-contained file, byte-identical for the same log, every time. Playback
+wall-clock (``requestAnimationFrame`` timestamps, ``AudioContext`` time) is
+runtime-only and never reaches the document's bytes.
 """
 
 from __future__ import annotations
@@ -66,6 +78,7 @@ from league.engine.continuous.grades import (
 from league.engine.continuous.resolve import outcome_points
 from league.engine.continuous.space import format_units
 from league.engine.continuous.state import CMatchState
+from league.replay.audio import CONTINUOUS_EVENT_SOUND_ALIAS, EVENT_SOUND
 from league.replay.html import RESOURCE_COLOR, STATUS_CRITICAL, STATUS_GOOD, TEAM_COLORS
 
 # Board render scale: the longer board edge maps to this many pixels; padding
@@ -77,6 +90,20 @@ _BOARD_PAD_PX = 18
 _UNIT_R = 10
 _CP_R = 15
 _NODE_R = 9
+_MS_R = 12  # mission-marker half-size (frame v5 — the standoff square is watchable)
+
+# The same geometry, handed to the page's own renderer: the client redraws
+# the board along the playback clock with EXACTLY the constants the static
+# starting frame was server-rendered with — one source, two drawers, no
+# eyeballed second geometry.
+_GEO = {
+    "max_px": _BOARD_MAX_PX,
+    "pad_px": _BOARD_PAD_PX,
+    "unit_r": _UNIT_R,
+    "cp_r": _CP_R,
+    "node_r": _NODE_R,
+    "ms_r": _MS_R,
+}
 
 # Presentational glyph convention, mirrored from the grid face's own mapping
 # (``league/replay/html.py``'s ``GLYPH`` table) for a consistent look across
@@ -295,6 +322,31 @@ def _render_board_svg(frame: dict[str, Any], board: dict[str, int], team_ids: li
             f"{node['remaining']}</text>"
         )
 
+    cp_squares = {(c["pos"]["x"], c["pos"]["y"]) for c in frame["control_points"]}
+    for ms in frame["missions"]:
+        # Frame v5: mission sites are drawn (a dashed square + id), so a
+        # delivery contest — units converging on the shared bank — happens
+        # somewhere the eye can see, not on an invisible coordinate.
+        cx, cy = _px(ms["pos"]["x"], scale), _px(ms["pos"]["y"], scale)
+        r = _MS_R
+        done = ms["status"] != "open"
+        status = ms["status"] + (f" — {', '.join(ms['completed_by'])}" if done else "")
+        cls = "cmission cmission-done" if done else "cmission"
+        parts.append(
+            f'<rect x="{cx - r:.1f}" y="{cy - r:.1f}" width="{r * 2}" height="{r * 2}" '
+            f'rx="3" class="{cls}">'
+            f"<title>{_esc(ms['id'])} ({_esc(ms['kind'])} {ms['amount']} for "
+            f"{ms['reward']}) — {_esc(status)}</title></rect>"
+        )
+        # A hold mission often sits ON a control point, whose own id renders
+        # below — co-located labels split to two sides; otherwise below.
+        above = (ms["pos"]["x"], ms["pos"]["y"]) in cp_squares
+        label_y = cy - r - 5 if above else cy + r + 11
+        parts.append(
+            f'<text x="{cx:.1f}" y="{label_y:.1f}" text-anchor="middle" class="cms-id">'
+            f"{_esc(ms['id'])}</text>"
+        )
+
     for cp in frame["control_points"]:
         cx, cy = _px(cp["pos"]["x"], scale), _px(cp["pos"]["y"], scale)
         owner = cp["owner"]
@@ -455,6 +507,8 @@ def _render_scorecard(data: dict[str, Any]) -> str:
 
 
 def _render_events(data: dict[str, Any]) -> str:
+    """Every row carries ``data-t`` (its own game time): the page's transport
+    turns each row into a seek target — click an event, watch that instant."""
     rows = []
     for entry in data["events"]:
         classes = ["cevt", f"cevt-{entry['kind']}", f"cevt-{entry['class']}"]
@@ -464,7 +518,7 @@ def _render_events(data: dict[str, Any]) -> str:
             classes.append("race-fail")
         text = _describe_event(entry)
         rows.append(
-            f'<li class="{" ".join(classes)}">'
+            f'<li class="{" ".join(classes)}" data-t="{entry["game_time"]}">'
             f'<span class="cevt-t">t={entry["game_time"]}</span>'
             f'<span class="cevt-k">{_esc(entry["kind"])}</span>'
             f'<span class="cevt-d">{_esc(text)}</span></li>'
@@ -475,30 +529,53 @@ def _render_events(data: dict[str, Any]) -> str:
     )
 
 
-def _render_boards(data: dict[str, Any]) -> str:
-    """A static sequence of board snapshots — one per distinct game time PLUS
-    the pre-match initial snapshot. Several moments can share a ``clock``
-    value (e.g. the match-started transition and every unit's opening
-    ``action_started`` all happen AT game_time 0, before the clock first
-    advances), so each card is numbered as well as timestamped — two visibly
-    different boards can legitimately both read ``t=0``."""
+def _render_play(data: dict[str, Any]) -> str:
+    """The playable board (frame v5): a transport row plus one board host.
+
+    The host is server-rendered with the pre-match starting frame so the
+    document degrades to an honest static board without JavaScript (the
+    <noscript> note says so out loud); with JavaScript the page's own
+    renderer redraws the same SVG — same injected geometry constants — along
+    the playback clock. The step buttons land on the distinct game-time
+    steps, i.e. exactly the moments frame v4 used to print as its static
+    sequence."""
     team_ids = [t["id"] for t in data["teams"]]
-    parts = ['<section class="ccard cboard-card"><h2>Board — key moments</h2>']
-    for i, frame in enumerate(data["frames"]):
-        parts.append(
-            f'<div class="cframe"><div class="cframe-t">moment {i + 1} · t={frame["clock"]}'
-            f"</div>"
-            f'{_render_board_svg(frame, data["board"], team_ids)}</div>'
-        )
-    parts.append("</section>")
-    return "".join(parts)
+    final_clock = data["frames"][-1]["clock"]
+    initial_svg = _render_board_svg(data["frames"][0], data["board"], team_ids)
+    return (
+        '<section class="ccard cboard-card"><h2>Board — full replay</h2>'
+        '<div class="ctransport" role="group" aria-label="playback transport">'
+        '<button id="cbtn-first" title="jump to start" aria-label="jump to start">'
+        "&#171;</button>"
+        '<button id="cbtn-prev" title="previous moment" aria-label="previous moment">'
+        "&#8249;</button>"
+        '<button id="cbtn-play" title="play/pause" aria-label="play">&#9654;</button>'
+        '<button id="cbtn-next" title="next moment" aria-label="next moment">&#8250;</button>'
+        '<button id="cbtn-last" title="jump to end" aria-label="jump to end">&#187;</button>'
+        f'<input type="range" id="cclock" min="0" max="{final_clock}" step="any" value="0" '
+        'aria-label="game time">'
+        f'<span id="cclock-label" class="cclock-label">t=0.0 / {final_clock}</span>'
+        '<span class="cspeed" role="group" aria-label="playback speed">'
+        '<button data-cspeed="0.5" title="half speed">0.5&#215;</button>'
+        '<button data-cspeed="1" class="on" title="normal speed">1&#215;</button>'
+        '<button data-cspeed="2" title="double speed">2&#215;</button>'
+        '<button data-cspeed="4" title="quadruple speed">4&#215;</button>'
+        "</span>"
+        '<button id="cbtn-audio" type="button" title="score + event sounds (off)" '
+        'aria-pressed="false" aria-label="score + event sounds (off)">&#9834;</button>'
+        "</div>"
+        f'<div id="cboard-host">{initial_svg}</div>'
+        "<noscript><p>Interactive playback needs JavaScript; this static board shows the "
+        "starting positions. The event timeline beside it still lists every moment.</p>"
+        "</noscript></section>"
+    )
 
 
 def _render_body(data: dict[str, Any]) -> str:
     return (
         _render_header(data)
         + '<div class="clayout">'
-        + _render_boards(data)
+        + _render_play(data)
         + '<div class="cside">'
         + _render_teams(data)
         + _render_events(data)
@@ -522,7 +599,7 @@ body {
 }
 @media (prefers-color-scheme: dark) {
   body { background: #14140f; color: #f2f1ec; }
-  .ccard, .cframe { background: #1f1f1b !important; border-color: #35342f !important; }
+  .ccard { background: #1f1f1b !important; border-color: #35342f !important; }
   .cboard-bg { fill: #201f1e; }
 }
 h1 { font-size: 18px; margin-bottom: 10px; }
@@ -542,13 +619,24 @@ h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity:
 }
 .cboard-card { flex: 1 1 480px; }
 .cside { display: flex; flex-direction: column; gap: 14px; flex: 1 1 320px; max-width: 420px; }
-.cframe { border: 1px solid rgba(127,127,127,.2); border-radius: 10px; padding: 8px;
-  margin-bottom: 10px; }
-.cframe-t { font-variant-numeric: tabular-nums; font-size: 12px; opacity: .7;
-  margin-bottom: 4px; }
 .cboard { width: 100%; height: auto; display: block; }
+.ctransport { display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 10px; }
+.ctransport button {
+  min-width: 30px; min-height: 30px; padding: 2px 8px; font-size: 13px;
+  background: transparent; color: inherit; cursor: pointer;
+  border: 1px solid rgba(127,127,127,.45); border-radius: 8px;
+}
+.ctransport button.on { border-color: currentColor; font-weight: 700; }
+#cclock { flex: 1 1 120px; min-width: 120px; accent-color: currentColor; }
+.cclock-label { font-variant-numeric: tabular-nums; font-size: 12px; opacity: .8; }
+.cspeed { display: inline-flex; gap: 4px; }
+.cspeed button { min-width: 38px; font-variant-numeric: tabular-nums; }
 .cboard-bg { fill: #eeece4; }
 .ccp-id { font-size: 9px; fill: currentColor; opacity: .7; }
+.cmission { fill: none; stroke: #8f8d87; stroke-width: 1.6; stroke-dasharray: 5 3; }
+.cmission-done { opacity: .45; }
+.cms-id { font-size: 9px; fill: currentColor; opacity: .7; }
 .cnode-num { font-size: 8px; fill: #fff; font-weight: 700; text-anchor: middle; }
 .cunit-glyph { font-size: 10px; fill: #fff; font-weight: 700; }
 .ctaker { stroke-width: 2; stroke-dasharray: 4 3; }
@@ -565,6 +653,10 @@ h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity:
 .cevt-observation { opacity: .55; }
 .cevt.race-win { color: __STATUS_GOOD__; font-weight: 700; }
 .cevt.race-fail { color: __STATUS_CRITICAL__; font-weight: 700; }
+.cfeed li[data-t] { cursor: pointer; }
+.cfeed li[data-t]:focus-visible { outline: 2px solid currentColor; border-radius: 6px; }
+.cevt-future { opacity: .35; }
+.cevt-now { background: rgba(127,127,127,.14); border-radius: 6px; }
 .cgrades { width: 100%; border-collapse: collapse; font-size: 12px; }
 .cgrades th, .cgrades td { text-align: left; padding: 3px 6px;
   border-bottom: 1px solid rgba(127,127,127,.2); }
@@ -583,20 +675,501 @@ footer { margin-top: 16px; font-size: 11.5px; opacity: .6; }
 <body>
 <div class="wrap">
 __CMATCH_BODY__
-<footer>Continuous replay — frame v4 (minimal-but-real, cycle 7): a static
-sequence of board snapshots plus the full event timeline, rendered straight
-from the match log.</footer>
+<footer>Continuous replay — frame v5 (the full replay, cycle-8 human review):
+press play and the match runs on its own clock — every move glides along the
+engine's own action record — with an optional score + event-sound layer
+(&#9834;, off by default). Every fact rendered straight from the match log.</footer>
 </div>
 <script id="cmatch-data" type="application/json">__CMATCH_DATA__</script>
+<script>
+"use strict";
+// Frame v5 playback: everything below is presentation. The clock, the
+// interpolation and the audio are computed from the embedded log payload;
+// no game logic is recomputed. A move's path is the straight line the
+// engine's own action record names (pos -> target_pos over
+// start_time..completion_time) — linear interpolation of that record and
+// nothing else. Playback wall-clock (requestAnimationFrame timestamps,
+// AudioContext time) is runtime-only and never reaches the document.
+const M = JSON.parse(document.getElementById('cmatch-data').textContent);
+const EVENT_SOUND = __CEVENT_SOUND__;
+const EVENT_SOUND_ALIAS = __CEVENT_ALIAS__;
+const GEO = __CGEO__;
+const ROLE_GLYPH = __CROLE_GLYPH__;
+const TEAM_COLORS = __CTEAM_COLORS__;
+const NEUTRAL = '#8f8d87';
+const $ = id => document.getElementById(id);
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+}
+const teamIds = M.teams.map(t => t.id);
+const teamIndex = {};
+teamIds.forEach((id, i) => { teamIndex[id] = i; });
+function teamColor(tid) {
+  const i = teamIndex[tid];
+  return i == null ? NEUTRAL : TEAM_COLORS[i % TEAM_COLORS.length];
+}
+const unitTeam = {};
+M.frames[0].units.forEach(u => { unitTeam[u.id] = u.team_id; });
+const FINAL_CLOCK = M.frames[M.frames.length - 1].clock;
+const STEPS = M.frames.map(f => f.clock).filter((c, i, a) => i === 0 || c !== a[i - 1]);
+
+// The governing snapshot for a clock value: the last folded frame at or
+// before it (several frames can share clock 0 — the later fold governs).
+function frameAt(tau) {
+  let f = M.frames[0];
+  for (const g of M.frames) { if (g.clock <= tau) f = g; else break; }
+  return f;
+}
+// Where a unit IS at clock tau: mid-move, the linear interpolation of its
+// own action record; otherwise exactly the folded position. Reduced motion
+// collapses the glide to per-moment snaps.
+function unitPosAt(u, tau) {
+  const a = u.action;
+  if (!reduce && a && a.kind === 'move' && a.target_pos &&
+      a.completion_time > a.start_time) {
+    const k = Math.max(0, Math.min(1,
+      (tau - a.start_time) / (a.completion_time - a.start_time)));
+    return { x: u.pos.x + (a.target_pos.x - u.pos.x) * k,
+             y: u.pos.y + (a.target_pos.y - u.pos.y) * k };
+  }
+  return u.pos;
+}
+
+// ---- board renderer: the same geometry the server used for the static
+// starting frame (GEO and the colors are injected from those exact
+// constants — one geometry, two drawers, no drift).
+const SCALE = GEO.max_px / Math.max(M.board.width, M.board.height, 1);
+const px = mu => GEO.pad_px + mu * SCALE;
+const f1 = n => n.toFixed(1);
+function nodeSvg(node) {
+  const cx = px(node.pos.x), cy = px(node.pos.y), r = GEO.node_r;
+  const pts = f1(cx) + ',' + f1(cy - r) + ' ' + f1(cx + r) + ',' + f1(cy) + ' ' +
+    f1(cx) + ',' + f1(cy + r) + ' ' + f1(cx - r) + ',' + f1(cy);
+  return '<polygon points="' + pts + '" class="cnode" fill="__RESOURCE_COLOR__">' +
+    '<title>' + esc(node.id) + ': ' + node.remaining + ' remaining</title></polygon>' +
+    '<text x="' + f1(cx) + '" y="' + f1(cy + 3) + '" text-anchor="middle" ' +
+    'class="cnode-num">' + node.remaining + '</text>';
+}
+function missionSvg(ms, cpSquares) {
+  const cx = px(ms.pos.x), cy = px(ms.pos.y), r = GEO.ms_r;
+  const done = ms.status !== 'open';
+  const status = ms.status + (done ? ' — ' + ms.completed_by.join(', ') : '');
+  // Same label rule as the server drawer: above when co-located with a
+  // control point (whose own id renders below), otherwise below.
+  const above = cpSquares[ms.pos.x + ',' + ms.pos.y];
+  const ly = above ? cy - r - 5 : cy + r + 11;
+  return '<rect x="' + f1(cx - r) + '" y="' + f1(cy - r) + '" width="' + (r * 2) +
+    '" height="' + (r * 2) + '" rx="3" class="cmission' +
+    (done ? ' cmission-done' : '') + '"><title>' + esc(ms.id) + ' (' + esc(ms.kind) +
+    ' ' + ms.amount + ' for ' + ms.reward + ') — ' + esc(status) + '</title></rect>' +
+    '<text x="' + f1(cx) + '" y="' + f1(ly) + '" text-anchor="middle" ' +
+    'class="cms-id">' + esc(ms.id) + '</text>';
+}
+function cpSvg(cp) {
+  const cx = px(cp.pos.x), cy = px(cp.pos.y);
+  const oc = cp.owner ? teamColor(cp.owner) : NEUTRAL;
+  const ownedBy = cp.owner ? ' — owned by ' + esc(cp.owner) : ' — unowned';
+  let out = '<circle cx="' + f1(cx) + '" cy="' + f1(cy) + '" r="' + GEO.cp_r + '" ' +
+    'class="ccp" fill="' + (cp.owner ? oc : 'none') + '" fill-opacity="' +
+    (cp.owner ? '0.28' : '1') + '" stroke="' + oc + '">' +
+    '<title>' + esc(cp.id) + ownedBy + '</title></circle>' +
+    '<text x="' + f1(cx) + '" y="' + f1(cy + GEO.cp_r + 11) + '" text-anchor="middle" ' +
+    'class="ccp-id">' + esc(cp.id) + '</text>';
+  cp.takers.forEach((tk, i) => {
+    out += '<circle cx="' + f1(cx) + '" cy="' + f1(cy) + '" r="' +
+      (GEO.cp_r + 6 + i * 6) + '" class="ctaker" stroke="' + teamColor(tk.team_id) +
+      '" fill="none"><title>' + esc(tk.unit_id) + ' taking — completes t=' +
+      tk.completion_time + '</title></circle>';
+  });
+  return out;
+}
+function unitSvg(u, tau) {
+  const pos = unitPosAt(u, tau);
+  const cx = px(pos.x), cy = px(pos.y);
+  const color = teamColor(u.team_id);
+  const glyph = ROLE_GLYPH[u.role] || u.role.slice(0, 1).toUpperCase();
+  const a = u.action;
+  const title = u.id + ' — ' +
+    (a ? a.kind + ', completes t=' + a.completion_time : 'idle') +
+    (u.carrying ? ', carrying ' + u.carrying : '');
+  let out = '<g class="cunit"><title>' + esc(title) + '</title>';
+  if (a) out += '<circle cx="' + f1(cx) + '" cy="' + f1(cy) + '" r="' +
+    (GEO.unit_r + 5) + '" class="cunit-busy" stroke="' + color + '" fill="none"/>';
+  out += '<circle cx="' + f1(cx) + '" cy="' + f1(cy) + '" r="' + GEO.unit_r +
+    '" fill="' + color + '" class="cunit-body"/>' +
+    '<text x="' + f1(cx) + '" y="' + f1(cy + 4) + '" text-anchor="middle" ' +
+    'class="cunit-glyph">' + esc(glyph) + '</text></g>';
+  return out;
+}
+function drawBoard(tau) {
+  const f = frameAt(tau);
+  const w = GEO.pad_px * 2 + M.board.width * SCALE;
+  const h = GEO.pad_px * 2 + M.board.height * SCALE;
+  const p = ['<svg viewBox="0 0 ' + f1(w) + ' ' + f1(h) + '" class="cboard" role="img" ' +
+    'aria-label="board at t=' + tau.toFixed(1) + '">',
+    '<rect x="0" y="0" width="' + f1(w) + '" height="' + f1(h) + '" class="cboard-bg"/>'];
+  const cpSquares = {};
+  f.control_points.forEach(c => { cpSquares[c.pos.x + ',' + c.pos.y] = true; });
+  for (const node of f.resource_nodes) p.push(nodeSvg(node));
+  for (const ms of f.missions) p.push(missionSvg(ms, cpSquares));
+  for (const cp of f.control_points) p.push(cpSvg(cp));
+  for (const u of f.units) { if (u.alive) p.push(unitSvg(u, tau)); }
+  p.push('</svg>');
+  $('cboard-host').innerHTML = p.join('');
+}
+
+// ---- the transport: one continuous clock over [0, FINAL_CLOCK]. Playback
+// advances it by requestAnimationFrame deltas; 1x plays one game-time unit
+// per wall second.
+let clock = 0, speed = 1, rafId = null, lastTs = null, playing = false;
+let evtPtr = 0;        // M.events[0..evtPtr) are at or before the clock
+let feedApplied = -1;
+const feedRows = Array.from(document.querySelectorAll('.cfeed > li'));
+function evtCount(tau) {
+  let n = 0;
+  while (n < M.events.length && M.events[n].game_time <= tau) n++;
+  return n;
+}
+function syncFeed() {
+  if (evtPtr === feedApplied) return;
+  feedApplied = evtPtr;
+  const nowT = evtPtr > 0 ? M.events[evtPtr - 1].game_time : null;
+  feedRows.forEach((row, i) => {
+    row.classList.toggle('cevt-future', i >= evtPtr);
+    row.classList.toggle('cevt-now', i < evtPtr && M.events[i].game_time === nowT);
+  });
+  if (playing && evtPtr > 0) {
+    const row = feedRows[evtPtr - 1], feed = row.parentElement;
+    feed.scrollTop += row.getBoundingClientRect().top -
+      feed.getBoundingClientRect().top - feed.clientHeight * 0.5;
+  }
+}
+function renderAll() {
+  drawBoard(clock);
+  $('cclock').value = String(clock);
+  $('cclock-label').textContent = 't=' + clock.toFixed(1) + ' / ' + FINAL_CLOCK;
+  syncFeed();
+}
+function seek(tau) {   // navigation, not time passing: no motifs fire
+  clock = Math.max(0, Math.min(FINAL_CLOCK, tau));
+  evtPtr = evtCount(clock);
+  renderAll();
+}
+// Consume every event the advancing clock just crossed; the k-th of an
+// instant's sounding events staggers 70 ms so simultaneity stays legible
+// (deterministic — canonical event order, never wall-clock jitter).
+function fireCrossed(cur) {
+  let batchT = null, k = 0;
+  while (evtPtr < M.events.length && M.events[evtPtr].game_time <= cur) {
+    const e = M.events[evtPtr++];
+    if (!AUDIO.on || !AUDIO.graph || !AUDIO.rootHz) continue;
+    const kind = EVENT_SOUND.motifs[e.kind] ? e.kind : EVENT_SOUND_ALIAS[e.kind];
+    if (!kind) continue;
+    if (e.game_time !== batchT) { batchT = e.game_time; k = 0; }
+    playMotif(kind, e.data, AUDIO.graph.ctx.currentTime + 0.02 + 0.07 * k);
+    k += 1;
+  }
+}
+function tickPlay(ts) {
+  if (lastTs == null) lastTs = ts;
+  clock = Math.min(FINAL_CLOCK, clock + ((ts - lastTs) / 1000) * speed);
+  lastTs = ts;
+  fireCrossed(clock);
+  renderAll();
+  if (clock >= FINAL_CLOCK) { stop(); return; }
+  rafId = requestAnimationFrame(tickPlay);
+}
+function stop() {
+  if (!playing) return;
+  playing = false;
+  if (rafId != null) cancelAnimationFrame(rafId);
+  rafId = null; lastTs = null;
+  const b = $('cbtn-play');
+  b.classList.remove('on'); b.innerHTML = '&#9654;';
+  b.setAttribute('aria-label', 'play');
+}
+function play() {
+  if (playing) return;
+  if (clock >= FINAL_CLOCK) seek(0);   // replay from the top
+  playing = true; lastTs = null;
+  const b = $('cbtn-play');
+  b.classList.add('on'); b.innerHTML = '&#10073;&#10073;';
+  b.setAttribute('aria-label', 'pause');
+  rafId = requestAnimationFrame(tickPlay);
+}
+function toggle() { playing ? stop() : play(); }
+// The step buttons land on the distinct game-time steps — exactly the
+// moments frame v4 printed as its static key-moment sequence.
+function stepPrev() {
+  stop();
+  let target = 0;
+  for (const t of STEPS) { if (t < clock) target = t; else break; }
+  seek(target);
+}
+function stepNext() {
+  stop();
+  const next = STEPS.find(t => t > clock);
+  seek(next == null ? FINAL_CLOCK : next);
+}
+$('cclock').addEventListener('input', e => { stop(); seek(parseFloat(e.target.value)); });
+$('cbtn-first').onclick = () => { stop(); seek(0); };
+$('cbtn-prev').onclick = stepPrev;
+$('cbtn-next').onclick = stepNext;
+$('cbtn-last').onclick = () => { stop(); seek(FINAL_CLOCK); };
+$('cbtn-play').onclick = toggle;
+document.querySelectorAll('.cspeed button').forEach(b => {
+  b.onclick = () => {
+    speed = parseFloat(b.dataset.cspeed);
+    document.querySelectorAll('.cspeed button').forEach(x =>
+      x.classList.toggle('on', x === b));
+  };
+});
+feedRows.forEach(row => {
+  const t = row.dataset.t;
+  if (t == null) return;
+  row.tabIndex = 0;
+  const go = () => { stop(); seek(parseFloat(t)); };
+  row.addEventListener('click', go);
+  row.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+});
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowLeft') stepPrev();
+  else if (e.key === 'ArrowRight') stepNext();
+  else if (e.key === ' ') { e.preventDefault(); toggle(); }
+});
+
+// ---- ambient score + event motifs (inherited from the grid face the
+// moment this face grew a transport — cycle-8 c17 + the audio-events
+// amendment). The seed derives from data already embedded in this page
+// (match id + seed) with the SAME formula the grid face uses, so one match
+// sounds the same on every face; OFF by default — the AudioContext is
+// created lazily on the user's own gesture. EVENT_SOUND / EVENT_SOUND_ALIAS
+// above are injected verbatim from league/replay/audio.py: ONE canonical
+// table, three renderers (grid page, this page, the MP4 soundtrack), zero
+// drift by construction. Kinds absent from table+alias are silent by
+// design; motifs fire only when the advancing clock crosses an event —
+// scrubbing or jumping is navigation, not time passing, so skipped events
+// never sound.
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function fnv1a(s) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i); h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function audioSeed() {
+  return fnv1a(M.match_id + '|' + M.seed);  // same formula as the grid face
+}
+const MASTER_LEVEL = 0.3;
+const ROOT_MIDI = [41, 43, 45, 48];
+const PAD_CHORDS = [
+  [0, 7, 14, 16], [0, 7, 16, 21], [2, 9, 14, 18], [0, 7, 19, 23],
+];
+const BELL_STEPS = [0, 2, 4, 7, 9, 11, 14, 16];
+const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
+const AUDIO = { graph: null, timer: null, on: false, rootHz: null };
+function makeImpulse(ctx, rnd) {
+  const len = Math.floor(3.2 * ctx.sampleRate);
+  const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) d[i] = (rnd() * 2 - 1) * Math.pow(1 - i / len, 2.9);
+  }
+  return buf;
+}
+function buildAudio(seed) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = ctx.createGain(); master.gain.value = 0;
+  const safety = ctx.createDynamicsCompressor();
+  safety.threshold.value = -22; safety.knee.value = 18; safety.ratio.value = 4;
+  safety.attack.value = 0.012; safety.release.value = 0.3;
+  master.connect(safety); safety.connect(ctx.destination);
+  const rev = ctx.createConvolver();
+  rev.buffer = makeImpulse(ctx, mulberry32(seed ^ 0x1F123BB5));
+  const wet = ctx.createGain(); wet.gain.value = 0.5;
+  rev.connect(wet); wet.connect(master);
+  const padLp = ctx.createBiquadFilter();
+  padLp.type = 'lowpass'; padLp.frequency.value = 950; padLp.Q.value = 0.4;
+  const padBus = ctx.createGain(); padBus.gain.value = 0.9;
+  padBus.connect(padLp); padLp.connect(master);
+  const padSend = ctx.createGain(); padSend.gain.value = 0.3;
+  padLp.connect(padSend); padSend.connect(rev);
+  const lfo = ctx.createOscillator(); lfo.frequency.value = 0.045;
+  const lfoAmt = ctx.createGain(); lfoAmt.gain.value = 240;
+  lfo.connect(lfoAmt); lfoAmt.connect(padLp.frequency); lfo.start();
+  const bellBus = ctx.createGain(); bellBus.gain.value = 0.75; bellBus.connect(master);
+  const bellSend = ctx.createGain(); bellSend.gain.value = 0.9;
+  bellBus.connect(bellSend); bellSend.connect(rev);
+  const eventBus = ctx.createGain(); eventBus.gain.value = EVENT_SOUND.level;
+  eventBus.connect(master);
+  return { ctx, master, padBus, bellBus, eventBus };
+}
+function padChord(A, rootHz, steps, t, dur) {
+  const env = g => {
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.05, t + 6);
+    g.gain.setValueAtTime(0.05, t + dur - 7);
+    g.gain.linearRampToValueAtTime(0, t + dur);
+  };
+  for (const st of steps) {
+    const f = rootHz * Math.pow(2, st / 12);
+    for (const det of [-2.5, 2.5]) {
+      const o = A.ctx.createOscillator();
+      o.type = 'sine'; o.frequency.value = f; o.detune.value = det;
+      const g = A.ctx.createGain(); env(g);
+      o.connect(g); g.connect(A.padBus); o.start(t); o.stop(t + dur + 0.2);
+    }
+  }
+  const sub = A.ctx.createOscillator();
+  sub.type = 'triangle';
+  sub.frequency.value = rootHz * Math.pow(2, steps[0] / 12) / 2;
+  const sg = A.ctx.createGain(); env(sg);
+  sub.connect(sg); sg.connect(A.padBus); sub.start(t); sub.stop(t + dur + 0.2);
+}
+function bellNote(A, f, t, vel) {
+  for (const [ratio, amp] of [[1, 1], [2.01, 0.38], [3.02, 0.13]]) {
+    const o = A.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * ratio;
+    const g = A.ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.16 * vel * amp, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 5 / ratio);
+    o.connect(g); g.connect(A.bellBus); o.start(t); o.stop(t + 5 / ratio + 0.1);
+  }
+}
+function startScore() {
+  const seed = audioSeed();
+  const A = AUDIO.graph = buildAudio(seed);
+  const padRnd = mulberry32(seed ^ 0x51AB3C02);
+  const bellRnd = mulberry32(seed ^ 0x9E3779B9);
+  const rootHz = midiHz(ROOT_MIDI[Math.floor(mulberry32(seed)() * ROOT_MIDI.length)]);
+  AUDIO.rootHz = rootHz;  // the event-motif layer plays in the bed's own key
+  const t0 = A.ctx.currentTime + 0.08;
+  let padT = 0, chord = 0, bellT = 2 + bellRnd() * 3;
+  function ahead() {
+    const now = A.ctx.currentTime - t0;
+    while (padT < now + 1.5) {
+      const dur = 18 + padRnd() * 8;
+      padChord(A, rootHz, PAD_CHORDS[chord], t0 + padT, dur + 8);
+      chord = (chord + 1 + Math.floor(padRnd() * (PAD_CHORDS.length - 1))) %
+        PAD_CHORDS.length;
+      padT += dur;
+    }
+    while (bellT < now + 1.5) {
+      const curious = bellRnd() < 0.11;
+      const step = curious ? 6 : BELL_STEPS[Math.floor(bellRnd() * BELL_STEPS.length)];
+      const f = rootHz * Math.pow(2, (24 + step + (bellRnd() < 0.3 ? 12 : 0)) / 12);
+      const vel = 0.5 + bellRnd() * 0.5;
+      bellNote(A, f, t0 + bellT, vel);
+      if (bellRnd() < 0.22)
+        bellNote(A, f * Math.pow(2, (bellRnd() < 0.5 ? 7 : 4) / 12),
+          t0 + bellT + 0.7 + bellRnd() * 0.8, vel * 0.55);
+      bellT += 3.5 + bellRnd() * 5.5;
+    }
+  }
+  ahead();
+  AUDIO.timer = setInterval(ahead, 240);
+  A.master.gain.setValueAtTime(0, A.ctx.currentTime);
+  A.master.gain.linearRampToValueAtTime(MASTER_LEVEL, A.ctx.currentTime + 2);
+}
+function setAudioButton(on) {
+  const b = $('cbtn-audio');
+  b.classList.toggle('on', on);
+  b.setAttribute('aria-pressed', String(on));
+  const label = on ? 'score + event sounds (on)' : 'score + event sounds (off)';
+  b.setAttribute('aria-label', label); b.title = label;
+}
+function audioToggle() {
+  if (AUDIO.on) {
+    AUDIO.on = false;
+    clearInterval(AUDIO.timer); AUDIO.timer = null;
+    const A = AUDIO.graph; AUDIO.graph = null; AUDIO.rootHz = null;
+    if (A) {
+      A.master.gain.cancelScheduledValues(A.ctx.currentTime);
+      A.master.gain.setValueAtTime(A.master.gain.value, A.ctx.currentTime);
+      A.master.gain.linearRampToValueAtTime(0, A.ctx.currentTime + 0.5);
+      setTimeout(() => A.ctx.close(), 650);   // runtime teardown only
+    }
+    setAudioButton(false);
+  } else {
+    AUDIO.on = true;
+    startScore();              // the ctx is born here, on the user's gesture
+    setAudioButton(true);
+  }
+}
+$('cbtn-audio').onclick = audioToggle;
+function motifRegister(m, d) {
+  let tid = m.team_field ? d[m.team_field]
+    : m.unit_field ? unitTeam[d[m.unit_field]] : null;
+  // Continuous events that name only a unit (action_failed) resolve their
+  // team through the roster — same register rule, no new convention.
+  if (tid == null && d.unit_id != null) tid = unitTeam[d.unit_id];
+  const idx = teamIndex[tid];
+  return idx == null ? 0 : (idx % 2) * EVENT_SOUND.register_semitones;
+}
+function motifVariant(m, d) {
+  if (!m.variant_steps) return 0;
+  return fnv1a(m.variant_key.map(k => String(d[k] == null ? '' : d[k])).join('|'))
+    % m.variant_steps.length;
+}
+function motifPlan(kind, reg, variant, rootHz) {
+  const m = EVENT_SOUND.motifs[kind];
+  const steps = m.variant_steps ? [m.variant_steps[variant]] : m.steps;
+  return steps.map((st, i) => [i * m.gap,
+    rootHz * Math.pow(2, (m.octave * 12 + st + reg) / 12),
+    m.vel * m.vels[i], m.dur, m.voice]);
+}
+function motifNote(A, voice, f, t, vel, dur) {
+  for (const [ratio, amp] of voice.partials) {
+    const o = A.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * ratio;
+    const g = A.ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(EVENT_SOUND.peak * vel * amp, t + voice.attack);
+    g.gain.exponentialRampToValueAtTime(EVENT_SOUND.floor, t + dur / ratio);
+    o.connect(g); g.connect(A.eventBus); o.start(t); o.stop(t + dur / ratio + 0.05);
+  }
+}
+function playMotif(kind, d, t) {
+  const m = EVENT_SOUND.motifs[kind];
+  for (const [dt, f, vel, dur, voice] of
+       motifPlan(kind, motifRegister(m, d), motifVariant(m, d), AUDIO.rootHz))
+    motifNote(AUDIO.graph, EVENT_SOUND.voices[voice], f, t + dt, vel, dur);
+}
+
+seek(0);   // boot: the client renderer takes over the server-drawn board
+</script>
 </body>
 </html>
 """
 
-# Color substitution happens once at import time (fixed, validated palette
-# constants — see ``docs/replay-design.md``), so ``render_chtml`` only ever
-# substitutes per-log content into an already-finished template.
-_TEMPLATE = _RAW_TEMPLATE.replace("__STATUS_GOOD__", STATUS_GOOD).replace(
-    "__STATUS_CRITICAL__", STATUS_CRITICAL
+# Constant substitution happens once at import time — the validated palette
+# colors, the board geometry, the role-glyph convention, the team palette,
+# and the canonical event-sound table + continuous alias (all fixed module
+# constants; the JSON dumps are key-sorted, so the template stays a
+# deterministic constant) — leaving ``render_chtml`` to substitute only
+# per-log content into an already-finished template.
+_TEMPLATE = (
+    _RAW_TEMPLATE.replace("__STATUS_GOOD__", STATUS_GOOD)
+    .replace("__STATUS_CRITICAL__", STATUS_CRITICAL)
+    .replace("__RESOURCE_COLOR__", RESOURCE_COLOR)
+    .replace("__CEVENT_SOUND__", json.dumps(EVENT_SOUND, sort_keys=True, separators=(",", ":")))
+    .replace(
+        "__CEVENT_ALIAS__",
+        json.dumps(CONTINUOUS_EVENT_SOUND_ALIAS, sort_keys=True, separators=(",", ":")),
+    )
+    .replace("__CGEO__", json.dumps(_GEO, sort_keys=True, separators=(",", ":")))
+    .replace("__CROLE_GLYPH__", json.dumps(_ROLE_GLYPH, sort_keys=True, separators=(",", ":")))
+    .replace("__CTEAM_COLORS__", json.dumps(list(TEAM_COLORS), separators=(",", ":")))
 )
 
 

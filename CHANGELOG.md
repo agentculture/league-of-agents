@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-07-08
+
+### Added
+
+- Continuous replay face frame v5 — the full replay (cycle-8 human-review finding): a playable board with transport (play/pause, whole-match scrubber, step-to-moment buttons, 0.5x-4x speed), movement interpolated from each action's own start_time/completion_time/target_pos record, mission-site markers, and seekable event-feed rows
+- The continuous face inherits the audio layer: the same seeded ambient bed (identical fnv1a(match_id|seed) formula across faces) plus event motifs from the one canonical EVENT_SOUND table, mapped via the new CONTINUOUS_EVENT_SOUND_ALIAS (post_taken -> control_point_captured, action_failed -> action_rejected), OFF by default behind the note toggle
+- Invariant tests (`test_final_clock_dominates_every_event_*`) pinning that the continuous replay transport's upper bound — the final folded clock (`frames[-1].clock`, the `match_finished` game_time) — dominates every event's `game_time` for any resolver-produced log, across both the natural-end and time-limited `_finish` branches; guards the replay reachability guarantee against a future change to observation-event stamping (PR #24 review)
+
+### Changed
+
+- Committed continuous playtest replays (cycle-7 race-live, cycle-8 frontier-live) regenerated through the frame-v5 face
+- docs/replay-design.md continuous-face and audio sections updated for frame v5; cycle-8 report records the delivered h11 audio verdict and the full-replay review finding
+
 ## [0.12.0] - 2026-07-08
 
 ### Added
