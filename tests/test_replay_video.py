@@ -868,6 +868,137 @@ def test_match_record_mp4_without_ffmpeg_names_the_gif_fallback(arena, capsys, m
     assert not out_file.exists()
 
 
+# --- C8-t9 — the MP4 soundtrack (spec c17/h10/h11): --format mp4 muxes a
+# --- deterministic ambient WAV via the existing optional-ffmpeg path; the
+# --- GIF stays byte-unchanged (and silent — GIF89a has no audio channel).
+
+
+def _fake_ffmpeg(monkeypatch, captured: list) -> None:
+    """Make ffmpeg 'present' and capture what _render_mp4 would hand it —
+    including the soundtrack WAV, which must be read DURING the call (it
+    lives in a TemporaryDirectory that dies when the subprocess returns)."""
+    import subprocess as _subprocess
+
+    from league.cli._commands import match as match_cmd
+
+    monkeypatch.setattr(match_cmd.shutil, "which", lambda _name: "/usr/bin/ffmpeg")
+
+    def fake_run(cmd, input=b"", check=True, capture_output=True):
+        second_i = cmd.index("-i", cmd.index("-i") + 1)
+        wav_path = Path(cmd[second_i + 1])
+        captured.append(
+            {
+                "cmd": list(cmd),
+                "input_len": len(input),
+                "wav_bytes": wav_path.read_bytes(),
+                "wav_existed": wav_path.is_file(),
+            }
+        )
+        Path(cmd[-1]).write_bytes(b"\x00\x00\x00\x18ftypisom-fake-mp4")
+        return _subprocess.CompletedProcess(cmd, 0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(match_cmd.subprocess, "run", fake_run)
+
+
+def test_match_record_mp4_muxes_the_seeded_soundtrack(arena, capsys, monkeypatch) -> None:
+    """--format mp4 gains audio: a WAV synthesized from the match identity is
+    written beside the piped frames and handed to ffmpeg as a second input
+    (-c:a aac -shortest), while every pre-existing video argument stays
+    exactly where it was."""
+    import io
+    import wave
+
+    from league.replay.audio import SAMPLE_RATE, samples_for_frames
+
+    captured: list = []
+    _fake_ffmpeg(monkeypatch, captured)
+    _play_a_match("m-rec-snd")
+    capsys.readouterr()
+    out_file = arena / "m-rec-snd.mp4"
+    rc = main(["match", "record", "m-rec-snd", "--out", str(out_file), "--format", "mp4"])
+    assert rc == 0
+    assert len(captured) == 1
+    call = captured[0]
+    cmd = call["cmd"]
+
+    # The original video args are untouched, in order, up to the pipe input.
+    size_at = cmd.index("-video_size") + 1
+    width, height = (int(v) for v in cmd[size_at].split("x"))
+    output_fps = int(cmd[cmd.index("-framerate") + 1])
+    assert cmd[: cmd.index("-i") + 2] == [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "rawvideo",
+        "-pixel_format",
+        "rgb24",
+        "-video_size",
+        f"{width}x{height}",
+        "-framerate",
+        str(output_fps),
+        "-i",
+        "-",
+    ]
+    # The soundtrack rides in as a second input, encoded AAC, clipped to the
+    # video (-shortest) — and the WAV genuinely existed at call time.
+    assert call["wav_existed"]
+    second_i = cmd.index("-i", cmd.index("-i") + 1)
+    assert cmd[second_i + 1].endswith(".wav")
+    assert cmd[cmd.index("-c:a") + 1] == "aac"
+    assert "-shortest" in cmd
+    assert "yuv420p" in cmd  # the existing pixel-format arg survived
+
+    # The WAV covers the MP4's exact duration: the sample count derives from
+    # the same held-frame total the raw video pipe carries.
+    held_frames = call["input_len"] // (width * height * 3)
+    with wave.open(io.BytesIO(call["wav_bytes"]), "rb") as w:
+        assert w.getnchannels() == 1
+        assert w.getsampwidth() == 2
+        assert w.getframerate() == SAMPLE_RATE
+        assert w.getnframes() == samples_for_frames(held_frames, output_fps)
+
+    # Same log + same settings -> byte-identical soundtrack (h10).
+    rc = main(["match", "record", "m-rec-snd", "--out", str(out_file), "--format", "mp4"])
+    assert rc == 0
+    capsys.readouterr()
+    assert captured[1]["wav_bytes"] == call["wav_bytes"]
+
+
+# The GIF byte-pin: `render_gif` of the committed cycle-6 log at the CLI's
+# default settings, hashed at cycle-8 wave-2 HEAD (commit a16e073) BEFORE the
+# soundtrack task touched the record path. The MP4 soundtrack must leave GIF
+# output byte-unchanged — GIF89a has no audio channel, so silence there is
+# format truth, not a missing feature. If a FUTURE wave changes GIF rendering
+# deliberately, regenerate this pin and say so in the PR (same discipline as
+# tests/fixtures/determinism.hash).
+_GIF_PIN_SHA256 = "8dc3e72777affcc57526046382198b457b0fc8037d5df9e9f819d77f5610590c"
+_GIF_PIN_LEN = 1619601
+_GIF_PIN_LOG = (
+    Path(__file__).resolve().parent.parent
+    / "docs"
+    / "playtests"
+    / "cycle-6"
+    / "memory-longhorizon.log.jsonl"
+)
+
+
+def test_match_record_gif_bytes_are_unchanged_by_the_soundtrack_wave() -> None:
+    log = MatchLog.from_jsonl(_GIF_PIN_LOG.read_text(encoding="utf-8"))
+    gif = render_gif(
+        log,
+        scale=24,
+        fps=2,
+        theme="light",
+        tween=4,
+        provenance="gif-byte-pin: cycle-8 t9",
+    )
+    assert len(gif) == _GIF_PIN_LEN
+    assert hashlib.sha256(gif).hexdigest() == _GIF_PIN_SHA256
+
+
 def test_match_record_missing_match_id_errors_cleanly(arena, capsys) -> None:
     rc = main(["match", "record", "no-such-match", "--out", "x.gif"])
     assert rc == 1

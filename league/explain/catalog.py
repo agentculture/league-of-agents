@@ -191,6 +191,12 @@ commits** — a stray call never silently advances the game.
     league match replay <id> > match.html  # self-contained human replay
     league match record <id> --out match.gif             # shareable video, offline
     league match record <id> --out m.gif --scale 32 --fps 3 --json
+    league match record <id> --out m.mp4 --format mp4    # + seeded ambient soundtrack
+
+`record --format mp4` (ffmpeg on PATH required) muxes the match's ambient
+score — the same seeded piece the HTML replay plays, synthesized offline from
+the log alone, byte-deterministic. The GIF stays silent because GIF has no
+audio channel: format truth, not a missing feature.
     league match tui <id> --frame N [--team blue] [--no-color]  # terminal view
 
 `score`'s tempo axis — the per-substrate calibration table, the t0 conversion
