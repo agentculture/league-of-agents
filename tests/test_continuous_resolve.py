@@ -25,6 +25,7 @@ from __future__ import annotations
 import pytest
 
 from league.engine.continuous import (
+    OBSERVATION_KINDS,
     CAgentSlot,
     CControlPoint,
     CMatchState,
@@ -580,3 +581,51 @@ def test_resolving_a_non_pending_match_raises() -> None:
     )
     with pytest.raises(ValueError):
         resolve_match(active, ROLE_TABLE, lambda *a: None)
+
+
+# --------------------------------------------------------------------------- #
+# The replay-transport invariant (qodo review on PR #24, "final clock skips events")
+# --------------------------------------------------------------------------- #
+# The continuous HTML replay derives its scrubber/seek upper bound from the final
+# folded clock (``frames[-1].clock`` == the ``match_finished`` game_time); an event
+# timestamped beyond that bound would be unreachable via the transport. That cannot
+# happen for a resolver-produced log: ``match_finished`` is emitted last and its
+# game_time dominates every event's game_time — equal to the max at a natural end,
+# and the ``time_limit`` at a timed end, which the resolver loop guarantees is >=
+# every emitted game_time (it breaks before popping any completion past the limit).
+# Observation events (``decision_point`` et al.) are stamped from the resolver's own
+# live clock, never a lookahead, so they are covered too. Pin the invariant here so a
+# future change to observation stamping in the resolver/harness cannot silently
+# regress the replay's reachability guarantee.
+def _assert_final_clock_dominates_every_event(log) -> None:
+    finished = [e for e in log.events if e.kind == "match_finished"]
+    assert len(finished) == 1, "exactly one match_finished terminates the log"
+    assert log.events[-1] is finished[0], "match_finished is the last event"
+    final_clock = finished[0].game_time
+    assert final_clock >= max(
+        e.game_time for e in log.events
+    ), "the final clock is the replay transport's upper bound — no event may exceed it"
+
+
+def test_final_clock_dominates_every_event_natural_end() -> None:
+    for scenario, decider in (
+        (_race_state(), _race_decider),
+        (_coop_scenario(), _coop_decider()),
+    ):
+        res = resolve_match(scenario, ROLE_TABLE, decider)
+        # observation events are present — exactly the case the review named as at risk
+        assert any(e.kind in OBSERVATION_KINDS for e in res.log.events)
+        _assert_final_clock_dominates_every_event(res.log)
+
+
+def test_final_clock_dominates_every_event_when_time_limited() -> None:
+    import dataclasses
+
+    # A short time limit ends the match before the pending takes (completion 8/10)
+    # resolve: match_finished is stamped at the limit, still >= every emitted event.
+    timed = dataclasses.replace(_race_state(), time_limit=3)
+    res = resolve_match(timed, ROLE_TABLE, _race_decider)
+    finished = next(e for e in res.log.events if e.kind == "match_finished")
+    assert finished.game_time == 3  # end_time == time_limit branch of _finish
+    assert max(e.game_time for e in res.log.events[:-1]) < 3  # nothing reached the limit
+    _assert_final_clock_dominates_every_event(res.log)
