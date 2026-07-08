@@ -15,6 +15,12 @@ import re
 from pathlib import Path
 
 from league.engine.events import MatchLog
+from league.engine.grades import (
+    ON_ROLE_MULTIPLIER,
+    PURPOSES,
+    ROLE_HOME_PURPOSE,
+    grade_units,
+)
 from league.engine.scoring import score_match
 from league.engine.state import state_hash
 from league.replay import build_assessor_guide, build_replay_data, render_html
@@ -268,21 +274,22 @@ def test_side_panel_is_a_tabbed_deck() -> None:
     """Layout fix from the first human review of cycle 6: the reviewer had to
     scroll between the board and the assessor guide. The guide moved out of a
     bottom ``<details>`` into a tabbed side deck (Guide / Events / Teams /
-    Score) that uses the width and keeps the board in view. Tabs are real,
+    Score / Scorecard — the fifth tab is cycle-8 t8's per-unit scorecard) that
+    uses the width and keeps the board in view. Tabs are real,
     keyboard-accessible buttons with aria-selected + roving tabindex; the guide
     is the default tab."""
     html = render_html(_play_match())
     assert 'role="tablist"' in html
-    assert html.count('class="tab"') == 4  # four tab buttons (panels are .tabpanel)
-    for pid in ("panel-guide", "panel-events", "panel-teams", "panel-score"):
+    assert html.count('class="tab"') == 5  # five tab buttons (panels are .tabpanel)
+    for pid in ("panel-guide", "panel-events", "panel-teams", "panel-score", "panel-scorecard"):
         assert f'id="{pid}"' in html
     assert 'aria-selected="true"' in html  # one tab starts selected
     assert 'id="tab-guide"' in html and "selectTab('guide'" in html
     # No bottom <details> guide panel anymore.
     assert "<details" not in html
-    # The guide body and the feed/teams/scores mounts still exist for the
-    # server-computed content to render into.
-    for mount in ("guide-body", "feed", "teams", "scores"):
+    # The guide body and the feed/teams/scores/scorecard mounts still exist
+    # for the server-computed content to render into.
+    for mount in ("guide-body", "feed", "teams", "scores", "scorecard"):
         assert f'id="{mount}"' in html
 
 
@@ -331,7 +338,15 @@ def test_assessor_guide_is_embedded_in_data_and_panel() -> None:
     data = build_replay_data(log)
     assert "guide" in data
     guide = data["guide"]
-    for section in ("scenario", "phases", "key_moments", "judging", "checklist", "deep_link_turns"):
+    for section in (
+        "scenario",
+        "phases",
+        "key_moments",
+        "judging",
+        "scorecard",
+        "checklist",
+        "deep_link_turns",
+    ):
         assert section in guide, f"missing guide section {section!r}"
 
     html = render_html(log)
@@ -478,3 +493,312 @@ def test_assessor_guide_is_byte_deterministic() -> None:
     assert build_assessor_guide(log) == build_assessor_guide(log)
     assert build_replay_data(log)["guide"] == build_assessor_guide(log)
     assert render_html(log) == render_html(log)
+
+
+# --------------------------------------------------------------------------- #
+# C8-t4 — the generative ambient score (spec c17, honesty h10/h12): WebAudio
+# synthesis at play time, seeded from data already in the page, OFF by
+# default. The rendered document stays byte-deterministic and self-contained;
+# enabling the score is runtime behavior only and never changes the bytes.
+# --------------------------------------------------------------------------- #
+
+# The user's mood brief, verbatim — what the next human review rates against.
+_MOOD_TARGET = "content and relaxed, but also curious and intrigued"
+
+
+def test_ambient_audio_toggle_ships_in_transport_off_by_default() -> None:
+    """Acceptance: a visible, accessible toggle in the transport, OFF by
+    default — the off state is in the document's own bytes, and the control
+    wears the transport's existing idiom (a real button, accent on-state)."""
+    html = render_html(_play_match())
+    btn = re.search(r'<button id="btn-audio".*?>', html, re.S)
+    assert btn, "audio toggle button missing"
+    tag = btn.group(0)
+    assert 'aria-pressed="false"' in tag  # OFF by default, in the bytes
+    assert "aria-label=" in tag  # accessible name
+    # It lives in the board card's controls row (the transport bar) and wears
+    # the same accent on-state as the play button — chrome, never a team hue.
+    assert html.index('class="controls"') < btn.start() < html.index('id="match-data"')
+    assert "#btn-play.on, #btn-audio.on" in html
+
+
+def test_ambient_audio_is_synthesized_webaudio_never_an_asset() -> None:
+    """Acceptance: no audio file, no external request — the score is WebAudio
+    synthesis at play time (oscillators, gains, a filter, and a convolver
+    whose impulse response is itself synthesized, never fetched)."""
+    html = render_html(_play_match())
+    for prim in ("createOscillator", "createGain", "createBiquadFilter", "createConvolver"):
+        assert prim in html, f"WebAudio primitive {prim} missing"
+    for banned in ("<audio", "data:audio", ".mp3", ".ogg", ".wav"):
+        assert banned not in html, f"audio-asset marker {banned!r} found in replay"
+
+
+def test_ambient_audio_is_seeded_from_page_data_and_lazy() -> None:
+    """Acceptance: the score is seeded from data already in the page (match id
+    + seed) through a small deterministic PRNG — same match, same music — and
+    the AudioContext is created lazily on the enabling gesture, never at load
+    (browser autoplay policy, and audio must stay off by default)."""
+    html = render_html(_play_match())
+    assert "mulberry32" in html
+    assert "audioSeed" in html
+    assert "M.match_id + '|' + M.seed" in html
+    for banned in ("Math.random(", "Date.now("):
+        assert banned not in html
+    # Exactly one construction site, inside the enable path only.
+    assert html.count("new (window.AudioContext") == 1
+
+
+def test_guide_carries_the_ambient_mood_brief() -> None:
+    """Acceptance: the mood brief is written into the guide as what the
+    reviewer should rate — quoted verbatim — with the seeding provenance
+    naming THIS match, so the determinism claim is checkable in-page."""
+    log = _play_match()
+    listening = build_replay_data(log)["guide"]["listening"]
+    assert listening["mood_target"] == _MOOD_TARGET
+    assert log.initial_state.match_id in listening["how"]
+    assert str(log.initial_state.seed) in listening["how"]
+    html = render_html(log)
+    assert _MOOD_TARGET in html
+    assert "G.listening" in html  # the guide renderer lays the section out
+
+
+def test_ambient_audio_keeps_the_document_deterministic_and_offline() -> None:
+    """Acceptance: the document stays byte-deterministic and self-contained —
+    the score is runtime synthesis, so nothing about it (enabled or not) can
+    change the rendered bytes, and no external reference sneaks in with it."""
+    log = _play_match()
+    a, b = render_html(log), render_html(log)
+    assert a == b
+    body = a.split("</head>", 1)[1].replace("http://www.w3.org/2000/svg", "")
+    for needle in ("http://", "https://", "fetch(", "XMLHttpRequest", "@import", "url("):
+        assert needle not in body, f"external-request marker {needle!r} found in replay body"
+
+
+# --------------------------------------------------------------------------- #
+# C8 audio-events amendment — the score reacts to the match. The user's
+# directive, verbatim: "I like the soundtrack - but it should react or
+# describe what's going on in the game. (Or events have a sound, so
+# soundtrack + events sounds = this recording sounds)". The bed stays as-is;
+# every notable event fires a short motif when playback advances onto its
+# turn. ONE canonical table drives both renderers: the page's EVENT_SOUND
+# const is league.replay.audio.EVENT_SOUND injected verbatim as JSON.
+# --------------------------------------------------------------------------- #
+
+
+def test_event_sound_table_ships_identically_in_both_renderers() -> None:
+    """The motif table in the page IS the offline renderer's table: extract
+    the injected JS const and compare it to the canonical Python structure —
+    one design, two implementations, drift impossible by construction."""
+    from league.replay.audio import EVENT_SOUND
+
+    html = render_html(_play_match())
+    match = re.search(r"const EVENT_SOUND = (\{.*?\});", html, re.S)
+    assert match, "injected EVENT_SOUND table missing"
+    assert json.loads(match.group(1)) == json.loads(json.dumps(EVENT_SOUND))
+    assert "__EVENT_SOUND__" not in html  # the placeholder never leaks
+
+
+def test_event_motifs_fire_only_on_a_normal_forward_advance() -> None:
+    """Scrubbing, jumping, and stepping backwards never replay skipped
+    events — a jump is navigation, not time passing. The ONLY call site is
+    the render path's forward-advance branch (the same discipline as the
+    board fx), and the scheduler spreads a turn's sounding events by their
+    position (k/n of the turn interval), never by wall-clock."""
+    html = render_html(_play_match())
+    assert "function fireMotifs" in html
+    assert "if (forward) fireMotifs(frame);" in html
+    # Exactly two mentions: the definition and the single forward call site.
+    assert html.count("fireMotifs(") == 2
+    # Position-of-event spread, and the roster-order octave split by ear.
+    assert "interval * k / sounding.length" in html
+    assert "register_semitones" in html
+
+
+def test_event_layer_rides_the_existing_toggle_and_stays_deterministic() -> None:
+    """One control governs bed + events: the note toggle stays OFF by default
+    and the motif path is gated on the same AUDIO state the bed uses. The
+    document stays byte-deterministic, entropy-free, and asset-free with the
+    event layer aboard."""
+    log = _play_match()
+    html = render_html(log)
+    # The same toggle, still off by default (the t4 contract, unchanged).
+    btn = re.search(r'<button id="btn-audio".*?>', html, re.S)
+    assert btn and 'aria-pressed="false"' in btn.group(0)
+    assert html.count("new (window.AudioContext") == 1  # still born on the gesture
+    # Motifs are governed by the toggle's own state, never a second switch.
+    assert "if (!AUDIO.on || !AUDIO.graph" in html
+    # Determinism and self-containment survive the amendment.
+    assert render_html(log) == html
+    for banned in ("Math.random(", "Date.now(", "<audio", "data:audio", ".mp3", ".ogg", ".wav"):
+        assert banned not in html, f"banned marker {banned!r} found in replay"
+
+
+def test_guide_listening_section_explains_the_event_layer() -> None:
+    """The assessor guide tells the reviewer what reacts: the motif
+    vocabulary, the octave split by roster order, and that bookkeeping is
+    silent by design — and the page renders the sentence."""
+    log = _play_match()
+    listening = build_replay_data(log)["guide"]["listening"]
+    for phrase in (
+        "rising fourth",
+        "arpeggio",
+        "mallet pluck",
+        "two-note rise",
+        "muted thud",
+        "blip",
+        "cadence",
+        "octave",
+        "silent by design",
+    ):
+        assert phrase in listening["events"], f"guide misses {phrase!r}"
+    html = render_html(log)
+    assert "G.listening.events" in html
+
+
+# --------------------------------------------------------------------------- #
+# C8-t8 — the replay surfaces the scorecard (spec c6/h6, c2/h15): MVP/LVP and
+# per-unit grades in a Scorecard deck tab, plus a guide section that explains
+# EXACTLY what the grade weighs. The reviewer test: payload, replay and guide
+# alone name the best/worst unit and why — the deck renders every unit's
+# breakdown, the guide names the buckets, event kinds, multiplier, tie-break.
+# --------------------------------------------------------------------------- #
+
+
+def test_scorecard_is_embedded_ranked_and_complete() -> None:
+    """The payload carries a scorecard computed from the log alone via
+    grade_units: every rostered unit, ranked by grade descending with the
+    canonical (team_id, unit_id) tie-break, each with its full per-purpose
+    breakdown — and the embedded JSON is the same fold, byte-comparable."""
+    log = _committed_log("cycle-5/colleague-coop.log.jsonl")
+    data = build_replay_data(log)
+    sc = data["scorecard"]
+    grades = grade_units(log)
+
+    expected_order = sorted(
+        grades["units"],
+        key=lambda uid: (-grades["units"][uid]["grade"], grades["units"][uid]["team_id"], uid),
+    )
+    assert [u["unit_id"] for u in sc["units"]] == expected_order
+    assert sc["purposes"] == list(PURPOSES)
+    for u in sc["units"]:
+        entry = grades["units"][u["unit_id"]]
+        assert u["team_id"] == entry["team_id"]
+        assert u["role"] == entry["role"]
+        assert u["grade"] == entry["grade"]
+        assert u["breakdown"] == entry["breakdown"]
+        assert set(u["breakdown"]) == set(PURPOSES)  # every unit's FULL breakdown
+    ranked_grades = [u["grade"] for u in sc["units"]]
+    assert ranked_grades == sorted(ranked_grades, reverse=True)
+
+    # MVP/LVP flags name the exact units grade_units names.
+    assert sc["mvp"] == grades["mvp"] and sc["lvp"] == grades["lvp"]
+    assert next(u["unit_id"] for u in sc["units"] if u["mvp"]) == grades["mvp"]["unit_id"]
+    assert next(u["unit_id"] for u in sc["units"] if u["lvp"]) == grades["lvp"]["unit_id"]
+
+    html = render_html(log)
+    assert _extract_embedded(html)["scorecard"] == json.loads(json.dumps(sc))
+
+
+def test_scorecard_tab_ships_in_the_deck() -> None:
+    """A fifth tab, matching the deck's existing tab idiom exactly: a real
+    role=tab button wired to a hidden-toggling panel, rendered by a draw
+    function that lays out the server-computed M.scorecard (never client
+    recomputation), with every unit's breakdown rendered."""
+    html = render_html(_play_match())
+    assert 'id="tab-scorecard"' in html
+    assert 'aria-controls="panel-scorecard"' in html
+    assert 'id="panel-scorecard"' in html
+    assert 'id="scorecard"' in html  # the mount the draw function fills
+    assert "M.scorecard" in html and "drawScorecard" in html
+    # The deck renders every unit row and every purpose cell from the fold.
+    assert "SC.units.forEach" in html and "SC.purposes.forEach" in html
+
+
+def test_scorecard_mvp_lvp_chips_reuse_the_chip_vocabulary() -> None:
+    """MVP and LVP ride the existing chip vocabulary (the winner-chip
+    precedent): a .chip with a status hue and a text label, never a team
+    color, and the flags come from the same fold grade_units produced."""
+    html = render_html(_play_match())
+    assert "'chip sc-chip-mvp', 'MVP'" in html
+    assert "'chip sc-chip-lvp', 'LVP'" in html
+    assert ".sc-chip-mvp { color: var(--good)" in html
+    assert ".sc-chip-lvp { color: var(--critical)" in html
+
+
+def test_scorecard_marks_the_home_purpose_visibly() -> None:
+    """Each unit row makes its HOME purpose visually obvious — the on-role
+    bucket wears the sc-home emphasis plus a ×N tag naming the multiplier —
+    and the payload's home_purpose matches the engine's own role mapping."""
+    html = render_html(_play_match())
+    assert "sc-home" in html
+    assert "u.home_purpose === p" in html  # the home purpose is the marked one
+    data = build_replay_data(_play_match())
+    sc = data["scorecard"]
+    assert sc["on_role_multiplier"] == ON_ROLE_MULTIPLIER
+    for u in sc["units"]:
+        assert u["home_purpose"] == ROLE_HOME_PURPOSE.get(u["role"])
+
+
+def test_guide_scorecard_names_the_weights_and_the_verdict() -> None:
+    """The guide explains EXACTLY what the grade weighs: the four buckets, the
+    event kinds that feed them, the on-role ×2 multiplier and the MVP/LVP
+    tie-break — and its verdict names THIS match's best and worst unit and
+    why, so guide + deck alone answer the reviewer test."""
+    log = _committed_log("cycle-5/colleague-coop.log.jsonl")
+    guide = build_replay_data(log)["guide"]
+    sc = guide["scorecard"]
+
+    # The exact multiplier sentence (spec c10 — the user's own framing).
+    assert (
+        "A contribution on the unit's own role's home purpose counts ×2 (double); "
+        "the identical contribution made off-role counts ×1 — still more than zero, "
+        "always less than on-role."
+    ) in sc["weights"]
+    # The exact tie-break sentence.
+    assert sc["tie_break"] == (
+        "MVP is the unit with the highest grade, LVP the lowest; ties break "
+        "canonically, ascending by (team_id, unit_id)."
+    )
+    # Every bucket AND the event kinds that feed it, named.
+    for needle in (
+        "economy",
+        "control",
+        "recon",
+        "coordination",
+        "resource_gathered",
+        "resource_delivered",
+        "control_point_captured",
+        "control_point_held",
+        "unit_moved",
+        "message_sent",
+    ):
+        assert needle in sc["what"], f"guide scorecard section never names {needle!r}"
+
+    # The verdict names this match's own MVP and LVP, with grades (the why).
+    grades = grade_units(log)
+    assert "MVP" in sc["verdict"] and "LVP" in sc["verdict"]
+    assert grades["mvp"]["unit_id"] in sc["verdict"]
+    assert grades["lvp"]["unit_id"] in sc["verdict"]
+    assert str(grades["mvp"]["grade"]) in sc["verdict"]
+
+    html = render_html(log)
+    assert "G.scorecard" in html  # the guide renderer lays the section out
+
+
+def test_scorecard_styles_ship_in_both_themes() -> None:
+    """The scorecard chrome wears theme tokens only (no raw hex of its own),
+    so both deliberately-designed themes style it — and the tokens it leans on
+    exist in the fixed status scale and in both manual-override blocks."""
+    html = render_html(_play_match())
+    rules = re.findall(r"\.sc-[a-zA-Z0-9-]+[^{]*\{[^}]*\}", html)
+    assert rules, "scorecard styles missing"
+    blob = " ".join(rules)
+    for token in ("var(--good)", "var(--critical)", "var(--ink)"):
+        assert token in blob
+    assert "#" not in blob  # tokens only — themed automatically in both modes
+    # The status tokens are the fixed scale; the ink/chip tokens are
+    # re-declared by both manual theme blocks, so the toggle wins both ways.
+    assert "--good: #0ca30c" in html and "--critical: #d03b3b" in html
+    for block in (':root[data-theme="dark"]', ':root[data-theme="light"]'):
+        seg = html.split(block, 1)[1].split("}", 1)[0]
+        assert "--ink" in seg and "--chip" in seg

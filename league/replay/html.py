@@ -29,10 +29,34 @@ rationale, palette values, and the ``validate_palette.js`` results):
   capture, a flash celebrates deliveries and mission completions, a red ring
   marks a defeat. Play/pause with an adjustable speed. Timing is CSS-only, so
   generation stays byte-deterministic — the same log renders identical HTML.
-* **The side panel is a tabbed deck** (Guide / Events / Teams / Score) that uses
-  the viewport width and keeps the board hero in view — the assessor guide is
-  the default tab, scrolling inside its own panel rather than pushing the board
-  off-screen.
+* **The side panel is a tabbed deck** (Guide / Events / Teams / Score /
+  Scorecard) that uses the viewport width and keeps the board hero in view —
+  the assessor guide is the default tab, scrolling inside its own panel rather
+  than pushing the board off-screen.
+* **The Scorecard tab is the per-unit axis** (cycle-8 t8, spec c6/h6): units
+  ranked by grade descending (canonical tie-break), MVP/LVP chips riding the
+  winner-chip vocabulary, and every unit's per-purpose breakdown with its
+  role's HOME purpose typographically marked (bold ink + a ×2 tag — no new
+  color job). Grades come from :func:`league.engine.grades.grade_units` at
+  render time, so the document stays a pure function of the log; the guide
+  gains a section explaining exactly what the grade weighs.
+* **An ambient score, off by default** (cycle-8 t4, spec c17/h10). The
+  transport's note toggle plays a generative Eno-vein score — slow lydian pads
+  under sparse bells — synthesized at play time with WebAudio primitives from a
+  seed derived from data already in the page (match id + seed), so the same
+  match always plays the same music. No audio asset, no request, no bytes
+  change: the AudioContext is created lazily on the enabling gesture, and
+  enabling/disabling never touches the document (see ``docs/replay-design.md``).
+* **The score reacts to the match** (cycle-8 audio-events amendment). On top
+  of the bed, every notable event fires a short motif in the bed's own key
+  when playback advances onto its turn — captures, missions, gathers,
+  deliveries, denials, messages, the final whistle; moves and bookkeeping are
+  silent by design. The motif table is ``league.replay.audio.EVENT_SOUND``,
+  injected verbatim into the page's JS (one canonical table, two renderers —
+  the exported MP4 renders the identical layer offline). Motifs fire only on
+  a normal forward advance (scrubbing/jumping never replays skipped events),
+  spread across the turn interval by each event's position — a pure function
+  of the log and the playback position, no entropy anywhere.
 * The page embeds the replay data as one ``<script type="application/json">``
   block derived from the log — the HTML and ``--json`` projections cannot
   diverge because they are the same fold.
@@ -45,6 +69,15 @@ import math
 from typing import Any, Callable
 
 from league.engine.events import MatchLog, fold_events
+from league.engine.grades import (
+    CAPTURE_POINTS,
+    HOLD_POINTS,
+    MESSAGE_POINTS,
+    MOVE_POINTS,
+    OFF_ROLE_MULTIPLIER,
+    ON_ROLE_MULTIPLIER,
+    grade_units,
+)
 from league.engine.probe import probe_match
 from league.engine.scenario import Scenario, get_scenario
 from league.engine.scoring import (
@@ -56,6 +89,7 @@ from league.engine.scoring import (
 )
 from league.engine.state import MatchState
 from league.engine.tick import CP_POINTS
+from league.replay.audio import EVENT_SOUND
 
 # Per-theme palette tokens — the SAME validated hex values behind the CSS
 # custom properties in ``_TEMPLATE`` below, one deliberately-stepped set per
@@ -177,7 +211,50 @@ def build_replay_data(log: MatchLog) -> dict[str, Any]:
         "frames": frames,
         "events_by_turn": {str(k): v for k, v in events_by_turn.items()},
         "scores": score_match(log),
+        "scorecard": build_scorecard(log),
         "guide": build_assessor_guide(log),
+    }
+
+
+def build_scorecard(log: MatchLog) -> dict[str, Any]:
+    """The per-unit scorecard the deck's Scorecard tab renders (plan C8-t8).
+
+    A thin display projection over :func:`league.engine.grades.grade_units` —
+    the grades themselves are the engine's own fold of the log (pure function,
+    byte-deterministic); this only re-shapes them for ranked rendering:
+    ``units`` is a LIST ordered by grade descending with the canonical
+    ``(team_id, unit_id)`` tie-break (so the top row is the MVP), each entry
+    carrying its role, home purpose, grade, full per-purpose breakdown, and
+    ``mvp``/``lvp`` flags naming the exact units ``grade_units`` names.
+    """
+    grades = grade_units(log)
+    mvp, lvp = grades["mvp"], grades["lvp"]
+    ranked = sorted(
+        grades["units"],
+        key=lambda uid: (-grades["units"][uid]["grade"], grades["units"][uid]["team_id"], uid),
+    )
+    units = []
+    for uid in ranked:
+        entry = grades["units"][uid]
+        units.append(
+            {
+                "unit_id": uid,
+                "team_id": entry["team_id"],
+                "role": entry["role"],
+                "home_purpose": entry["home_purpose"],
+                "grade": entry["grade"],
+                "breakdown": dict(entry["breakdown"]),
+                "mvp": mvp is not None and uid == mvp["unit_id"],
+                "lvp": lvp is not None and uid == lvp["unit_id"],
+            }
+        )
+    return {
+        "purposes": grades["purposes"],
+        "on_role_multiplier": ON_ROLE_MULTIPLIER,
+        "off_role_multiplier": OFF_ROLE_MULTIPLIER,
+        "units": units,
+        "mvp": mvp,
+        "lvp": lvp,
     }
 
 
@@ -234,6 +311,8 @@ def build_assessor_guide(log: MatchLog) -> dict[str, Any]:
         "phases": _phases(initial, frame_turns),
         "key_moments": _key_moments(log, final, snap),
         "judging": _judging(log),
+        "scorecard": _scorecard_guide(build_scorecard(log)),
+        "listening": _listening(initial),
     }
     guide["checklist"] = _checklist(log, guide, snap)
 
@@ -753,11 +832,111 @@ def _checklist(
     return checklist
 
 
+def _scorecard_guide(scorecard: dict[str, Any]) -> dict[str, Any]:
+    """Section (c2): the per-unit scorecard explained EXACTLY (plan C8-t8,
+    spec c6/h6/h15) — the four buckets and the event kinds that feed them, the
+    on-role multiplier, the MVP/LVP tie-break, and a verdict naming THIS
+    match's best and worst unit and why. Every number is interpolated from
+    ``league.engine.grades``' own pinned constants, so the guide can never
+    drift from the formula it explains; the reviewer test (spec h6) is that
+    guide + deck alone answer who carried, who sank, and why."""
+    what = (
+        f"Every unit earns points in four buckets, each fed by the log events that are "
+        f"its plainest observable proxy: economy (resource_gathered and resource_delivered, "
+        f"weighted by the event's own amount), control (control_point_captured "
+        f"{CAPTURE_POINTS} pts and control_point_held {HOLD_POINTS} pt, credited to the "
+        f"team's units standing on the point), recon (unit_moved, {MOVE_POINTS} pt per "
+        f"move), and coordination (message_sent, {MESSAGE_POINTS} pt per message)."
+    )
+    weights = (
+        f"A contribution on the unit's own role's home purpose counts "
+        f"×{ON_ROLE_MULTIPLIER} (double); the identical contribution made off-role counts "
+        f"×{OFF_ROLE_MULTIPLIER} — still more than zero, always less than on-role. "
+        f"A unit's grade is the sum of its four buckets; the marked bucket in each "
+        f"Scorecard row is that unit's home purpose."
+    )
+    tie_break = (
+        "MVP is the unit with the highest grade, LVP the lowest; ties break "
+        "canonically, ascending by (team_id, unit_id)."
+    )
+    return {
+        "title": "Scorecard — best and worst seat",
+        "what": what,
+        "weights": weights,
+        "tie_break": tie_break,
+        "verdict": _scorecard_verdict(scorecard),
+    }
+
+
+def _scorecard_verdict(scorecard: dict[str, Any]) -> str:
+    """This match's own MVP/LVP named with the why (their top bucket)."""
+    mvp, lvp = scorecard["mvp"], scorecard["lvp"]
+    if mvp is None or lvp is None:
+        return "No units to grade in this match."
+    by_id = {u["unit_id"]: u for u in scorecard["units"]}
+
+    def phrase(label: str, named: dict[str, Any]) -> str:
+        u = by_id[named["unit_id"]]
+        if u["grade"] == 0:
+            detail = "no scored contribution in any bucket"
+        else:
+            top = max(scorecard["purposes"], key=lambda p: u["breakdown"][p])
+            where = "its home purpose" if u["home_purpose"] == top else "off-role work"
+            detail = f"top bucket {top} at {u['breakdown'][top]} — {where}"
+        return f"{label}: {u['unit_id']} ({u['team_id']} {u['role']}, grade {u['grade']}; {detail})"
+
+    if mvp["unit_id"] == lvp["unit_id"]:
+        return f"This match graded a single unit, so it is both. {phrase('MVP and LVP', mvp)}."
+    return f"This match — {phrase('MVP', mvp)}. {phrase('LVP', lvp)}."
+
+
+def _listening(initial: MatchState) -> dict[str, Any]:
+    """Section (e): the ambient score (cycle-8 t4, spec c17/h10/h12) — what the
+    transport's note toggle plays, why it is deterministic for THIS match, and
+    the verbatim mood target the next human review rates on the record. The
+    mood sentence is the user's brief quoted, not paraphrased: if the score
+    misses it, that is a recorded finding, never a silent pass (spec h11)."""
+    return {
+        "title": "Ambient score",
+        "mood_target": "content and relaxed, but also curious and intrigued",
+        "how": (
+            f"The note toggle in the transport plays a generative ambient score — slow "
+            f"lydian pads under sparse bell tones — synthesized live by WebAudio from a "
+            f"seed derived from this match ({initial.match_id}, seed {initial.seed}). "
+            f"No audio file and no network request: the same match always plays the same "
+            f"music, audio stays off until you enable it, and enabling changes nothing "
+            f"about the document."
+        ),
+        "events": (
+            "The score also reacts to the match (the user's directive: soundtrack + "
+            "event sounds = this recording's sound): as playback reaches each turn, its "
+            "notable events play short motifs in the bed's own key — a capture rings a "
+            "bright rising fourth, a completed mission a gentle three-note arpeggio, a "
+            "gather a soft mallet pluck, a delivery a warm two-note rise, a denied order "
+            "a low muted thud, a team message a tiny high blip, and the final whistle a "
+            "short cadence. The first roster team sounds an octave below the second, so "
+            "the sides are tellable apart by ear; moves and bookkeeping stay silent by "
+            "design. The exported MP4 soundtrack renders the identical motif table."
+        ),
+        "rate": (
+            "Rate the mood on the record: the target, verbatim from the user's brief, is "
+            "“content and relaxed, but also curious and intrigued”. If the score "
+            "misses that target, the miss is a finding for the next cycle, not a silent "
+            "pass."
+        ),
+    }
+
+
 def render_html(log: MatchLog) -> str:
     """The single-file human view. No external requests, ever."""
     payload = json.dumps(build_replay_data(log), sort_keys=True, ensure_ascii=False)
     payload = payload.replace("</", "<\\/")  # keep </script> out of the data block
-    return _TEMPLATE.replace("__MATCH_DATA__", payload)
+    # The event-sound motif table (cycle-8 audio-events amendment) is defined
+    # ONCE, in league.replay.audio.EVENT_SOUND, and injected verbatim — the
+    # page and the offline WAV renderer read the same structure, so the two
+    # implementations cannot drift. A constant, so bytes stay deterministic.
+    motifs = json.dumps(EVENT_SOUND, sort_keys=True, separators=(",", ":"))
+    return _TEMPLATE.replace("__MATCH_DATA__", payload).replace("__EVENT_SOUND__", motifs)
 
 
 _TEMPLATE = """<!DOCTYPE html>
@@ -933,7 +1112,9 @@ body.booting #unit-layer g { transition: none; }
   transition: border-color .15s, background .15s, color .15s;
 }
 .controls button:hover { border-color: var(--muted); }
-#btn-play.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+#btn-play.on, #btn-audio.on {
+  background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+}
 #turn-slider { flex: 1; min-width: 120px; accent-color: var(--accent); }
 #turn-label {
   font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 92px;
@@ -1024,6 +1205,33 @@ body.booting #unit-layer g { transition: none; }
   height: 8px; border-radius: 5px; background: var(--track); position: relative; overflow: hidden;
 }
 .bar > i { position: absolute; inset: 0 auto 0 0; border-radius: 5px; display: block; }
+/* Scorecard tab — the per-unit axis (cycle-8 t8). Units ranked by grade;
+   MVP/LVP ride the chip vocabulary with the fixed status hues (the
+   winner-chip precedent — a labeled verdict, never a team color); the HOME
+   purpose is typographically marked (bold ink + a ×N tag), never a new color
+   job. Theme tokens only, so both designed themes style it. */
+.sc-unit { padding: 10px 0; border-top: 1px solid var(--grid); }
+.sc-unit:first-of-type { border-top: none; padding-top: 2px; }
+.sc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sc-head .dot { width: 9px; height: 9px; border-radius: 3px; flex: 0 0 auto; }
+.sc-name { font-weight: 640; color: var(--ink); }
+.sc-role { color: var(--muted); font-size: 12px; }
+.sc-grade {
+  margin-left: auto; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.sc-chip-mvp { color: var(--good); border-color: var(--good); font-weight: 600; }
+.sc-chip-lvp { color: var(--critical); border-color: var(--critical); font-weight: 600; }
+.sc-breakdown {
+  display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 6px;
+  font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+.sc-purpose { display: inline-flex; align-items: baseline; gap: 4px; }
+.sc-purpose.sc-home { color: var(--ink); font-weight: 650; }
+.sc-x2 {
+  background: var(--chip); border: 1px solid var(--ring); border-radius: 5px;
+  padding: 0 4px; font-size: 10px; color: var(--ink-2); font-weight: 600;
+}
 footer { margin-top: 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 footer kbd {
   font-family: var(--font); background: var(--chip); border: 1px solid var(--ring);
@@ -1113,6 +1321,8 @@ footer kbd {
           <button data-speed="1" class="on" title="normal speed">1&#215;</button>
           <button data-speed="2" title="double speed">2&#215;</button>
         </div>
+        <button id="btn-audio" type="button" title="ambient score (off)"
+          aria-pressed="false" aria-label="ambient score (off)">&#9834;</button>
       </div>
     </div>
     <div class="card side" id="side">
@@ -1125,6 +1335,8 @@ footer kbd {
           aria-selected="false" aria-controls="panel-teams" tabindex="-1">Teams</button>
         <button class="tab" id="tab-score" role="tab" data-tab="score"
           aria-selected="false" aria-controls="panel-score" tabindex="-1">Score</button>
+        <button class="tab" id="tab-scorecard" role="tab" data-tab="scorecard"
+          aria-selected="false" aria-controls="panel-scorecard" tabindex="-1">Scorecard</button>
       </div>
       <div class="tabpanels">
         <div class="tabpanel" id="panel-guide" role="tabpanel" data-tab="guide"
@@ -1135,6 +1347,8 @@ footer kbd {
           aria-labelledby="tab-teams" hidden><div id="teams"></div></div>
         <div class="tabpanel" id="panel-score" role="tabpanel" data-tab="score"
           aria-labelledby="tab-score" hidden><div id="scores"></div></div>
+        <div class="tabpanel" id="panel-scorecard" role="tabpanel" data-tab="scorecard"
+          aria-labelledby="tab-scorecard" hidden><div id="scorecard"></div></div>
       </div>
     </div>
   </div>
@@ -1531,6 +1745,18 @@ function renderGuide() {
   });
   body.appendChild(s3);
 
+  // (c2) The scorecard — exactly what the per-unit grade weighs (buckets,
+  // event kinds, the on-role multiplier, the tie-break) and this match's own
+  // MVP/LVP verdict, so guide + deck alone answer who carried and why.
+  if (G.scorecard) {
+    const sc = gSection(G.scorecard.title);
+    sc.appendChild(gEl('p', 'guide-p', G.scorecard.what));
+    sc.appendChild(gEl('p', 'guide-p', G.scorecard.weights));
+    sc.appendChild(gEl('p', 'guide-p', G.scorecard.tie_break));
+    sc.appendChild(gEl('p', 'guide-p muted-p', G.scorecard.verdict));
+    body.appendChild(sc);
+  }
+
   // (d) How to review — the checklist, each item pointing at scrub turns.
   const s4 = gSection('How to review this match');
   G.checklist.forEach(c => {
@@ -1549,6 +1775,55 @@ function renderGuide() {
     s4.appendChild(item);
   });
   body.appendChild(s4);
+
+  // (e) The ambient score — what plays, why it is deterministic for this
+  // match, and the verbatim mood target the reviewer rates on the record.
+  if (G.listening) {
+    const s5 = gSection(G.listening.title);
+    s5.appendChild(gEl('p', 'guide-p', G.listening.how));
+    if (G.listening.events) s5.appendChild(gEl('p', 'guide-p', G.listening.events));
+    s5.appendChild(gEl('p', 'guide-p', G.listening.rate));
+    body.appendChild(s5);
+  }
+}
+
+// The Scorecard tab (cycle-8 t8): units ranked by grade descending (the
+// server already ordered them with the canonical tie-break — the top row IS
+// the MVP), each row a team dot + unit + role, MVP/LVP chips (the winner-chip
+// vocabulary: status hue + text label), the grade, and the full per-purpose
+// breakdown with the unit's HOME purpose marked (bold ink + a ×N tag naming
+// the on-role multiplier). Every fact is computed server-side (M.scorecard,
+// via league.engine.grades.grade_units); this only lays it out — log-derived
+// strings ride textContent, never innerHTML, so the panel is XSS-safe.
+function drawScorecard() {
+  const SC = M.scorecard, box = $('scorecard');
+  if (!SC) return;
+  box.textContent = '';
+  const homeTag = '\\u00D7' + SC.on_role_multiplier + ' home';
+  SC.units.forEach(u => {
+    const row = gEl('div', 'sc-unit');
+    const head = gEl('div', 'sc-head');
+    const dot = gEl('span', 'dot');
+    dot.style.background = teamColor(u.team_id);
+    head.appendChild(dot);
+    head.appendChild(gEl('span', 'sc-name', u.unit_id));
+    head.appendChild(gEl('span', 'sc-role', u.role));
+    if (u.mvp) head.appendChild(gEl('span', 'chip sc-chip-mvp', 'MVP'));
+    if (u.lvp) head.appendChild(gEl('span', 'chip sc-chip-lvp', 'LVP'));
+    head.appendChild(gEl('span', 'sc-grade', String(u.grade)));
+    row.appendChild(head);
+    const bd = gEl('div', 'sc-breakdown');
+    SC.purposes.forEach(p => {
+      const home = u.home_purpose === p;
+      const cell = gEl('span', 'sc-purpose' + (home ? ' sc-home' : ''));
+      cell.appendChild(gEl('span', 'sc-lbl', p));
+      cell.appendChild(gEl('span', 'sc-val', String(u.breakdown[p])));
+      if (home) cell.appendChild(gEl('span', 'sc-x2', homeTag));
+      bd.appendChild(cell);
+    });
+    row.appendChild(bd);
+    box.appendChild(row);
+  });
 }
 
 function render(forward) {
@@ -1562,6 +1837,10 @@ function render(forward) {
   $('turn-label').textContent = `turn ${f.turn} / ${M.turn_limit}`;
   updateWinner();
   if (forward && !reduce) spawnFx(frame);
+  // Event motifs fire only on a normal forward advance — never on a scrub,
+  // jump, or reverse — and are NOT gated by reduced-motion (sound is not
+  // motion; the note toggle is their own opt-in).
+  if (forward) fireMotifs(frame);
 }
 
 function go(i) {
@@ -1695,6 +1974,250 @@ $('theme-toggle').onclick = () => {
   $('theme-toggle').querySelector('.tt-label').textContent = cur === 'dark' ? 'Light' : 'Dark';
 })();
 
+// ---- Ambient score (cycle-8 t4, spec c17/h10): a generative Eno-vein score,
+// synthesized at PLAY TIME from WebAudio primitives — oscillators, gains, a
+// low-pass filter, and a convolver whose impulse response is itself
+// synthesized from the seeded stream, never a fetched asset. The seed derives
+// from data already embedded in this page (match id + seed), so the same
+// match always plays the same music; nothing about enabling or disabling the
+// score touches the document. OFF by default: the AudioContext is created
+// lazily inside the enable path, on the user's own gesture (autoplay policy
+// requires one anyway). Two layers map the mood brief: a warm pad bed of open
+// major lydian voicings for "content and relaxed", sparse bell tones — with
+// the lydian sharp-4 saved as a rare color — for "curious and intrigued".
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function fnv1a(s) {                     // FNV-1a, 32-bit — seeds the score and
+  let h = 2166136261 >>> 0;             // hashes event fields for the motif
+  for (let i = 0; i < s.length; i++) {  // layer (deterministic, entropy-free)
+    h ^= s.charCodeAt(i); h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function audioSeed() {
+  return fnv1a(M.match_id + '|' + M.seed);  // data already embedded in the page
+}
+// Master stays conservative (about a -18 dBFS feel behind a gentle safety
+// compressor): the score plays UNDER someone watching a replay, never over it.
+const MASTER_LEVEL = 0.3;
+const ROOT_MIDI = [41, 43, 45, 48];     // F2 G2 A2 C3 — warm roots only
+const PAD_CHORDS = [                    // semitones above root; no minor-3rd low intervals
+  [0, 7, 14, 16],   // 1 5 9 3 — home, warm
+  [0, 7, 16, 21],   // 1 5 3 6 — the add-6 lift
+  [2, 9, 14, 18],   // the lydian II — bright, forward-leaning
+  [0, 7, 19, 23],   // 1 5 5 maj7 — open, suspended calm
+];
+const BELL_STEPS = [0, 2, 4, 7, 9, 11, 14, 16];  // pentatonic-plus-maj7, two octaves up
+const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
+const AUDIO = { graph: null, timer: null, on: false, rootHz: null };
+
+function makeImpulse(ctx, rnd) {        // synthesized reverb tail — never a fetched asset
+  const len = Math.floor(3.2 * ctx.sampleRate);
+  const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) d[i] = (rnd() * 2 - 1) * Math.pow(1 - i / len, 2.9);
+  }
+  return buf;
+}
+function buildAudio(seed) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = ctx.createGain(); master.gain.value = 0;
+  const safety = ctx.createDynamicsCompressor();
+  safety.threshold.value = -22; safety.knee.value = 18; safety.ratio.value = 4;
+  safety.attack.value = 0.012; safety.release.value = 0.3;
+  master.connect(safety); safety.connect(ctx.destination);
+  const rev = ctx.createConvolver();
+  rev.buffer = makeImpulse(ctx, mulberry32(seed ^ 0x1F123BB5));
+  const wet = ctx.createGain(); wet.gain.value = 0.5; rev.connect(wet); wet.connect(master);
+  const padLp = ctx.createBiquadFilter();
+  padLp.type = 'lowpass'; padLp.frequency.value = 950; padLp.Q.value = 0.4;
+  const padBus = ctx.createGain(); padBus.gain.value = 0.9;
+  padBus.connect(padLp); padLp.connect(master);
+  const padSend = ctx.createGain(); padSend.gain.value = 0.3;
+  padLp.connect(padSend); padSend.connect(rev);
+  const lfo = ctx.createOscillator(); lfo.frequency.value = 0.045;  // slow breathing
+  const lfoAmt = ctx.createGain(); lfoAmt.gain.value = 240;
+  lfo.connect(lfoAmt); lfoAmt.connect(padLp.frequency); lfo.start();
+  const bellBus = ctx.createGain(); bellBus.gain.value = 0.75; bellBus.connect(master);
+  const bellSend = ctx.createGain(); bellSend.gain.value = 0.9;
+  bellBus.connect(bellSend); bellSend.connect(rev);   // bells ride mostly in the reverb
+  // The event-motif layer rides dry — crisp, legible "something happened"
+  // sounds over the washy bed (the offline WAV renders it dry too).
+  const eventBus = ctx.createGain(); eventBus.gain.value = EVENT_SOUND.level;
+  eventBus.connect(master);
+  return { ctx, master, padBus, bellBus, eventBus };
+}
+function padChord(A, rootHz, steps, t, dur) {
+  // long attack, long release — successive chords crossfade into one bed
+  const env = g => {
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.05, t + 6);
+    g.gain.setValueAtTime(0.05, t + dur - 7);
+    g.gain.linearRampToValueAtTime(0, t + dur);
+  };
+  for (const st of steps) {
+    const f = rootHz * Math.pow(2, st / 12);
+    for (const det of [-2.5, 2.5]) {
+      const o = A.ctx.createOscillator();
+      o.type = 'sine'; o.frequency.value = f; o.detune.value = det;
+      const g = A.ctx.createGain(); env(g);
+      o.connect(g); g.connect(A.padBus); o.start(t); o.stop(t + dur + 0.2);
+    }
+  }
+  const sub = A.ctx.createOscillator();               // a quiet sub-octave root
+  sub.type = 'triangle'; sub.frequency.value = rootHz * Math.pow(2, steps[0] / 12) / 2;
+  const sg = A.ctx.createGain(); env(sg);
+  sub.connect(sg); sg.connect(A.padBus); sub.start(t); sub.stop(t + dur + 0.2);
+}
+function bellNote(A, f, t, vel) {
+  // near-harmonic partials, fast attack, long exponential decay
+  for (const [ratio, amp] of [[1, 1], [2.01, 0.38], [3.02, 0.13]]) {
+    const o = A.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * ratio;
+    const g = A.ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.16 * vel * amp, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 5 / ratio);
+    o.connect(g); g.connect(A.bellBus); o.start(t); o.stop(t + 5 / ratio + 0.1);
+  }
+}
+function startScore() {
+  const seed = audioSeed();
+  const A = AUDIO.graph = buildAudio(seed);
+  // One seeded stream per voice, so the look-ahead scheduler's wall-clock
+  // tick cadence can never reorder draws — the whole musical timeline is a
+  // pure function of the seed, identical on every enable.
+  const padRnd = mulberry32(seed ^ 0x51AB3C02);
+  const bellRnd = mulberry32(seed ^ 0x9E3779B9);
+  const rootHz = midiHz(ROOT_MIDI[Math.floor(mulberry32(seed)() * ROOT_MIDI.length)]);
+  AUDIO.rootHz = rootHz;  // the event-motif layer plays in the bed's own key
+  const t0 = A.ctx.currentTime + 0.08;
+  let padT = 0, chord = 0, bellT = 2 + bellRnd() * 3;
+  function ahead() {
+    const now = A.ctx.currentTime - t0;
+    while (padT < now + 1.5) {
+      const dur = 18 + padRnd() * 8;
+      padChord(A, rootHz, PAD_CHORDS[chord], t0 + padT, dur + 8);
+      chord = (chord + 1 + Math.floor(padRnd() * (PAD_CHORDS.length - 1))) % PAD_CHORDS.length;
+      padT += dur;
+    }
+    while (bellT < now + 1.5) {
+      const curious = bellRnd() < 0.11;               // the rare lydian sharp-4 color
+      const step = curious ? 6 : BELL_STEPS[Math.floor(bellRnd() * BELL_STEPS.length)];
+      const f = rootHz * Math.pow(2, (24 + step + (bellRnd() < 0.3 ? 12 : 0)) / 12);
+      const vel = 0.5 + bellRnd() * 0.5;
+      bellNote(A, f, t0 + bellT, vel);
+      if (bellRnd() < 0.22)                            // an occasional soft answer
+        bellNote(A, f * Math.pow(2, (bellRnd() < 0.5 ? 7 : 4) / 12),
+          t0 + bellT + 0.7 + bellRnd() * 0.8, vel * 0.55);
+      bellT += 3.5 + bellRnd() * 5.5;
+    }
+  }
+  ahead();
+  AUDIO.timer = setInterval(ahead, 240);
+  A.master.gain.setValueAtTime(0, A.ctx.currentTime);  // anchor, then fade in
+  A.master.gain.linearRampToValueAtTime(MASTER_LEVEL, A.ctx.currentTime + 2);
+}
+function setAudioButton(on) {
+  const b = $('btn-audio');
+  b.classList.toggle('on', on);
+  b.setAttribute('aria-pressed', String(on));
+  const label = on ? 'ambient score (on)' : 'ambient score (off)';
+  b.setAttribute('aria-label', label); b.title = label;
+}
+function audioToggle() {
+  if (AUDIO.on) {
+    AUDIO.on = false;
+    clearInterval(AUDIO.timer); AUDIO.timer = null;
+    const A = AUDIO.graph; AUDIO.graph = null; AUDIO.rootHz = null;
+    if (A) {
+      A.master.gain.cancelScheduledValues(A.ctx.currentTime);
+      A.master.gain.setValueAtTime(A.master.gain.value, A.ctx.currentTime);
+      A.master.gain.linearRampToValueAtTime(0, A.ctx.currentTime + 0.5);
+      setTimeout(() => A.ctx.close(), 650);           // runtime teardown only
+    }
+    setAudioButton(false);
+  } else {
+    AUDIO.on = true;
+    startScore();                // the ctx is born here, on the user's gesture
+    setAudioButton(true);
+  }
+}
+$('btn-audio').onclick = audioToggle;
+
+// ---- Event sounds (cycle-8 audio-events amendment): the score REACTS to the
+// match — soundtrack + event sounds = this recording's sound. Every notable
+// event fires a short motif in the bed's own key at the moment playback
+// advances onto its turn. EVENT_SOUND below is injected verbatim from
+// league/replay/audio.py's canonical table: ONE design, two renderers (this
+// page live, the MP4 soundtrack offline), zero drift by construction.
+// High-frequency bookkeeping (unit_moved, control_point_held, declarations,
+// clock ticks) is deliberately absent — silence is a design choice. The layer
+// is a pure function of (log, playback position): pitch variety hashes the
+// event's own canonical fields (fnv1a), the two teams sit an octave apart by
+// roster order, and the k-th of a turn's n sounding events fires k/n of the
+// way into the turn interval — position, never wall-clock jitter. The same
+// note toggle governs bed + events (one control, OFF by default), and the
+// motifs fire ONLY on a normal forward advance: scrubbing or jumping is
+// navigation, not time passing, so skipped events are never replayed.
+const EVENT_SOUND = __EVENT_SOUND__;
+const unitTeam = {};
+roster.forEach(u => { unitTeam[u.id] = u.team; });
+function motifRegister(m, d) {
+  const tid = m.team_field ? d[m.team_field]
+    : m.unit_field ? unitTeam[d[m.unit_field]] : null;
+  const idx = teamIndex[tid];
+  return idx == null ? 0 : (idx % 2) * EVENT_SOUND.register_semitones;
+}
+function motifVariant(m, d) {
+  if (!m.variant_steps) return 0;
+  return fnv1a(m.variant_key.map(k => String(d[k] ?? '')).join('|'))
+    % m.variant_steps.length;
+}
+function motifPlan(kind, reg, variant, rootHz) {
+  // The notes one motif plays: (offset s, freq Hz, velocity, duration s,
+  // voice). Mirrored bit-for-bit by league/replay/audio.py's motif_notes —
+  // the offline WAV pins these decisions in tests/test_replay_audio.py.
+  const m = EVENT_SOUND.motifs[kind];
+  const steps = m.variant_steps ? [m.variant_steps[variant]] : m.steps;
+  return steps.map((st, i) => [i * m.gap,
+    rootHz * Math.pow(2, (m.octave * 12 + st + reg) / 12),
+    m.vel * m.vels[i], m.dur, m.voice]);
+}
+function motifNote(A, voice, f, t, vel, dur) {
+  // Near-harmonic partials, a short linear attack, exponential decay to the
+  // table's floor at dur/ratio — the bell envelope's shape, event-sized.
+  for (const [ratio, amp] of voice.partials) {
+    const o = A.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * ratio;
+    const g = A.ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(EVENT_SOUND.peak * vel * amp, t + voice.attack);
+    g.gain.exponentialRampToValueAtTime(EVENT_SOUND.floor, t + dur / ratio);
+    o.connect(g); g.connect(A.eventBus); o.start(t); o.stop(t + dur / ratio + 0.05);
+  }
+}
+function playMotif(kind, d, t) {
+  const m = EVENT_SOUND.motifs[kind];
+  for (const [dt, f, vel, dur, voice] of
+       motifPlan(kind, motifRegister(m, d), motifVariant(m, d), AUDIO.rootHz))
+    motifNote(AUDIO.graph, EVENT_SOUND.voices[voice], f, t + dt, vel, dur);
+}
+function fireMotifs(fi) {
+  if (!AUDIO.on || !AUDIO.graph || !AUDIO.rootHz || fi === 0) return;
+  const evts = M.events_by_turn[String(M.frames[fi].turn)] || [];
+  const sounding = evts.filter(e => EVENT_SOUND.motifs[e.kind]);
+  if (!sounding.length) return;
+  const interval = SPEEDS[String(speed)] / 1000;
+  const t0 = AUDIO.graph.ctx.currentTime + 0.02;
+  sounding.forEach((e, k) => playMotif(e.kind, e.data, t0 + interval * k / sounding.length));
+}
+
 setSpeed(1);
 // Deep link: replay.html#t7 opens on turn 7, so reviewers can point at a frame.
 const hashTurn = (location.hash.match(/^#t(\\d+)$/) || [])[1];
@@ -1703,6 +2226,7 @@ if (hashTurn != null) {
   if (idx >= 0) frame = idx;
 }
 drawScores();
+drawScorecard();
 renderGuide();
 render(false);
 // Let the first paint land at rest, then arm the movement transitions.

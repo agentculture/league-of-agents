@@ -16,9 +16,10 @@ the set is reproducible, not just readable.
 | [`cycle-5/`](cycle-5/) | The colleague guild's cooperative-mode match: three local-model seats coordinating through in-game messages only, no solo handicap. | Cycle-5's orchestrator/harness live-test thread. |
 | [`cycle-6/`](cycle-6/) | The long-horizon memory match (a resident mind on a seeded 21×17 fogged board, 60 turns), the two span-of-control probe runs (Sonnet and colleague orchestrators), their comparison report, and the first recorded human review with its findings ledger. | Cycle-6 — "watchable and vast": seeded generation, the span probe, and the human-evaluation loop. |
 | [`cycle-7/`](cycle-7/) | The first continuous-lane live match: four resident claude seats racing for `cp-crossing` on the event timeline — the race (`post_taken` at t=8 over a mid-take rival, `action_failed` "post taken by a faster agent") happened live and unscripted. | Cycle-7 — "steps off the grid": race semantics, role-given speed, and the mind-facing time-budget contract, all demonstrated in anger. |
+| [`cycle-8/`](cycle-8/) | The first fogged continuous match: six sonnet seats on full 3-role rosters (`c-frontier-1`), four `action_failed` delivery denials in a mutual standoff both teams entered knowingly, a 0–0 draw, and the per-unit scorecard naming a scout MVP and a never-re-asked defender LVP — the "a pass parks a seat forever" finding that seeds cycle 9. | Cycle-8 — "grades every seat": fog, contention, MVP/LVP, and the baked seat contract, all live in one record. |
 | [`house-tiers/`](house-tiers/) | Four bot-vs-bot matches (two seeds each) proving the house roster's tier ordering — bronze < silver < gold — via `bots/shambler.py` / `bots/rusher.py` / `bots/vanguard.py`. | Cycle-4's house-bot ladder, kept reproducible via [`generate_matches.py`](house-tiers/generate_matches.py). |
 
-Every log in every directory above — 15 as of cycle-7 t10 (14 grid, 1
+Every log in every directory above — 16 as of cycle-8 t12 (14 grid, 2
 continuous), and growing — is swept by `tests/test_committed_logs_compat.py`
 on every test run: it detects each log's engine lane from its own header,
 folds it to its final state with that lane's fold, and checks the committed

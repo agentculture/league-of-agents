@@ -1,0 +1,118 @@
+{"driver_kinds":{"blue":"resident","red":"resident"},"initial_state":{"clock":0,"control_points":[{"id":"cp-frontier","owner":null,"pos":{"x":6000,"y":4000},"takers":[]}],"height":9000,"match_id":"c-frontier-live","missions":[{"amount":5,"completed_by":[],"completed_time":null,"id":"ms-hold","kind":"hold","pos":{"x":6000,"y":4000},"reward":8,"status":"open"},{"amount":3,"completed_by":[],"completed_time":null,"id":"ms-supply","kind":"deliver","pos":{"x":6000,"y":5000},"reward":6,"status":"open"}],"mode":"competitive","resource_nodes":[{"id":"rn-west","pos":{"x":2000,"y":4000},"remaining":3},{"id":"rn-east","pos":{"x":10000,"y":4000},"remaining":3}],"scenario_id":"c-frontier-1","seed":20260708,"status":"pending","teams":[{"agents":[{"id":"blue-scout","model":"claude-sonnet","role":"scout"},{"id":"blue-harvester","model":"claude-sonnet","role":"harvester"},{"id":"blue-defender","model":"claude-sonnet","role":"defender"}],"id":"blue","name":"Blue Meridian","resources":0},{"agents":[{"id":"red-scout","model":"claude-sonnet","role":"scout"},{"id":"red-harvester","model":"claude-sonnet","role":"harvester"},{"id":"red-defender","model":"claude-sonnet","role":"defender"}],"id":"red","name":"Red Meridian","resources":0}],"time_limit":30,"units":[{"action":null,"agent_id":"blue-scout","alive":true,"carrying":0,"id":"blue-u1","pos":{"x":1000,"y":4000},"role":"scout","team_id":"blue"},{"action":null,"agent_id":"blue-harvester","alive":true,"carrying":0,"id":"blue-u2","pos":{"x":2000,"y":4000},"role":"harvester","team_id":"blue"},{"action":null,"agent_id":"blue-defender","alive":true,"carrying":0,"id":"blue-u3","pos":{"x":3000,"y":4000},"role":"defender","team_id":"blue"},{"action":null,"agent_id":"red-scout","alive":true,"carrying":0,"id":"red-u1","pos":{"x":11000,"y":4000},"role":"scout","team_id":"red"},{"action":null,"agent_id":"red-harvester","alive":true,"carrying":0,"id":"red-u2","pos":{"x":10000,"y":4000},"role":"harvester","team_id":"red"},{"action":null,"agent_id":"red-defender","alive":true,"carrying":0,"id":"red-u3","pos":{"x":9000,"y":5000},"role":"defender","team_id":"red"}],"width":12000,"winner":null},"log_version":1}
+{"data":{},"game_time":0,"kind":"match_started","seq":0}
+{"data":{"game_time":0,"unit_id":"blue-u1"},"game_time":0,"kind":"decision_point","seq":1}
+{"data":{"completion_time":2,"kind":"move","start_time":0,"target_pos":{"x":2000,"y":4000},"unit_id":"blue-u1"},"game_time":0,"kind":"action_started","seq":2}
+{"data":{"game_time":0,"unit_id":"blue-u2"},"game_time":0,"kind":"decision_point","seq":3}
+{"data":{"completion_time":8,"kind":"gather","start_time":0,"target_id":"rn-west","unit_id":"blue-u2"},"game_time":0,"kind":"action_started","seq":4}
+{"data":{"game_time":0,"unit_id":"blue-u3"},"game_time":0,"kind":"decision_point","seq":5}
+{"data":{"game_time":0,"unit_id":"red-u1"},"game_time":0,"kind":"decision_point","seq":6}
+{"data":{"completion_time":2,"kind":"move","start_time":0,"target_pos":{"x":10000,"y":4000},"unit_id":"red-u1"},"game_time":0,"kind":"action_started","seq":7}
+{"data":{"game_time":0,"unit_id":"red-u2"},"game_time":0,"kind":"decision_point","seq":8}
+{"data":{"completion_time":8,"kind":"gather","start_time":0,"target_id":"rn-east","unit_id":"red-u2"},"game_time":0,"kind":"action_started","seq":9}
+{"data":{"game_time":0,"unit_id":"red-u3"},"game_time":0,"kind":"decision_point","seq":10}
+{"data":{"from":{"x":1000,"y":4000},"to":{"x":2000,"y":4000},"unit_id":"blue-u1"},"game_time":2,"kind":"unit_moved","seq":11}
+{"data":{"unit_id":"blue-u1"},"game_time":2,"kind":"action_completed","seq":12}
+{"data":{"game_time":2,"unit_id":"blue-u1"},"game_time":2,"kind":"decision_point","seq":13}
+{"data":{"completion_time":8,"kind":"move","start_time":2,"target_pos":{"x":6000,"y":4000},"unit_id":"blue-u1"},"game_time":2,"kind":"action_started","seq":14}
+{"data":{"from":{"x":11000,"y":4000},"to":{"x":10000,"y":4000},"unit_id":"red-u1"},"game_time":2,"kind":"unit_moved","seq":15}
+{"data":{"unit_id":"red-u1"},"game_time":2,"kind":"action_completed","seq":16}
+{"data":{"game_time":2,"unit_id":"red-u1"},"game_time":2,"kind":"decision_point","seq":17}
+{"data":{"completion_time":8,"kind":"move","start_time":2,"target_pos":{"x":6000,"y":4000},"unit_id":"red-u1"},"game_time":2,"kind":"action_started","seq":18}
+{"data":{"from":{"x":2000,"y":4000},"to":{"x":6000,"y":4000},"unit_id":"blue-u1"},"game_time":8,"kind":"unit_moved","seq":19}
+{"data":{"unit_id":"blue-u1"},"game_time":8,"kind":"action_completed","seq":20}
+{"data":{"game_time":8,"unit_id":"blue-u1"},"game_time":8,"kind":"decision_point","seq":21}
+{"data":{"completion_time":14,"kind":"move","start_time":8,"target_pos":{"x":10000,"y":4000},"unit_id":"blue-u1"},"game_time":8,"kind":"action_started","seq":22}
+{"data":{"amount":3,"node_id":"rn-west","unit_id":"blue-u2"},"game_time":8,"kind":"resource_gathered","seq":23}
+{"data":{"unit_id":"blue-u2"},"game_time":8,"kind":"action_completed","seq":24}
+{"data":{"game_time":8,"unit_id":"blue-u2"},"game_time":8,"kind":"decision_point","seq":25}
+{"data":{"completion_time":17,"kind":"move","start_time":8,"target_pos":{"x":6000,"y":5000},"unit_id":"blue-u2"},"game_time":8,"kind":"action_started","seq":26}
+{"data":{"from":{"x":10000,"y":4000},"to":{"x":6000,"y":4000},"unit_id":"red-u1"},"game_time":8,"kind":"unit_moved","seq":27}
+{"data":{"unit_id":"red-u1"},"game_time":8,"kind":"action_completed","seq":28}
+{"data":{"game_time":8,"unit_id":"red-u1"},"game_time":8,"kind":"decision_point","seq":29}
+{"data":{"completion_time":10,"kind":"move","start_time":8,"target_pos":{"x":6000,"y":5000},"unit_id":"red-u1"},"game_time":8,"kind":"action_started","seq":30}
+{"data":{"amount":3,"node_id":"rn-east","unit_id":"red-u2"},"game_time":8,"kind":"resource_gathered","seq":31}
+{"data":{"unit_id":"red-u2"},"game_time":8,"kind":"action_completed","seq":32}
+{"data":{"game_time":8,"unit_id":"red-u2"},"game_time":8,"kind":"decision_point","seq":33}
+{"data":{"completion_time":17,"kind":"move","start_time":8,"target_pos":{"x":6000,"y":5000},"unit_id":"red-u2"},"game_time":8,"kind":"action_started","seq":34}
+{"data":{"from":{"x":6000,"y":4000},"to":{"x":6000,"y":5000},"unit_id":"red-u1"},"game_time":10,"kind":"unit_moved","seq":35}
+{"data":{"unit_id":"red-u1"},"game_time":10,"kind":"action_completed","seq":36}
+{"data":{"game_time":10,"unit_id":"red-u1"},"game_time":10,"kind":"decision_point","seq":37}
+{"data":{"completion_time":12,"kind":"move","start_time":10,"target_pos":{"x":6000,"y":4000},"unit_id":"red-u1"},"game_time":10,"kind":"action_started","seq":38}
+{"data":{"from":{"x":6000,"y":5000},"to":{"x":6000,"y":4000},"unit_id":"red-u1"},"game_time":12,"kind":"unit_moved","seq":39}
+{"data":{"unit_id":"red-u1"},"game_time":12,"kind":"action_completed","seq":40}
+{"data":{"game_time":12,"unit_id":"red-u1"},"game_time":12,"kind":"decision_point","seq":41}
+{"data":{"from":{"x":6000,"y":4000},"to":{"x":10000,"y":4000},"unit_id":"blue-u1"},"game_time":14,"kind":"unit_moved","seq":42}
+{"data":{"unit_id":"blue-u1"},"game_time":14,"kind":"action_completed","seq":43}
+{"data":{"game_time":14,"unit_id":"blue-u1"},"game_time":14,"kind":"decision_point","seq":44}
+{"data":{"completion_time":20,"kind":"move","start_time":14,"target_pos":{"x":6000,"y":4000},"unit_id":"blue-u1"},"game_time":14,"kind":"action_started","seq":45}
+{"data":{"from":{"x":2000,"y":4000},"to":{"x":6000,"y":5000},"unit_id":"blue-u2"},"game_time":17,"kind":"unit_moved","seq":46}
+{"data":{"unit_id":"blue-u2"},"game_time":17,"kind":"action_completed","seq":47}
+{"data":{"game_time":17,"unit_id":"blue-u2"},"game_time":17,"kind":"decision_point","seq":48}
+{"data":{"completion_time":23,"kind":"deliver","start_time":17,"target_id":"blue","unit_id":"blue-u2"},"game_time":17,"kind":"action_started","seq":49}
+{"data":{"from":{"x":10000,"y":4000},"to":{"x":6000,"y":5000},"unit_id":"red-u2"},"game_time":17,"kind":"unit_moved","seq":50}
+{"data":{"unit_id":"red-u2"},"game_time":17,"kind":"action_completed","seq":51}
+{"data":{"game_time":17,"unit_id":"red-u2"},"game_time":17,"kind":"decision_point","seq":52}
+{"data":{"completion_time":23,"kind":"deliver","start_time":17,"target_id":"red","unit_id":"red-u2"},"game_time":17,"kind":"action_started","seq":53}
+{"data":{"from":{"x":10000,"y":4000},"to":{"x":6000,"y":4000},"unit_id":"blue-u1"},"game_time":20,"kind":"unit_moved","seq":54}
+{"data":{"unit_id":"blue-u1"},"game_time":20,"kind":"action_completed","seq":55}
+{"data":{"game_time":20,"unit_id":"blue-u1"},"game_time":20,"kind":"decision_point","seq":56}
+{"data":{"reason":"delivery denied by enemy presence at the site","unit_id":"blue-u2"},"game_time":23,"kind":"action_failed","seq":57}
+{"data":{"game_time":23,"unit_id":"blue-u2"},"game_time":23,"kind":"decision_point","seq":58}
+{"data":{"completion_time":29,"kind":"deliver","start_time":23,"target_id":"blue","unit_id":"blue-u2"},"game_time":23,"kind":"action_started","seq":59}
+{"data":{"reason":"delivery denied by enemy presence at the site","unit_id":"red-u2"},"game_time":23,"kind":"action_failed","seq":60}
+{"data":{"game_time":23,"unit_id":"red-u2"},"game_time":23,"kind":"decision_point","seq":61}
+{"data":{"completion_time":29,"kind":"deliver","start_time":23,"target_id":"red","unit_id":"red-u2"},"game_time":23,"kind":"action_started","seq":62}
+{"data":{"reason":"delivery denied by enemy presence at the site","unit_id":"blue-u2"},"game_time":29,"kind":"action_failed","seq":63}
+{"data":{"game_time":29,"unit_id":"blue-u2"},"game_time":29,"kind":"decision_point","seq":64}
+{"data":{"reason":"delivery denied by enemy presence at the site","unit_id":"red-u2"},"game_time":29,"kind":"action_failed","seq":65}
+{"data":{"game_time":29,"unit_id":"red-u2"},"game_time":29,"kind":"decision_point","seq":66}
+{"data":{"winner":"draw"},"game_time":29,"kind":"match_finished","seq":67}
+{"data":{"agent_id":"blue-scout","elapsed_ms":20582,"team_id":"blue","unit_id":"blue-u1"},"game_time":0,"kind":"seat_latency","seq":68}
+{"data":{"from":"blue-scout","team_id":"blue","text":"Scout pushing to rn-west then continuing east to reveal the frontier — harvester work the node, defender hold position.","unit_id":"blue-u1"},"game_time":0,"kind":"message_sent","seq":69}
+{"data":{"from":"blue-scout","team_id":"blue","text":"Scout leads vision forward, harvester economies rn-west, defender escorts/holds control points as they're revealed."},"game_time":0,"kind":"plan_declared","seq":70}
+{"data":{"agent_id":"blue-harvester","elapsed_ms":6846,"team_id":"blue","unit_id":"blue-u2"},"game_time":0,"kind":"seat_latency","seq":71}
+{"data":{"from":"blue-harvester","team_id":"blue","text":"Harvester on rn-west, gathering now (done t=8). Defender hold position.","unit_id":"blue-u2"},"game_time":0,"kind":"message_sent","seq":72}
+{"data":{"from":"blue-harvester","team_id":"blue","text":"Scout scouts east, harvester works rn-west economy, defender holds/escorts deliveries."},"game_time":0,"kind":"plan_declared","seq":73}
+{"data":{"agent_id":"blue-defender","elapsed_ms":20580,"team_id":"blue","unit_id":"blue-u3"},"game_time":0,"kind":"seat_latency","seq":74}
+{"data":{"from":"blue-defender","team_id":"blue","text":"Holding position at (3000,4000), central watch — will move to intercept if red incursion appears near rn-west or the frontier.","unit_id":"blue-u3"},"game_time":0,"kind":"message_sent","seq":75}
+{"data":{"from":"blue-defender","team_id":"blue","text":"Scout reveals frontier east, harvester works rn-west, defender holds center to react to threats."},"game_time":0,"kind":"plan_declared","seq":76}
+{"data":{"agent_id":"red-scout","elapsed_ms":27618,"team_id":"red","unit_id":"red-u1"},"game_time":0,"kind":"seat_latency","seq":77}
+{"data":{"from":"red-scout","team_id":"red","text":"Scout pushing toward rn-east then continuing west to scout the frontier — harvester work rn-east once I clear it, defender hold position.","unit_id":"red-u1"},"game_time":0,"kind":"message_sent","seq":78}
+{"data":{"from":"red-scout","team_id":"red","text":"Scout reveals the center frontier while harvester economizes rn-east and defender holds our flank; we'll contest control points as they come into view."},"game_time":0,"kind":"plan_declared","seq":79}
+{"data":{"agent_id":"red-harvester","elapsed_ms":7253,"team_id":"red","unit_id":"red-u2"},"game_time":0,"kind":"seat_latency","seq":80}
+{"data":{"from":"red-harvester","team_id":"red","text":"Harvester gathering rn-east now, done t=8.","unit_id":"red-u2"},"game_time":0,"kind":"message_sent","seq":81}
+{"data":{"agent_id":"red-defender","elapsed_ms":17723,"team_id":"red","unit_id":"red-u3"},"game_time":0,"kind":"seat_latency","seq":82}
+{"data":{"from":"red-defender","team_id":"red","text":"Holding position at (9000,5000) to guard the harvester at rn-east and watch for blue incursion from the west — will move to intercept if needed.","unit_id":"red-u3"},"game_time":0,"kind":"message_sent","seq":83}
+{"data":{"agent_id":"blue-scout","elapsed_ms":11061,"team_id":"blue","unit_id":"blue-u1"},"game_time":2,"kind":"seat_latency","seq":84}
+{"data":{"from":"blue-scout","team_id":"blue","text":"Pushing to cp-frontier to scout it and get eyes on the hold mission (reward 8, needs 5) before red arrives — ETA t=8.","unit_id":"blue-u1"},"game_time":2,"kind":"message_sent","seq":85}
+{"data":{"agent_id":"red-scout","elapsed_ms":8783,"team_id":"red","unit_id":"red-u1"},"game_time":2,"kind":"seat_latency","seq":86}
+{"data":{"from":"red-scout","team_id":"red","text":"Scout racing to cp-frontier, ETA t=8 — blue-scout is inbound same ETA, so I may need to contest the hold mission on arrival. Defender, consider moving up to back me if blue wins the race there.","unit_id":"red-u1"},"game_time":2,"kind":"message_sent","seq":87}
+{"data":{"agent_id":"blue-scout","elapsed_ms":60616,"team_id":"blue","unit_id":"blue-u1"},"game_time":8,"kind":"seat_latency","seq":88}
+{"data":{"from":"blue-scout","team_id":"blue","text":"At cp-frontier now, no take/hold action showing in my menu — red-scout arriving same instant, likely a contested standoff. Defender, push up from (3000,4000) to cp-frontier to hold it since I can't. I'm continuing east to rn-east to scout red's economy and defender position — ETA t=14.","unit_id":"blue-u1"},"game_time":8,"kind":"message_sent","seq":89}
+{"data":{"agent_id":"blue-harvester","elapsed_ms":10627,"team_id":"blue","unit_id":"blue-u2"},"game_time":8,"kind":"seat_latency","seq":90}
+{"data":{"from":"blue-harvester","team_id":"blue","text":"rn-west tapped out (0 left), carrying 3 which matches ms-supply's need exactly — heading to deliver now, ETA t=17. Defender, watch cp-frontier per scout's call.","unit_id":"blue-u2"},"game_time":8,"kind":"message_sent","seq":91}
+{"data":{"agent_id":"red-scout","elapsed_ms":48777,"team_id":"red","unit_id":"red-u1"},"game_time":8,"kind":"seat_latency","seq":92}
+{"data":{"from":"red-scout","team_id":"red","text":"cp-frontier has no take/hold action available to either side right now, so I'm repositioning to ms-supply (ETA t=10) — blue-harvester is inbound there to deliver at t=17 and if I'm standing on site at that instant it denies their delivery. Harvester, if you've got the 3 from rn-east, consider routing here yourself to claim the reward for us instead — I'll hold the site until then either way.","unit_id":"red-u1"},"game_time":8,"kind":"message_sent","seq":93}
+{"data":{"agent_id":"red-harvester","elapsed_ms":49082,"team_id":"red","unit_id":"red-u2"},"game_time":8,"kind":"seat_latency","seq":94}
+{"data":{"from":"red-harvester","team_id":"red","text":"Routing to ms-supply with my 3 (exact match for the reward) — ETA t=17, same instant as blue-harvester's delivery attempt, so we may deny each other on arrival. Defender, push up from (9000,5000) toward ms-supply to clear/hold the site by the time I land so my delivery isn't contested.","unit_id":"red-u2"},"game_time":8,"kind":"message_sent","seq":95}
+{"data":{"from":"red-harvester","team_id":"red","text":"Scout camps ms-supply to deny blue, harvester delivers the 3 for reward, defender escorts/clears the site so our delivery lands clean."},"game_time":8,"kind":"plan_declared","seq":96}
+{"data":{"agent_id":"red-scout","elapsed_ms":51482,"team_id":"red","unit_id":"red-u1"},"game_time":10,"kind":"seat_latency","seq":97}
+{"data":{"from":"red-scout","team_id":"red","text":"Heads up: our harvester and blue's harvester both land at ms-supply at t=17 — each will count as enemy presence for the other, so that's shaping up as a mutual deny regardless of who else is there. My scout presence there wasn't adding to that denial (the harvester alone already guarantees it), so I'm swinging back to cp-frontier instead — blue-scout has vacated it and blue-defender hasn't moved, so it's open for us to try the ms-hold mission (reward 8) uncontested. Defender, if you can intercept/clear blue-harvester before t=17 that's the only way our ms-supply delivery actually lands instead of double-denying.","unit_id":"red-u1"},"game_time":10,"kind":"message_sent","seq":98}
+{"data":{"agent_id":"red-scout","elapsed_ms":18792,"team_id":"red","unit_id":"red-u1"},"game_time":12,"kind":"seat_latency","seq":99}
+{"data":{"from":"red-scout","team_id":"red","text":"Still no explicit take/hold action for ms-hold or cp-frontier in my menu — only moves. Testing the theory that hold progress accrues from continuous idle presence rather than a discrete action, so I'm parking here at cp-frontier (uncontested — blue-scout gone, blue-defender hasn't moved) instead of bouncing off again like I did at t=8/t=10. Will report back if anything changes.","unit_id":"red-u1"},"game_time":12,"kind":"message_sent","seq":100}
+{"data":{"agent_id":"blue-scout","elapsed_ms":15922,"team_id":"blue","unit_id":"blue-u1"},"game_time":14,"kind":"seat_latency","seq":101}
+{"data":{"from":"blue-scout","team_id":"blue","text":"rn-east is tapped dry (0 left), nothing more to do here. Red-scout is parked alone at cp-frontier testing a presence-hold theory and blue-defender still hasn't moved from (3000,4000) since t=0 — that's an uncontested 8-point hold risk. Racing back to contest, ETA t=20, but defender is only 3000 mu out and should get there faster — please move NOW.","unit_id":"blue-u1"},"game_time":14,"kind":"message_sent","seq":102}
+{"data":{"agent_id":"blue-harvester","elapsed_ms":54539,"team_id":"blue","unit_id":"blue-u2"},"game_time":17,"kind":"seat_latency","seq":103}
+{"data":{"from":"blue-harvester","team_id":"blue","text":"At ms-supply with red-harvester landing same instant — starting deliver now (done t=23). If red also delivers we mutual-deny for free (I keep carrying either way), but my presence alone denies theirs too. Defender, push to ms-supply to secure the site against their incoming defender — don't cede it.","unit_id":"blue-u2"},"game_time":17,"kind":"message_sent","seq":104}
+{"data":{"agent_id":"red-harvester","elapsed_ms":43514,"team_id":"red","unit_id":"red-u2"},"game_time":17,"kind":"seat_latency","seq":105}
+{"data":{"from":"red-harvester","team_id":"red","text":"Committing to deliver at ms-supply (done t=23) — my presence denies blue's delivery either way and costs me nothing if we mutual-deny, I keep the 3. Staying planted here through t=23 to hold the denial; if defender can clear blue-harvester before then, my delivery lands instead. Defender, status? Still showing idle at (9000,5000) — push to ms-supply if you're able.","unit_id":"red-u2"},"game_time":17,"kind":"message_sent","seq":106}
+{"data":{"agent_id":"blue-scout","elapsed_ms":25642,"team_id":"blue","unit_id":"blue-u1"},"game_time":20,"kind":"seat_latency","seq":107}
+{"data":{"from":"blue-scout","team_id":"blue","text":"Arrived at cp-frontier — red-scout is here too now, both idle, ms-hold still open/uncontested-status. Staying planted here to deny red's solo hold accrual (same logic as delivery denial: enemy presence should block it) rather than vacating and handing them a free completion. Defender — you're still showing idle at (3000,4000) since t=0, 10 ticks left in the match, please confirm you're receiving messages and move if you can.","unit_id":"blue-u1"},"game_time":20,"kind":"message_sent","seq":108}
+{"data":{"agent_id":"blue-harvester","elapsed_ms":34168,"team_id":"blue","unit_id":"blue-u2"},"game_time":23,"kind":"seat_latency","seq":109}
+{"data":{"from":"blue-harvester","team_id":"blue","text":"Mutual deny confirmed at t=23, still carrying 3, no loss. Re-committing to deliver (done t=29, right at the wire on the t=30 limit) — my presence keeps denying their delivery too as long as I hold the site, so this is a wash-or-better trade. Defender, if you're seeing this, ms-supply needs you more than cp-frontier right now to break the standoff in our favor.","unit_id":"blue-u2"},"game_time":23,"kind":"message_sent","seq":110}
+{"data":{"agent_id":"red-harvester","elapsed_ms":38069,"team_id":"red","unit_id":"red-u2"},"game_time":23,"kind":"seat_latency","seq":111}
+{"data":{"from":"red-harvester","team_id":"red","text":"Re-committing to deliver at ms-supply (done t=29, right at the wire). Holding this site denies blue's 6-point delivery for free regardless of my own outcome — abandoning it now just hands them the reward with only a speculative shot at cp-frontier's count-theory in return, so I'm staying planted through the end. Scout, hold cp-frontier if you can; defender, still no confirmed move — anything you can do to clear blue-harvester before t=29 flips this from wash to win.","unit_id":"red-u2"},"game_time":23,"kind":"message_sent","seq":112}
+{"data":{"agent_id":"blue-harvester","elapsed_ms":18088,"team_id":"blue","unit_id":"blue-u2"},"game_time":29,"kind":"seat_latency","seq":113}
+{"data":{"from":"blue-harvester","team_id":"blue","text":"1 tick left before time_limit=30 — any deliver/move I start now (min duration 2, most 6+) can't complete in time, so starting one is pointless. Holding position at ms-supply instead: keeps my presence denying red-harvester's delivery through the buzzer, still carrying 3 (no loss either way). Match is ending as a mutual-deny stalemate on ms-supply — final result depends on whatever cp-frontier's hold resolves to.","unit_id":"blue-u2"},"game_time":29,"kind":"message_sent","seq":114}
+{"data":{"agent_id":"red-harvester","elapsed_ms":13738,"team_id":"red","unit_id":"red-u2"},"game_time":29,"kind":"seat_latency","seq":115}
+{"data":{"from":"red-harvester","team_id":"red","text":"1 tick left, nothing in the menu can complete before t=30 — holding position at ms-supply to keep denying blue's delivery through the buzzer, still carrying 3, no loss. Match closes as a mutual-deny stalemate here; final score rides on however cp-frontier's hold resolves.","unit_id":"red-u2"},"game_time":29,"kind":"message_sent","seq":116}

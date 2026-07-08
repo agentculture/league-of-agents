@@ -5,6 +5,10 @@ This is the pinned answer to the frame's hardest parked question (cycle-7 `v1`):
 its time budgets exposed?** It is the contract every continuous driver kind
 answers, implemented in [`league/charness.py`](../league/charness.py) around the
 resolver in [`league/engine/continuous/resolve.py`](../league/engine/continuous/resolve.py).
+This document matches what minds actually receive (plan C8-t7): every fact
+below is baked into a live mind's first decision-point message by the harness
+itself — see "[The seat contract — baked into first contact](#the-seat-contract--baked-into-first-contact-plan-c8-t7)"
+for exactly when and how, and how it differs by driver kind.
 
 Read it beside the grid contract: the grid drives uniform simultaneous turns —
 each turn a driver receives the whole board and returns a whole-team order dict.
@@ -92,12 +96,17 @@ Field by field:
   of reasoning at all — it is forbidden from `take_post` in the continuous
   lane, a human-reviewed amendment, cycle 7 pre-publish: "scouts should not be
   able to take posts — only be the 'eyes'". Its menu simply never offers
-  `take_post`; see [`docs/roles.md`](roles.md) for how this splits from the
-  grid lane, where scout is unchanged.)
-- **`board`** — a full-information (fogless) projection of the whole state:
-  teams, units, control points (with their concurrent `takers`), missions, and
-  resource nodes. Continuous fog is a later cycle's concern; this contract is
-  fogless by construction.
+  `take_post`; see [`docs/roles.md`](roles.md) for the cycle-8 decision that
+  brought the grid lane's scout to the same eyes-only rule.)
+- **`board`** — a projection of the whole state: teams, units, control points
+  (with their concurrent `takers`), missions, and resource nodes. Fogless by
+  default; with `config["fog"]` on (plan C8-t5), `units`/`control_points`/
+  `resource_nodes`/`missions` are narrowed to the acting team's union of
+  per-role vision radii (a team's own units are always kept) — filtering is
+  purely a `league/charness.py` briefing-layer projection, never an engine
+  change, so ground truth in the log and scoring are unaffected. See
+  `build_briefing`'s "continuous fog" docstring section for the exact rule
+  and `tests/test_fog.py` for the boundary/scout-lever proofs.
 - **`messages`** — the running social record: messages other seats have attached
   to their orders so far, each `{from, text, game_time}`. A mind may attach a
   message to its own order reply; the harness records it as a `message_sent`
@@ -126,6 +135,107 @@ A driver returns one JSON object:
   scoring reads.
 - **`plan`** — optional standing plan (recorded once per seat).
 
+## Delivery contention
+
+A `deliver` is not unconditional: it can be **denied**. At the instant a
+delivery would complete, the resolver checks whether an **enemy** unit is
+standing at the delivery site (the same site the delivering unit already had
+to reach to be offered `deliver` at all — see the menu's `target`). If one is,
+the delivery fails instead of banking:
+
+```json
+{"kind": "action_failed", "data": {"unit_id": "blue-harv",
+ "reason": "delivery denied by enemy presence at the site"}}
+```
+
+Nothing is banked — the carried resources stay on the unit, exactly as if
+nothing had been delivered — and the unit goes idle with a fresh decision
+point, the same as any other failed or interrupted action (see "Decision
+cadence" above). A mind reading this reason knows the site is contested and
+can choose its own response: try the delivery again once the defender moves
+off, deliver somewhere else if another deliver site exists, or bring a
+teammate to clear the site first. This is the "lockdown" strategy issue #1's
+role-specialization ask implies but the engine never enforced before this
+cycle: a defended delivery square is now a real tradeoff, not an accident of
+no-rules.
+
+**Deny, not delay.** The rule denies rather than delaying-and-retrying at a
+later instant, so the outcome is always immediate and legible in the log — no
+"pending, contested" state a mind would have to track across decision points.
+
+**Same-team deliveries never contest each other.** Only an *enemy* presence
+denies a delivery — two teammates completing a delivery at the exact same
+instant both succeed (each earns its own `resource_delivered` /
+`action_completed` pair); when an instant is shared, canonical `(time,
+team_id, unit_id)` order — the same tie-break the outlook is built from —
+decides only which of the two events is written first, never whether either
+one happens.
+
+## The seat contract — baked into first contact (plan C8-t7)
+
+This section documents **exactly what a mind receives**, matching
+`league.charness.SEAT_CONTRACT`/`SEAT_DELTA`/`seat_prompt_text` byte for
+byte in substance (not reproduced verbatim here to avoid two copies drifting;
+read the module for the literal strings). Everything above this section —
+decision cadence, the briefing shape, the reply shape, delivery contention —
+is exactly what the baked contract tells a mind; this section is about *when*
+and *how* it is told, not a different rulebook.
+
+**The cycle-7 gap this closes.** In cycle 7's live match, this prose lived
+only in the operator script [`scripts/cseat_driver.py`](../scripts/cseat_driver.py)'s
+own `_CONTRACT`/`_DELTA` strings — a seat fielded through that one script
+heard the rules; a seat fielded through any *other* `command` driver, or
+through the built-in `resident` driver, got raw briefing JSON with no rules
+at all. That gap is closed: the contract is now baked into
+[`league/charness.py`](../league/charness.py) itself, for every text-facing
+driver kind, and `scripts/cseat_driver.py` carries zero rules prose — it is
+pure transport (session management for a `claude` seat), forwarding whatever
+text the harness already built, unchanged, to the model.
+
+**Which kinds get it.** `command` (plain or `per_seat`) and the built-in
+`resident` driver are *text-facing*: they serialize the briefing to a string
+a live mind reads, so they are the ones this contract wraps. `bot`/`bot-file`
+are *code*, not minds — they read the plain briefing dict directly, exactly
+as before this task, and never see a byte of this prose.
+
+**First contact vs. delta.** The FIRST decision point a given seat (by
+`agent_id`) is ever asked answers with the full contract — reply shape, time
+model, race semantics, menu discipline, delivery contention, and
+(conditionally) the fog note — wrapped around that decision point's briefing
+JSON, verbatim. Every later decision point for that same seat gets a short
+delta note ("same match, same rules, same reply contract") wrapped around
+its own briefing, never a resend of the whole contract. This mirrors
+`league.harness.make_resident_driver`'s own turn-1-vs-delta idiom, extended
+here to `command` drivers too — the continuous `command` lane already
+assumed a persistent, resident-style seat in cycle 7 (`cseat_driver.py`
+managed its own session even though the driver type was `"command"`), so the
+harness now owns that "have I taught this seat the rules yet" tracking
+itself rather than leaving it to the operator script.
+
+**Fog wording is conditional — no overclaiming when fog is off.** When
+`config["fog"]` is true, the contract adds one paragraph naming the RULE
+(your board shows only what your team's living units can currently see, the
+union of their vision; the scout usually sees widest, so it is your team's
+eyes) — never a concrete vision-radius number, which the briefing itself
+never exposes either. When the match is not fogged, this paragraph is
+entirely absent, and the contract instead says the board is full ground
+truth — the same asymmetry `build_briefing`'s own fog gate documents.
+
+**Delivery contention wording** is always present (it is a standing engine
+rule, not conditional on fog): a mind is told a delivery can be *denied* by
+enemy presence at the site, quoting the engine's own `action_failed` reason
+(`"delivery denied by enemy presence at the site"`) and that only an enemy
+denies — never a teammate.
+
+**Leakage.** The contract text is static prose plus the briefing's own JSON,
+verbatim — it never repeats a fact the briefing withholds. Under fog, an
+entity outside the acting team's vision union is simply absent from the
+embedded briefing JSON exactly as `build_briefing` already leaves it, and the
+surrounding prose never names it either — mirroring
+[`tests/test_harness_fog.py`](../tests/test_harness_fog.py)'s own leakage
+checks for the grid's `_SEAT_PROMPT`/scenario block.
+`tests/test_charness_contract.py` pins this the same way.
+
 ## Substrate independence (honesty `h7`)
 
 The load-bearing property: **the same continuous match log emerges whether a
@@ -153,14 +263,17 @@ produces identical transition events and the identical final hash, while the
 ## Driver kinds (the all-backends rule)
 
 Every driver kind gets the continuous loop; a model choice is config, not code.
+This is the exhaustive list `league/charness.py` supports — five kinds, per
+the all-backends rule (`tests/test_charness_contract.py` parametrizes over
+them).
 
-| kind        | how a mind answers                                                        |
-| ----------- | ------------------------------------------------------------------------- |
-| `bot`       | in-harness greedy continuous policy, reads only the briefing              |
-| `bot-file`  | `bots/<name>.py`'s `decide_continuous(briefing, team_id)`, briefing-only  |
-| `command`   | subprocess: briefing JSON on stdin, one JSON order on stdout              |
-| `command` + `per_seat` | each seat carries its own `argv`/`prompt`                      |
-| `resident`  | one long-lived session per seat for the whole match                       |
+| kind                   | how a mind answers                                        | baked contract? |
+| ---------------------- | ---------------------------------------------------------- | --------------- |
+| `bot`                  | in-harness greedy continuous policy, reads only the briefing | n/a — code, not prose |
+| `bot-file`             | `bots/<name>.py`'s `decide_continuous(briefing, team_id)`, briefing-only | n/a — code, not prose |
+| `command`              | subprocess: a TEXT prompt on stdin, one JSON order on stdout | yes — first contact / delta |
+| `command` + `per_seat` | each seat carries its own `argv`/`prompt`                  | yes — first contact / delta |
+| `resident`             | one long-lived session per seat for the whole match        | yes — first contact / delta |
 
 The `bot-file` lane mirrors the grid's exactly (a committed, readable strategy
 that never imports `league` and sees only JSON), but its entry point is

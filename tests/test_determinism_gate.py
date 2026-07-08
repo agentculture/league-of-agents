@@ -11,6 +11,19 @@ purpose, regenerate the fixture and justify it in the PR:
 Any *unintentional* drift — platform, ordering, refactor side effects — fails
 here before it can corrupt fairness (same actions + same seed must mean same
 outcome, or matches stop being comparable).
+
+Cycle-8 t10 deliberate regeneration (documented, pre-authorized, see
+docs/roles.md's "Decision: the scout is eyes-only" section): flipping the
+grid scout's ``can_capture`` to ``False`` changes this exact script's outcome
+— blue's scout (``blue-u1``) still walks to and parks on ``cp-east`` at turn
+4 (the script is otherwise untouched), but no longer counts as an occupant,
+so ``cp-east`` is never captured and ``ms-outpost`` never completes. A second,
+knock-on effect: red's scout (``red-u1``) no longer contests ``cp-center``
+either (it also can't capture), so blue's defender (``blue-u3``), which
+arrives at ``cp-center`` on turn 5, captures it outright on turn 6 instead of
+the two of them contesting it forever. The fixture below was regenerated from
+this same script under the new rule; see this task's commit for the old/new
+hash pair.
 """
 
 from __future__ import annotations
@@ -74,7 +87,9 @@ _SCRIPT = [
             ]
         },
     },
-    {  # turn 4 — blue scout lands on cp-east; both harvesters gather
+    {  # turn 4 — blue scout lands on cp-east (eyes-only: it will never count
+        # as an occupant there — cycle-8 t10); both harvesters gather; red's
+        # scout reaches cp-center alone (it won't count there either).
         "blue": {
             "actions": [
                 {"unit_id": "blue-u1", "action": "move", "to": [9, 2]},
@@ -89,7 +104,10 @@ _SCRIPT = [
             ]
         },
     },
-    {  # turn 5 — blue captures cp-east; blue defender contests center
+    {  # turn 5 — cp-east stays uncaptured (blue's sole occupant is its
+        # eyes-only scout); blue's defender arrives at cp-center where red's
+        # scout already sits — but the scout doesn't count as an occupant, so
+        # blue starts an UNCONTESTED streak there instead of a real contest.
         "blue": {
             "messages": [{"from": "blue-3", "text": "contesting center, keep east"}],
             "actions": [
@@ -105,7 +123,9 @@ _SCRIPT = [
             ]
         },
     },
-    {  # turn 6 — streaks build; center stays contested
+    {  # turn 6 — blue's center streak (started turn 5) completes: blue
+        # captures cp-center outright, since red's scout was never a real
+        # contester. cp-east still sits uncaptured under blue's parked scout.
         "blue": {
             "actions": [
                 {"unit_id": "blue-u1", "action": "hold"},
@@ -135,7 +155,10 @@ _SCRIPT = [
             ]
         },
     },
-    {  # turn 8 — delivery lands; blue's east streak completes the hold mission
+    {  # turn 8 — delivery lands (blue banks 3 resources; ms-supply needs 6,
+        # so it stays open); blue's cp-center hold keeps extending (streak 4,
+        # already captured turn 6); cp-east remains uncaptured throughout —
+        # ms-outpost never opens a hold window, by design of this cycle's rule.
         "blue": {
             "actions": [
                 {"unit_id": "blue-u1", "action": "hold"},

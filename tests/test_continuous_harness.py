@@ -442,10 +442,26 @@ def test_bot_file_rejects_path_traversal_names(monkeypatch):
 # -- command: a subprocess, briefing on stdin, one JSON order on stdout -------
 
 # Picks a take_post if the briefing offers one, else the first move; echoes a
-# message so the observation channel is exercised.
+# message so the observation channel is exercised. Stdin now carries the
+# harness's own baked contract (first contact) or a short delta note (later)
+# wrapped around the briefing JSON (plan C8-t7) — so the briefing is dug out
+# with the same "first object that actually parses" scan the harness itself
+# uses (``league.charness._first_json_object``), never a bare ``json.loads``.
 _CMD_AGENT = textwrap.dedent("""
     import json, sys
-    b = json.loads(sys.stdin.read())
+    text = sys.stdin.read()
+    decoder = json.JSONDecoder()
+    b = None
+    for start in range(len(text)):
+        if text[start] != "{":
+            continue
+        try:
+            obj, _ = decoder.raw_decode(text[start:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict) and "you" in obj:
+            b = obj
+            break
     menu = b["menu"]
     takes = [m for m in menu if m["kind"] == "take_post"]
     moves = [m for m in menu if m["kind"] == "move"]
@@ -513,7 +529,10 @@ class _FakeCSession:
 
     def send(self, prompt, *, timeout):
         self._calls.append({"agent_id": self._agent_id, "session_id": self.session_id})
-        b = json.loads(prompt)
+        # ``prompt`` is now the harness's own contract-or-delta-wrapped text
+        # (plan C8-t7) — dig the briefing back out the same way the harness's
+        # own ``_first_json_object`` does.
+        b = charness._first_json_object(prompt)
         takes = [m for m in b["menu"] if m["kind"] == "take_post"]
         moves = [m for m in b["menu"] if m["kind"] == "move"]
         if takes:

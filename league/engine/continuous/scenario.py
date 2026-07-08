@@ -89,6 +89,46 @@ test_solo_unit_cannot_win_the_race_and_run_the_economy_in_time`` computes the
 36 from the scenario's own positions and the defender's own role stats — never
 a hard-coded literal — so retuning the board or the role table re-checks the
 inequality rather than silently invalidating the claim.
+
+``c-frontier-1``: fog, a shared delivery square, and a deliberately unfair race
+--------------------------------------------------------------------------------
+The cycle-8 scenario fields the full executor roster — scout, harvester,
+defender per team — on a 12x9 board, and it is built around three pieces of
+arithmetic (every duration below is ``move_duration``'s exact integer math on
+the scenario's own positions and the default role table's own stats):
+
+* **The head-on race is decided before it starts.** Blue's defender spawns at
+  (3, 4): 3000 mu from the post at (6, 4) -> move 6, take 6, holds at
+  ``t=12``. Red's defender spawns at (9, 5): ``ceil(ceil(sqrt(10_000_000)) /
+  500)`` = move 7, take 6, ``t=13``. One time unit late, every time, by
+  construction — the cycle-7 live finding ("reading the OPPONENT's role table
+  is the skill gap") turned into a map. Red's winning lines are elsewhere:
+  the post can be re-taken after blue's hold streak banks, and the economy
+  can be denied.
+* **One shared delivery square for both teams.** ``ms-supply`` banks at
+  (6, 5) — one unit south of the post, nine time units' travel from either
+  resource node. A delivery completing there while an enemy stands on the
+  square is DENIED (``resolve.py``'s contention rule), so red's defender —
+  move 6 from spawn to the square — can camp blue's bank from ``t=6``. Two
+  beelining harvesters (gather 8, move 9, deliver 6) would both complete at
+  ``t=23`` standing on the same square and deny EACH OTHER in canonical
+  order: the standoff is the scenario's centerpiece, and breaking it takes
+  timing, a detour, or a defender clearing the square — coordination, not
+  reflexes.
+* **Fog makes the standoff information-imperfect.** Executor vision is
+  2000 mu; the shared square is 4124 mu from either node and 3163 mu from
+  blue's defender spawn — no executor can see whether the bank is camped
+  until it is already committed. A scout (4000 mu) posted mid-board reads
+  the square from 1415 mu away. Under ``"fog": true`` the scout IS the
+  difference between delivering blind and delivering informed.
+
+Coordination pressure holds by the same style of arithmetic: ``time_limit``
+is 30, and no single unit can complete both missions — the defender's serial
+path costs 6 + 6 (post) + 8 (to a node) + 10 (gather) + 9 (to the square) +
+8 (deliver) = **47 > 30**; the harvester's costs 8 + 9 + 6 (supply, ``t=23``)
++ 2 (to the post) + 10 (take) = **35 > 30**; the scout cannot take a post at
+all (``can_take_post`` False). ``tests/test_cscenario_frontier.py`` computes
+all three bounds from the scenario's own data, never literals.
 """
 
 from __future__ import annotations
@@ -200,7 +240,57 @@ def _c_skirmish_1() -> CScenario:
     )
 
 
-_CSCENARIOS = {s.id: s for s in (_c_skirmish_1(),)}
+def _c_frontier_1() -> CScenario:
+    cp_pos = from_units(6, 4)
+    supply_pos = from_units(6, 5)
+    west_node = from_units(2, 4)
+    east_node = from_units(10, 4)
+    return CScenario(
+        id="c-frontier-1",
+        name="Continuous Frontier 1 — The Fogged Frontier",
+        description=(
+            "A 12x9 frontier built for fog: full 3-role rosters (scout, "
+            "harvester, defender), one central control point, and a SINGLE "
+            "shared delivery square one unit south of it — both teams bank "
+            "their economy at the same contested spot. Blue's defender wins a "
+            "head-on race for the post by exactly one time unit (move 6 + "
+            "take 6 = 12, vs red's move 7 + take 6 = 13), so red's rational "
+            "play is not the race it loses by arithmetic: red's defender can "
+            "camp the shared delivery square from t=6 and deny. Executor "
+            "vision (2000 mu) cannot see the square from either approach — "
+            "only a scout (4000 mu) can tell a team whether their delivery "
+            "walks into a denial."
+        ),
+        width=12 * SCALE,
+        height=9 * SCALE,
+        time_limit=30,
+        modes=("cooperative", "competitive"),
+        unit_roles=("scout", "harvester", "defender"),
+        role_table=build_role_table(),
+        spawns=(
+            # blue: scout forward-west, harvester ON the west node, defender
+            # three units from the post (move_duration 6 -> take completes t=12)
+            (from_units(1, 4), west_node, from_units(3, 4)),
+            # red: scout forward-east, harvester ON the east node, defender
+            # offset a diagonal south-east of the post (move_duration 7 ->
+            # take completes t=13) — the deliberate 1-time-unit asymmetry the
+            # module docstring explains; its camp of the shared delivery
+            # square is only move_duration 6 away
+            (from_units(11, 4), east_node, from_units(9, 5)),
+        ),
+        control_points=(CControlPoint(id="cp-frontier", pos=cp_pos),),
+        missions=(
+            CMission(id="ms-hold", kind="hold", pos=cp_pos, amount=5, reward=8),
+            CMission(id="ms-supply", kind="deliver", pos=supply_pos, amount=3, reward=6),
+        ),
+        resource_nodes=(
+            CResourceNode(id="rn-west", pos=west_node, remaining=3),
+            CResourceNode(id="rn-east", pos=east_node, remaining=3),
+        ),
+    )
+
+
+_CSCENARIOS = {s.id: s for s in (_c_skirmish_1(), _c_frontier_1())}
 
 
 def cscenario_ids() -> tuple[str, ...]:

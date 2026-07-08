@@ -18,14 +18,19 @@ import os
 import shutil
 import subprocess  # nosec B404
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 from league.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
 from league.cli._output import emit_result
 from league.engine.continuous.events import CMatchLog
+from league.engine.continuous.grades import PURPOSES as CONTINUOUS_GRADE_PURPOSES
+from league.engine.continuous.grades import cgrade_units
+from league.engine.continuous.resolve import outcome_points as continuous_outcome_points
 from league.engine.continuous.scenario import CONTINUOUS_ID_PREFIX
 from league.engine.events import MatchLog
+from league.engine.grades import grade_units
 from league.engine.knowledge import KnowledgeFrame, knowledge_by_turn, latest_knowledge
 from league.engine.legal import legal_actions
 from league.engine.probe import probe_match
@@ -52,11 +57,14 @@ from league.replay import build_frames as build_video_frames
 from league.replay import (
     build_replay_data,
     indices_to_rgb,
+    motif_schedule,
     render_chtml,
     render_frame,
     render_gif,
     render_html,
     run_interactive_shell,
+    samples_for_frames,
+    synthesize_wav,
 )
 from league.store import Store, validate_id
 
@@ -289,15 +297,17 @@ def cmd_match_overview(args: argparse.Namespace) -> int:
             "act": "stage a team's orders; resolves when all teams have staged "
             "(dry-run; --apply)",
             "tick": "force-resolve the turn with whatever is staged (dry-run; --apply)",
-            "score": "outcome + cooperation + tempo scores from the log "
-            "(--substrate <team>=<name> to convert tempo)",
+            "score": "outcome + cooperation + tempo scores from the log, plus a "
+            "per-unit role-purpose scorecard naming MVP/LVP (grid or continuous, "
+            "detected automatically; --substrate <team>=<name> to convert tempo)",
             "probe": "span-of-control probe: subagents fielded, per-seat realization, "
             "guidance linkage, from the log alone",
             "brief": "markdown briefing from the faces registry (--team for the fogged view)",
             "replay": "self-contained HTML replay on stdout (grid or continuous, "
             "detected automatically)",
             "record": "render the match log to a shareable GIF (or --format mp4 with "
-            "ffmpeg on PATH), offline, to --out <file> (--theme light|dark, --tween N)",
+            "ffmpeg on PATH — MP4 carries the match's seeded ambient soundtrack), "
+            "offline, to --out <file> (--theme light|dark, --tween N)",
             "tui": "replay-stepping terminal view: ground truth or --team fog "
             "(--frame N for non-interactive; --no-color)",
         },
@@ -744,14 +754,162 @@ def _tempo_line(payload: dict[str, Any]) -> str:
     )
 
 
+# Per-unit role-purpose scorecards (plan task t6, spec c6/c10/c15/h13): a NEW
+# axis beside the team-level outcome/cooperation/tempo, never merged into any
+# of them. ``grade_units``/``cgrade_units`` (plan tasks t1/t2) each return
+# their own lane-native shape — the two shapes below normalize BOTH into one
+# common presentation shape (same keys, same MVP/LVP flag convention) so a
+# caller reading ``report["units"]`` never has to branch on which lane a match
+# came from. Only the *names* of the purposes differ per lane (grid: economy/
+# control/recon/coordination; continuous: race_hold/economy/eyes) — the
+# engine's per-unit grade/breakdown math is untouched, this is presentation
+# only. Boundary (spec: no ranking/ELO surface anywhere): this section names a
+# MATCH's MVP/LVP only; nothing here reads or writes another match's data, and
+# no aggregation across the ``units`` dicts of different matches ever happens.
+
+
+def _units_section(
+    *,
+    match_id: str,
+    purposes: tuple[str, ...],
+    units: dict[str, dict[str, Any]],
+    mvp: dict[str, Any] | None,
+    lvp: dict[str, Any] | None,
+) -> dict[str, Any]:
+    mvp_id = mvp["unit_id"] if mvp else None
+    lvp_id = lvp["unit_id"] if lvp else None
+    return {
+        "match_id": match_id,
+        "purposes": list(purposes),
+        "units": {
+            unit_id: {**entry, "mvp": unit_id == mvp_id, "lvp": unit_id == lvp_id}
+            for unit_id, entry in units.items()
+        },
+        "mvp": mvp,
+        "lvp": lvp,
+    }
+
+
+def _grid_units_section(log: MatchLog) -> dict[str, Any]:
+    """The grid lane's units section — ``grade_units`` (league.engine.grades,
+    plan t1) verbatim, normalized to the shared presentation shape."""
+    report = grade_units(log)
+    units = {
+        unit_id: {
+            "team_id": entry["team_id"],
+            "role": entry["role"],
+            "home_purpose": entry["home_purpose"],
+            "grade": entry["grade"],
+            "breakdown": dict(entry["breakdown"]),
+        }
+        for unit_id, entry in report["units"].items()
+    }
+    return _units_section(
+        match_id=report["match_id"],
+        purposes=tuple(report["purposes"]),
+        units=units,
+        mvp=report["mvp"],
+        lvp=report["lvp"],
+    )
+
+
+def _continuous_units_section(clog: CMatchLog) -> dict[str, Any]:
+    """The continuous lane's units section — ``cgrade_units`` (league.engine.
+    continuous.grades, plan t2) verbatim, normalized to the shared shape.
+
+    ``cgrade_units`` raises ``ValueError`` for a match with no units at all
+    (a malformed/empty roster) — turned into a clean ``CliError`` here rather
+    than let it become the top-level dispatcher's generic "unexpected: ..."
+    wrapper, per the CLI's own error contract.
+    """
+    try:
+        report = cgrade_units(clog)
+    except ValueError as err:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"cannot grade match {clog.initial_state.match_id!r}: {err}",
+            remediation="a match needs at least one unit on its roster to be graded",
+        ) from err
+    units: dict[str, dict[str, Any]] = {}
+    for unit in report["units"]:
+        home_purpose = next(
+            (purpose for purpose, entry in unit["purposes"].items() if entry["on_role"]), None
+        )
+        units[unit["unit_id"]] = {
+            "team_id": unit["team_id"],
+            "role": unit["role"],
+            "home_purpose": home_purpose,
+            "grade": unit["grade"],
+            "breakdown": {purpose: entry["points"] for purpose, entry in unit["purposes"].items()},
+        }
+    return _units_section(
+        match_id=report["match_id"],
+        purposes=CONTINUOUS_GRADE_PURPOSES,
+        units=units,
+        mvp=report["mvp"],
+        lvp=report["lvp"],
+    )
+
+
+def _render_units_lines(units_section: dict[str, Any]) -> list[str]:
+    """A readable scorecard: units ranked by grade (ties broken the same
+    canonical ``(team_id, unit_id)`` way ``grade_units``/``cgrade_units`` break
+    their own MVP/LVP ties), MVP/LVP marked, every purpose's contribution
+    shown."""
+    lines = ["units (role-purpose scorecard):"]
+    ordered = sorted(
+        units_section["units"].items(),
+        key=lambda kv: (-kv[1]["grade"], kv[1]["team_id"], kv[0]),
+    )
+    if not ordered:
+        lines.append("  (no units to grade)")
+        return lines
+    for unit_id, entry in ordered:
+        tag = " [MVP]" if entry["mvp"] else " [LVP]" if entry["lvp"] else ""
+        breakdown = ", ".join(
+            f"{purpose} {points}" for purpose, points in entry["breakdown"].items()
+        )
+        lines.append(
+            f"  {unit_id} ({entry['team_id']}, {entry['role']}) grade {entry['grade']}{tag}"
+            f" — {breakdown}"
+        )
+    return lines
+
+
 def cmd_match_score(args: argparse.Namespace) -> int:
+    """Outcome + cooperation + tempo (grid) or outcome (continuous), plus the
+    per-unit role-purpose scorecard both lanes share (plan task t6).
+
+    Routing mirrors ``cmd_match_replay`` exactly (plan C7-t9's sniff-first
+    discipline, spec c12): the log's OWN header shape is authoritative
+    (``clock``/no ``grid_width`` -> continuous); the ``CONTINUOUS_ID_PREFIX``
+    naming convention only picks the error voice when there is no log on disk
+    to sniff. A grid match is byte-identical to before this task except for
+    the additive ``units`` key — team axes (outcome/cooperation/tempo) are
+    computed by the same untouched calls they always were.
+    """
     json_mode = bool(getattr(args, "json", False))
-    log = _load(Store(), args.match_id)
+    store = Store()
+    path = store.log_path(args.match_id)
+    if path.is_file():
+        route_continuous = _sniff_continuous_log(path.read_text(encoding="utf-8"))
+    else:
+        route_continuous = args.match_id.startswith(CONTINUOUS_ID_PREFIX)
+
+    if route_continuous:
+        return _cmd_match_score_continuous(args, json_mode)
+
+    log = _load(store, args.match_id)
     report = score_match(log, version=getattr(args, "cooperation_version", "v0"))
     # Tempo is a THIRD axis, computed at read time and published BESIDE outcome
     # and cooperation — never merged into either (spec c4/h4).
     substrates = _substrates_from_args(args, list(report["outcome"]))
     report["tempo"] = score_tempo(log, substrates=substrates)
+    # The per-unit scorecard is a FOURTH axis, beside — never inside — the
+    # three above: it is computed independently, from the same log, by a
+    # module that never imports scoring.py/tempo.py (AST-enforced in
+    # tests/test_grades.py), so it can only ever sit next to team scores.
+    report["units"] = _grid_units_section(log)
     if json_mode:
         emit_result(report, json_mode=True)
         return 0
@@ -764,6 +922,42 @@ def cmd_match_score(args: argparse.Namespace) -> int:
             f"resources {outcome['resources']}), cooperation {coop['score']}/100, "
             f"{_tempo_line(report['tempo'][team_id])}"
         )
+    lines.append("")
+    lines.extend(_render_units_lines(report["units"]))
+    emit_result("\n".join(lines), json_mode=False)
+    return 0
+
+
+def _cmd_match_score_continuous(args: argparse.Namespace, json_mode: bool) -> int:
+    """The continuous lane's score path (plan task t6): outcome facts exactly
+    as the continuous engine already computes them today (``outcome_points``,
+    ``status``, ``winner`` — the same facts ``build_continuous_replay_data``'s
+    own ``outcome`` block surfaces), plus the same-shaped ``units`` scorecard
+    the grid lane carries. There is no continuous cooperation/tempo axis yet
+    (out of this task's scope) — only outcome + units.
+    """
+    clog = _load_continuous(Store(), args.match_id)
+    initial = clog.initial_state
+    final = clog.final_state()
+    report: dict[str, Any] = {
+        "match_id": initial.match_id,
+        "scenario_id": initial.scenario_id,
+        "mode": initial.mode,
+        "status": final.status,
+        "winner": final.winner,
+        "outcome": continuous_outcome_points(final),
+    }
+    report["units"] = _continuous_units_section(clog)
+    if json_mode:
+        emit_result(report, json_mode=True)
+        return 0
+    lines = [
+        f"{report['match_id']}: winner {report['winner'] or '—'} ({report['status']})",
+    ]
+    for team_id, points in report["outcome"].items():
+        lines.append(f"  {team_id}: outcome {points}")
+    lines.append("")
+    lines.extend(_render_units_lines(report["units"]))
     emit_result("\n".join(lines), json_mode=False)
     return 0
 
@@ -890,7 +1084,54 @@ def _repeat_count(delay_cs: int, output_fps: int) -> int:
     return max(1, round(delay_cs * output_fps / 100))
 
 
-def _render_mp4(video, *, fps: int, tween: int, out_path: Path, provenance: str) -> None:
+def _mp4_turn_samples(
+    video, data, *, output_fps: int, tween: int
+) -> tuple[dict[int, tuple[int, int]], int]:
+    """Map every played turn to ``(start_sample, interval_samples)`` on the
+    MP4's own timeline, plus the total held-frame count.
+
+    Derived from the exact held-frame counts the raw video pipe carries — the
+    frame sequence is the title card, then per turn one board frame followed
+    by its ``tween`` sub-frames (the final turn has none), then the closing
+    card — so an event motif lands at the sample where its turn's frame
+    appears on screen, to the same rounding ``samples_for_frames`` uses."""
+    cum = [0]
+    for frame in video.frames:
+        cum.append(cum[-1] + _repeat_count(frame.delay_cs, output_fps))
+    turns = [f["turn"] for f in data["frames"][1:]]
+    out: dict[int, tuple[int, int]] = {}
+    last = len(turns) - 1
+    for i, turn in enumerate(turns):
+        idx = 1 + i * (tween + 1)
+        nxt = idx + (tween + 1) if i < last else idx + 1
+        start = samples_for_frames(cum[idx], output_fps)
+        out[turn] = (start, samples_for_frames(cum[nxt], output_fps) - start)
+    return out, cum[-1]
+
+
+def _soundtrack_wav(video, data, *, fps: int, tween: int) -> bytes:
+    """The exact WAV the MP4 carries: the match's seeded ambient bed plus the
+    event-sound layer (cycle-8 audio-events amendment) — every notable event's
+    motif rendered at its turn's video time, from the same canonical table the
+    HTML replay plays live (``league.replay.audio.EVENT_SOUND``). Same log +
+    same settings -> byte-identical output."""
+    output_fps = fps * (tween + 1)
+    turn_samples, held_frames = _mp4_turn_samples(video, data, output_fps=output_fps, tween=tween)
+    schedule = motif_schedule(
+        data["events_by_turn"],
+        [t["id"] for t in data["teams"]],
+        {u["id"]: u["team"] for u in data["frames"][0]["units"]},
+        turn_samples,
+    )
+    return synthesize_wav(
+        data["match_id"],
+        data["seed"],
+        num_samples=samples_for_frames(held_frames, output_fps),
+        motifs=schedule,
+    )
+
+
+def _render_mp4(video, data, *, fps: int, tween: int, out_path: Path, provenance: str) -> None:
     """Pipe the same raw frames ffmpeg's way. The only subprocess call in the
     whole video-export feature — deliberately kept out of league/replay/video.py
     (library code stays subprocess-free and trivially testable).
@@ -898,46 +1139,64 @@ def _render_mp4(video, *, fps: int, tween: int, out_path: Path, provenance: str)
     The container runs at ``fps * (tween + 1)`` so each tween sub-frame maps to
     ~one output frame and a full turn still spans 1/fps seconds — at plain
     ``fps``, every sub-frame would expand to a whole turn interval and the video
-    would play ``tween + 1`` times slower than asked."""
+    would play ``tween + 1`` times slower than asked.
+
+    The MP4 also carries the match's soundtrack (cycle-8 t9 + the audio-events
+    amendment): a WAV synthesized offline from the same ``match_id|seed``
+    identity the HTML replay's live score derives its seed from — the same
+    piece of music — with the event-sound layer's motifs rendered at each
+    event's video time, sized to the video's exact held-frame duration and
+    muxed as a second input (``-c:a aac -shortest``). The GIF path never comes
+    here: GIF89a has no audio channel, so its silence is format truth, not a
+    missing feature."""
     output_fps = fps * (tween + 1)
     raw = bytearray()
     for frame in video.frames:
         rgb = indices_to_rgb(frame.indices, video.palette)
         raw += rgb * _repeat_count(frame.delay_cs, output_fps)
-    try:
-        subprocess.run(  # nosec B603 B607
-            [
-                "ffmpeg",
-                "-y",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-f",
-                "rawvideo",
-                "-pixel_format",
-                "rgb24",
-                "-video_size",
-                f"{video.width}x{video.height}",
-                "-framerate",
-                str(output_fps),
-                "-i",
-                "-",
-                "-pix_fmt",
-                "yuv420p",
-                "-metadata",
-                f"comment={provenance}",
-                str(out_path),
-            ],
-            input=bytes(raw),
-            check=True,
-            capture_output=True,
-        )
-    except subprocess.CalledProcessError as err:
-        raise CliError(
-            code=EXIT_ENV_ERROR,
-            message=f"ffmpeg failed: {err.stderr.decode(errors='replace')[:300]}",
-            remediation="drop --format (defaults to gif, the always-works path)",
-        ) from err
+    wav_bytes = _soundtrack_wav(video, data, fps=fps, tween=tween)
+    with tempfile.TemporaryDirectory(prefix="league-record-") as tmp_dir:
+        wav_path = Path(tmp_dir) / "soundtrack.wav"
+        wav_path.write_bytes(wav_bytes)
+        try:
+            subprocess.run(  # nosec B603 B607
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "rawvideo",
+                    "-pixel_format",
+                    "rgb24",
+                    "-video_size",
+                    f"{video.width}x{video.height}",
+                    "-framerate",
+                    str(output_fps),
+                    "-i",
+                    "-",
+                    "-i",
+                    str(wav_path),
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-c:a",
+                    "aac",
+                    "-shortest",
+                    "-metadata",
+                    f"comment={provenance}",
+                    str(out_path),
+                ],
+                input=bytes(raw),
+                check=True,
+                capture_output=True,
+            )
+        except subprocess.CalledProcessError as err:
+            raise CliError(
+                code=EXIT_ENV_ERROR,
+                message=f"ffmpeg failed: {err.stderr.decode(errors='replace')[:300]}",
+                remediation="drop --format (defaults to gif, the always-works path)",
+            ) from err
 
 
 def cmd_match_record(args: argparse.Namespace) -> int:
@@ -1000,7 +1259,14 @@ def cmd_match_record(args: argparse.Namespace) -> int:
                     "(the default)"
                 ),
             )
-        _render_mp4(video, fps=args.fps, tween=args.tween, out_path=out_path, provenance=provenance)
+        _render_mp4(
+            video,
+            data,
+            fps=args.fps,
+            tween=args.tween,
+            out_path=out_path,
+            provenance=provenance,
+        )
         size = out_path.stat().st_size
     else:
         gif_bytes = render_gif(
@@ -1264,7 +1530,11 @@ def register(sub: argparse._SubParsersAction) -> None:
     tick.add_argument("--json", action="store_true", help="Emit structured JSON.")
     tick.set_defaults(func=cmd_match_tick)
 
-    score = noun_sub.add_parser("score", help="Outcome + cooperation + tempo scores from the log.")
+    score = noun_sub.add_parser(
+        "score",
+        help="Outcome + cooperation + tempo scores, plus a per-unit MVP/LVP scorecard, "
+        "from the log (grid or continuous, detected automatically).",
+    )
     score.add_argument("match_id", help="Match id.")
     score.add_argument("--json", action="store_true", help="Emit structured JSON.")
     score.add_argument(
@@ -1318,8 +1588,10 @@ def register(sub: argparse._SubParsersAction) -> None:
         "--format",
         choices=("gif", "mp4"),
         default="gif",
-        help="gif (default): pure-stdlib, always works, no install. mp4: pipes the same "
-        "frames through ffmpeg — requires ffmpeg on PATH, else errors naming the gif "
+        help="gif (default): pure-stdlib, always works, no install — and silent, because "
+        "GIF has no audio channel. mp4: pipes the same frames through ffmpeg plus the "
+        "match's deterministic ambient soundtrack (the HTML replay's own seeded score, "
+        "synthesized offline) — requires ffmpeg on PATH, else errors naming the gif "
         "fallback.",
     )
     record.add_argument(

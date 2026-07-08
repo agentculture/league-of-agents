@@ -288,7 +288,8 @@ gate holds; a turn's total screen time is preserved by splitting it across its
 
 The reviewer had to scroll up and down between the board and the assessor guide,
 which lived in a full-width `<details>` at the bottom of the page. The right
-column is now a **tabbed side deck** (Guide / Events / Teams / Score) that uses
+column is now a **tabbed side deck** (Guide / Events / Teams / Score /
+Scorecard — the fifth tab is cycle-8 t8's per-unit scorecard, below) that uses
 the available width (`clamp(380px, 34vw, 560px)`); the board stays the hero on
 the left. The Guide is the default-active tab when present. On a wide viewport
 (≥ 1101px) the board and the side deck are sticky and the active tab panel
@@ -304,6 +305,239 @@ Guide panel — they only drive the board on the left, so the guide stays put an
 the board updates in view. The tab chrome is styled with the theme tokens in
 both modes (the active tab wears `--accent`). Rendered HTML stays
 byte-deterministic.
+
+## Ambient score — generative, seeded, off by default (cycle 8)
+
+> **Provenance — the user's directive, verbatim (cycle-8 spec c17):** "add
+> audio that will make experience superb. Both for the reply (html) and the
+> videos we export. I want a pleasent music that will complement the
+> experience and make me feel content and relaxed, but also curious and
+> intrigued."
+
+The HTML replay's transport gains a note toggle (`#btn-audio`, wearing the
+play button's own accent on-state) that plays a generative ambient score in
+the Eno vein, synthesized entirely at play time with WebAudio primitives —
+`OscillatorNode`, `GainNode`, `BiquadFilterNode`, and a `ConvolverNode` whose
+impulse response is itself synthesized from the seeded stream, never a
+fetched asset. Nothing about the feature touches the document: the page stays
+byte-deterministic and self-contained, the toggle is **off by default**
+(browser autoplay policy, and the reviewer's choice), and enabling it only
+creates an `AudioContext` lazily on the enabling gesture.
+
+**Musical design.** Two layers map the two halves of the mood brief:
+
+- *Content and relaxed* — a warm pad bed: open major **lydian** voicings
+  (1-5-9-3, an add-6, the lydian II, a 1-5-maj7 suspension — no minor-third
+  low intervals, so no minor-key tension), two ±2.5-cent-detuned sines per
+  chord tone plus a quiet sub-octave triangle, 6-second attacks and 7-second
+  releases crossfading 18–26-second chords into one continuous bed, low-pass
+  filtered around 950 Hz with a slow (0.045 Hz) LFO breathing the cutoff. The
+  root is one of four warm choices (F2/G2/A2/C3), picked by the seed.
+- *Curious and intrigued* — sparse bell tones every 3.5–9 seconds: three
+  near-harmonic sine partials (1 / 2.01 / 3.02) with a 12 ms attack and a
+  long exponential decay, drawn from a pentatonic-plus-maj7 set two octaves
+  above the root, with the lydian sharp-4 reserved as a rare (~11%) color and
+  an occasional (~22%) soft answering bell a third or fifth above. Bells ride
+  mostly through the synthesized reverb.
+
+Master gain stays conservative (about a −18 dBFS feel, behind a gentle safety
+compressor): the score plays *under* someone watching a replay, never over it.
+
+**Determinism.** Every musical decision consumes a seeded `mulberry32`
+stream whose seed is FNV-1a over `match_id | seed` — data already embedded in
+the page — with one independent stream per voice (pads, bells, impulse) so
+the look-ahead scheduler's wall-clock tick cadence can never reorder draws.
+Same match → identical note choices and timings, on every enable. No
+unseeded entropy: the byte-determinism test bans `Math.random`/`Date.now` in
+the rendered document, and the no-external-request sweep covers the audio
+path like everything else.
+
+**The reviewer rates the mood on the record (spec h11/h12).** The assessor
+guide's "Ambient score" section quotes the target verbatim — "content and
+relaxed, but also curious and intrigued" — and the next human review rates
+whether the score lands it; a miss is a finding for the next cycle, not a
+silent pass. The exported-video soundtrack (below) sits under the same
+obligation. The **continuous face deliberately stays silent this wave**:
+frame v4 is pinned minimal — no transport, no client JS — so there is no
+idiomatic home for a toggle there yet; it inherits audio when the continuous
+lane earns its own visual cycle.
+
+### The exported soundtrack — the same piece, offline (cycle-8 t9)
+
+`league match record --format mp4` muxes the match's ambient score into the
+video: `league/replay/audio.py` (pure stdlib — `wave`, `math`, `array`; the
+runtime dependency list stays empty) synthesizes a WAV offline and the
+existing optional-ffmpeg path adds it as a second input (`-i soundtrack.wav
+-c:a aac -shortest` — every pre-existing video argument is untouched, and the
+no-ffmpeg error contract is exactly what it was).
+
+**Same match, same music.** The offline render is a port of the HTML score's
+decision engine, not a second composition: the seed is FNV-1a over
+`match_id|seed` (the page's own `audioSeed()`), every musical decision
+consumes a bit-exact `mulberry32` port, and each voice draws from the same
+independent stream (`seed ^ 0x51AB3C02` pads, `seed ^ 0x9E3779B9` bells) —
+so the chord root, the lydian pad progression, and the bell cadence are
+note-for-note the piece the HTML toggle plays for that match. The port is
+pinned against the JavaScript itself: `tests/test_replay_audio.py` carries
+uint32 PRNG streams and full 60-second decision tables extracted from
+`html.py`'s embedded code running under node, and fails if the two engines
+ever drift.
+
+**Documented differences, all sample-level, none decision-level.** WebAudio's
+convolver reverb has no cheap pure-Python equivalent, so the offline render
+drops the synthesized reverb tail (its seed stream is independent — skipping
+it changes no other draw) and substitutes a one-pole low-pass (with the same
+950 Hz ± 240 Hz × 0.045 Hz LFO breath) for the biquad; and it adds a short
+closing fade-out, because an MP4 ends and the page never does. Output is
+**mono 16-bit PCM at 44100 Hz** — mono because the HTML graph's stereo width
+comes only from the reverb this render omits. The WAV covers the MP4's exact
+duration (its sample count derives from the same held-frame total the raw
+video pipe carries), and the same log + same record settings produce a
+**byte-identical WAV** (unit-tested).
+
+**The GIF stays silent by format truth.** GIF89a simply has no audio channel
+— there is nothing to mux into, so silence there is a property of the format,
+not a missing feature. `--format gif` output is byte-unchanged by the
+soundtrack work, pinned by a committed-log GIF hash in
+`tests/test_replay_video.py`.
+
+**The reviewer verdict obligation extends to the MP4 (spec h11).** The mood
+target for the exported soundtrack is the same verbatim directive quoted at
+the top of this section — "a pleasent music that will complement the
+experience and make me feel content and relaxed, but also curious and
+intrigued" — and the next human review rates whether the MP4 soundtrack
+lands it **on the record**, exactly as for the HTML score: a recorded
+reviewer verdict, not a developer assertion; a miss is a finding for the
+next cycle, not a silent pass.
+
+### Event sounds — the score reacts to the match (cycle-8 amendment)
+
+> **Provenance — the user's directive, verbatim (cycle-8 audio-events
+> amendment):** "I like the soundtrack - but it should react or describe
+> what's going on in the game. (Or events have a sound, so soundtrack +
+> events sounds = this recording sounds)"
+
+The chosen interpretation: the ambient bed above stays exactly as it was; a
+**deterministic event-sound layer** plays on top. Every notable match event
+gets a short motif, fired at the moment playback reaches that event's turn —
+the recording's sound *is* bed + event motifs. Where the bed is a pure
+function of the seed, this layer is a pure function of **(log, playback
+position)** — no seeded randomness at all: any per-event pitch variety hashes
+the event's own canonical fields (FNV-1a), never wall-clock, never entropy.
+
+**The motif table.** All pitches are scale steps over the **same seeded root
+the bed draws** (`octave × 12 + step + register` semitones above `root_hz`),
+so the layer can never clash with the bed's key:
+
+| Event | Motif | Pitch source |
+| --- | --- | --- |
+| `control_point_captured` (post taken) | bright rising-fourth chime | steps 0→5, octave 3, chime voice |
+| `mission_completed` (incl. hold reward) | gentle three-note ascending arpeggio | steps 0→4→7, octave 2, chime voice |
+| `resource_gathered` | single soft mallet pluck, low velocity | one of steps {0, 2, 4} by `fnv1a(unit_id\|node_id) % 3`, octave 1, pluck voice |
+| `resource_delivered` | warm two-note rising resolution | steps 4→7, octave 2, pluck voice |
+| `action_rejected` (failed order, delivery denied, capture rejected) | low muted thud with a soft minor-second decay — clearly "denied", never harsh (the delivery-contention rule becoming audible is a feature) | steps 0 + 1, octave 0, thud voice |
+| `message_sent` | tiny high blip, very quiet (coordination made audible) | step 0, octave 4, blip voice |
+| `match_finished` | short cadence | steps 7→11→12, octave 2, chime voice, neutral register |
+
+**Silence is a design choice.** `unit_moved`, `control_point_held`,
+`turn_advanced`, `turn_resolved`, `action_declared`, `plan_declared`,
+`seat_latency`, `match_started`, and `unit_defeated` play **no sound**: they
+are high-frequency bookkeeping or declaration-stage noise, and sounding them
+would bury the moments that matter. The *resolution* events carry the sound
+(a declared order that fails still sounds — as the denial thud).
+
+**Team legibility by ear.** The team listed first in the roster plays in the
+lower octave; the second plays `register_semitones` (12) up — blue vs red
+actions are tellable apart without looking. The rule is `(team index % 2) ×
+12`, so it extends past two teams unchanged. Events that only name a unit
+(gathers) resolve their team through the roster; the final whistle is
+register-neutral.
+
+**One table, two renderers.** The motif table is defined once —
+`league.replay.audio.EVENT_SOUND` — and `render_html` injects it verbatim
+(as JSON) into the page's JS as the `EVENT_SOUND` const, so the live page
+and the offline WAV render the identical design and cannot drift by
+construction (the same discipline t9 used to mirror t4's engine, one step
+stronger). The note plans (`motifPlan` in the page, `motif_notes` offline)
+are pinned against each other in `tests/test_replay_audio.py` via values
+extracted from the rendered document's own JS under node.
+
+**Intra-turn offsets.** The k-th of a turn's n *sounding* events fires
+`interval × k / n` into the turn interval — a pure function of the event's
+position among the turn's sounding events (silent kinds occupy no slot), so
+simultaneous events spread instead of stacking into a click, and identical
+logs always sound identical. In the page the interval is the current
+playback speed's turn hold; in the MP4 it is the turn's exact held-frame
+span on the video timeline.
+
+**Scrubbing never replays history.** Motifs fire **only on a normal forward
+advance** (a playback tick or a single next-step) — the same rule as the
+board's celebration fx. Jumping, scrubbing, deep links, and reverse steps
+are navigation, not time passing, so skipped events are never machine-gunned
+into the ear. The existing note toggle governs bed + events together — one
+control, still **off by default**, and the document stays byte-deterministic
+and self-contained (the injected table is a constant).
+
+**The MP4 carries the same layer.** `synthesize_wav` accepts the motif
+schedule (`motif_schedule`), and `league match record --format mp4` renders
+each motif at its event's video time — the turn→frame→sample mapping the mux
+already knows, with the same k/n intra-turn offsets. Same log + same
+settings → byte-identical WAV, as before; an empty schedule reproduces the
+t9 bed bytes exactly (unit-tested). **The GIF stays byte-unchanged and
+silent** (format truth; the byte-pin in `tests/test_replay_video.py` still
+guards it). **The continuous face stays silent** this amendment too: frame
+v4 is pinned minimal — no client JS — so there is nothing for event audio to
+ride on; it inherits the event layer when the continuous lane earns its own
+interactive cycle (the same decision t4 recorded for the bed).
+
+## Scorecard — the per-unit axis in both faces (cycle 8)
+
+> **Provenance — the human review's ask, verbatim (cycle-8 spec c10):** *"We
+> need 'Best unit (MVP)' and 'Worst unit (LVP)' — grades per unit per role (a
+> unit should get more points for the designated purpose of its role — a
+> scout not scouting should still get points, but less if it's not a scouting
+> task, etc.)"* The reviewer was judging one level deeper than the guide
+> explained; cycle-8 t8 closes that gap in the replay itself.
+
+The grid deck gains a fifth tab, **Scorecard**, matching the deck's existing
+tab idiom exactly (a real `role="tab"` button, a `hidden`-toggling panel, the
+theme tokens in both modes). Its facts are
+`league.engine.grades.grade_units(log)` computed at render time — a pure
+function of the log, so the document stays byte-deterministic — reshaped into
+a ranked list (`build_scorecard`): units ordered by grade descending with the
+canonical `(team_id, unit_id)` tie-break, so the top row *is* the MVP. Each
+row shows a team dot (identity rides a mark, never the text), the unit id and
+role, MVP/LVP chips where earned — the **winner-chip vocabulary**: a `.chip`
+wearing the fixed status hues (`--good`/`--critical`) with a text label,
+never a team color — the grade, and the full four-purpose breakdown
+(economy / control / recon / coordination). The unit's **home purpose is
+typographically marked** — bold ink plus a small `×2 home` tag naming the
+on-role multiplier — a text-weight job, deliberately *not* a new color job
+(the accent stays chrome-only, the status hues stay verdict labels).
+
+The assessor guide gains a matching **"Scorecard — best and worst seat"**
+section that explains exactly what the grade weighs, every number
+interpolated from `league.engine.grades`' own pinned constants so the prose
+can never drift from the formula: the four buckets and the event kinds that
+feed them (`resource_gathered`/`resource_delivered` by amount;
+`control_point_captured` 3 pts / `control_point_held` 1 pt to the team's
+units standing on the point; `unit_moved` 1 pt; `message_sent` 1 pt), the
+on-role ×2 / off-role ×1 multiplier sentence, the MVP/LVP tie-break, and a
+verdict naming *this* match's MVP and LVP with their top bucket — the
+reviewer test (spec h6): guide + deck alone answer who carried, who sank,
+and why, without watching the match twice.
+
+The **continuous face lists the same facts in its minimal idiom** (frame v4
+stays pinned: no tabs, no client JS, no ported deck chrome): one static
+server-rendered table from
+`league.engine.continuous.grades.cgrade_units(clog)` — units ranked by grade,
+MVP/LVP marked in their rows and named in a verdict line, the on-role cell
+bolded — plus one plain-text paragraph explaining the continuous weights
+(`take_post` 300; gathered/delivered amounts and banked mission rewards
+×`GRADE_UNIT`; 100 per board-unit moved; off-role work earns 1/2 credit —
+more than zero, never full) and the same tie-break. Grades are a *new axis
+beside* the team score in both faces — they never feed it, and no ranking
+surface exists (spec boundary).
 
 ## Anti-pattern checklist
 

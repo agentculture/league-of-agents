@@ -30,7 +30,7 @@ At each decision point the harness builds a briefing — the JSON a mind receive
              "action": null},          # idle at a decision point, by definition
      "menu": [{"kind", "target", "duration", "completion_time", ...}, ...],
      "outlook": [{"unit_id", "team_id", "completion_time"}, ...],
-     "board": { ...full-information state projection... },
+     "board": { ...state projection, fogged to the acting team when fog is on... },
      "messages": [{"from", "text", "game_time"}, ...],
      "clock_budget_note": "<how to read time budgets>"}
 
@@ -56,6 +56,25 @@ events (fold no-ops) appended after the resolver's transition stream, so
 stripping them leaves the transitions — and the final ``cstate_hash`` —
 untouched. That is the h7 proof shape.
 
+Continuous fog (plan C8-t5, spec c11/h2/c7/c4)
+-----------------------------------------------
+Fog is a **briefing-layer projection only** — the engine ticks and logs
+ground truth exactly as always; ``resolve_match``, the event log, replay and
+scoring never see this code. ``"fog": true`` at the top of the match config
+(mirrors the grid harness's own ``config.get("fog", False)`` idiom in
+``league/harness.py``; default OFF, so every existing config/fixture behaves
+identically) makes :func:`build_briefing` filter its OWN ``board``/``menu``/
+``outlook`` a second time, per acting team, right before handing the briefing
+to a driver. An entity is visible to a team iff it sits within vision radius
+of at least one of that team's own living units — the union of per-role
+``vision_mu`` (:mod:`league.engine.continuous.roles`) — using the exact
+integer ``space.dist_sq`` comparison the rest of the lane uses for "who is
+closer," inclusive at the boundary (see :func:`_team_sees_pos`). The scout's
+widest-among-executors vision (4000 mu vs 2000 for harvester/defender) is
+therefore the concrete fog lever: swapping a scout in for a same-position
+non-scout unit changes what its team's briefings reveal. See the "-- continuous
+fog --" section below for the exact filters and the menu-honesty argument.
+
 Every driver kind gets the loop (the all-backends rule)
 -------------------------------------------------------
 * ``bot`` — an in-harness greedy continuous policy (:func:`make_cbot_chooser`),
@@ -65,13 +84,31 @@ Every driver kind gets the loop (the all-backends rule)
   loaded by name (``validate_id`` guards path tricks) and handed ONLY the
   briefing JSON — the continuous parallel of the grid's ``bot-file`` lane
   (``bots/crusher.py`` is the reference strategy).
-* ``command`` — any external agent as a subprocess: the briefing JSON on stdin,
-  one JSON order (``{"action", "message"?, "plan"?}``) on stdout. ``per_seat``
-  lets each seat carry its own ``argv``/``prompt`` (continuous decisions are
-  already per-unit, so per-seat is the per-agent-transport axis).
+* ``command`` — any external agent as a subprocess: a TEXT prompt on stdin
+  (see below), one JSON order (``{"action", "message"?, "plan"?}``) on stdout.
+  ``per_seat`` lets each seat carry its own ``argv``/``prompt`` (continuous
+  decisions are already per-unit, so per-seat is the per-agent-transport axis).
 * ``resident`` — one long-lived session per seat for the whole match
   (:func:`make_cresident_chooser`), reusing the grid harness's proven session
   transports (``CSESSION_TRANSPORTS``).
+
+The seat contract (plan C8-t7, spec c13/h4/c5/h18/c8/h8)
+----------------------------------------------------------
+``command`` and ``resident`` — the two TEXT-facing kinds — no longer receive
+bare ``json.dumps(briefing)``. :func:`seat_prompt_text` wraps the FIRST
+decision point a given seat is ever asked in the baked :data:`SEAT_CONTRACT`
+(reply shape, time model, race semantics, menu discipline, delivery
+contention, and — only when this match is fogged — the fog paragraph); every
+later decision point gets the short :data:`SEAT_DELTA` instead, never a
+resend. ``bot``/``bot-file`` are code, not minds, and are unaffected — they
+keep reading the plain briefing dict exactly as before. This closes the
+cycle-7 lane-parity finding: the contract used to live only in the operator
+script ``scripts/cseat_driver.py``'s own ``_CONTRACT``, so a seat fielded
+through any OTHER command driver — or through the built-in ``resident``
+driver — got raw JSON with no rules at all. ``scripts/cseat_driver.py`` is
+now pure transport (session management for a ``claude`` seat); see
+``docs/continuous-contract.md`` for the contract text every mind actually
+receives.
 
 Config shape (mirrors ``run_match``; league-playable once the CLI + t6 scenario
 registry land)::
@@ -79,7 +116,8 @@ registry land)::
     {"match": {"scenario": "clash-1", "id": "cm-1"},   # or "state": {...}
      "teams": [{"id": "blue", "driver": {"type": "bot"},
                 "agents": [{"id": "blue-1", "role": "scout"}]},
-               {"id": "red", "driver": {"type": "command", "argv": [...]}}]}
+               {"id": "red", "driver": {"type": "command", "argv": [...]}}],
+     "fog": false}
 
 The initial :class:`~league.engine.continuous.state.CMatchState` is taken via a
 clean seam (:func:`_resolve_initial`): an explicit ``initial_state`` (a state or
@@ -105,7 +143,8 @@ from typing import Any, Callable, Mapping
 from league.engine.continuous.events import CEvent, CMatchLog
 from league.engine.continuous.legal import plan_action
 from league.engine.continuous.resolve import outcome_points, resolve_match
-from league.engine.continuous.roles import CRoleStats, build_role_table
+from league.engine.continuous.roles import CRoleStats, build_role_table, stats_for
+from league.engine.continuous.space import Pos, dist_sq
 from league.engine.continuous.state import CMatchState
 from league.harness import ClaudeCliSession, ColleagueDirectSession
 from league.store import validate_id
@@ -196,7 +235,15 @@ def _menu_entries(menu: Mapping[str, Any], game_time: int) -> list[dict[str, Any
 
 def _board_projection(state: CMatchState) -> dict[str, Any]:
     """A full-information (fogless) projection of the board — the state a mind
-    reasons over. Compact but complete; deterministic (mirrors state ordering)."""
+    reasons over. Compact but complete; deterministic (mirrors state ordering).
+
+    This is always the FOGLESS base projection — ground truth, exactly as the
+    engine holds it. :func:`build_briefing` applies fog (if any) as a second,
+    separate pass over this dict's output (:func:`_fog_filter_board`); this
+    function itself never changes behavior based on fog. Keeping the two
+    passes distinct is what makes "fog is a projection, never a mutation"
+    checkable by reading the code, not just by testing it.
+    """
     return {
         "match_id": state.match_id,
         "clock": state.clock,
@@ -246,11 +293,135 @@ def _board_projection(state: CMatchState) -> dict[str, Any]:
     }
 
 
+# -- continuous fog: a briefing-layer projection, never an engine mutation ---
+#
+# Plan C8-t5 (spec c11/h2/c7/c4). The engine ticks and logs ground truth
+# exactly as before fog existed at all — ``resolve_match``, the event log,
+# replay and scoring never import or call anything below. Fog only narrows
+# what :func:`build_briefing` hands back to a mind: a SECOND pass over this
+# module's own (fogless) projections of ``state``, gated by a per-match
+# ``"fog": true`` flag (mirrors the grid harness's ``config.get("fog",
+# False)`` idiom in ``league/harness.py`` — default OFF, so every existing
+# config/fixture/committed log is untouched).
+#
+# Visibility rule (pinned): an entity is visible to a team iff it is within
+# vision radius of AT LEAST ONE of that team's own living units — the union
+# of per-role vision radii (``CRoleStats.vision_mu``) — compared with the
+# SAME exact integer milliunit primitive the rest of the continuous lane uses
+# for "who is closer" (``space.dist_sq``; never a float, never the floored
+# root ``space.dist`` returns). The boundary is INCLUSIVE: an entity sitting
+# EXACTLY at the vision radius counts as visible (``dist_sq <= vision_mu **
+# 2``, not ``<``) — the same ``<=`` convention ``space.arrived`` already pins
+# for "reached the target", and the same inclusive convention the grid
+# lane's ``league/engine/vision.py`` uses for its Manhattan ball. A team's
+# own units are always fully visible to it regardless of distance (mirrors
+# the grid's ``vision.visible_units``: "a team always knows its own units,
+# they report in") — this falls out of the radius rule for free for a unit's
+# own position (distance 0 to itself) but is applied explicitly below so a
+# scattered roster (teammates far apart) never loses track of each other.
+#
+# What gets filtered: ``board["units"]`` (enemy units only — a team's own
+# units are always kept), ``board["control_points"]``, ``board
+# ["resource_nodes"]`` and ``board["missions"]`` — the four spatial entity
+# lists the board projection carries (spec c7 leaves "which entity kinds" to
+# this task; these four are exactly the lists with a ``pos``). ``board
+# ["teams"]`` (name/aggregate resources) is deliberately NOT filtered: it
+# carries no position, so it is not a spatial "entity" fog governs — it reads
+# like a scoreboard, not the map, and nothing in this cycle's contract asks
+# fog to hide it.
+#
+# Menu honesty (the spec's own ask: "menu entries must never reference
+# entities the team cannot see"): the ONLY menu entries that can name a
+# still-undiscovered entity are ``move`` entries toward a point of interest
+# (``legal_actions_continuous`` enumerates every control point / resource
+# node / mission location as a move target, visible or not — see
+# ``legal.py``'s ``_points_of_interest``). ``gather`` / ``take_post`` /
+# ``deliver`` entries always target an entity the acting unit is already
+# ARRIVED at (``space.arrived``, within ``ARRIVAL_TOLERANCE_MU`` == 1 mu) —
+# every role's ``vision_mu`` is at least 2000 mu, so the unit standing there
+# always sees it trivially; those three menu kinds need no filtering at all,
+# by construction, not by a separate check. ``move`` entries are filtered by
+# their own ``target_pos`` directly (the same visibility test applied to the
+# destination — no entity-id lookup needed, so it is correct even when two
+# entities share a position).
+#
+# The ``outlook`` gets the same treatment: an enemy unit's completion time is
+# ground truth about a unit the team may not currently see, so an entry is
+# kept only if it names the team's own unit or a currently visible enemy one.
+
+
+def _team_sees_pos(state: CMatchState, table: RoleTable, team_id: str, pos: Pos) -> bool:
+    """True iff ``pos`` sits within vision radius of at least one of
+    ``team_id``'s own living units — the union-of-vision-radii fog rule,
+    inclusive at the boundary. See the "continuous fog" section above."""
+    for unit in state.units:
+        if unit.team_id != team_id or not unit.alive:
+            continue
+        radius = stats_for(table, unit.role).vision_mu
+        if dist_sq(unit.pos, pos) <= radius * radius:
+            return True
+    return False
+
+
+def _fog_filter_board(
+    board: Mapping[str, Any], state: CMatchState, table: RoleTable, team_id: str
+) -> dict[str, Any]:
+    """Narrow a fogless :func:`_board_projection` to what ``team_id`` can
+    currently see: its own units always, everything else only within vision."""
+    fogged = dict(board)
+    fogged["units"] = [
+        u
+        for u in board["units"]
+        if u["team_id"] == team_id or _team_sees_pos(state, table, team_id, Pos.from_dict(u["pos"]))
+    ]
+    for key in ("control_points", "resource_nodes", "missions"):
+        fogged[key] = [
+            entry
+            for entry in board[key]
+            if _team_sees_pos(state, table, team_id, Pos.from_dict(entry["pos"]))
+        ]
+    return fogged
+
+
+def _fog_filter_menu(
+    entries: list[dict[str, Any]], state: CMatchState, table: RoleTable, team_id: str
+) -> list[dict[str, Any]]:
+    """Drop a ``move`` entry aimed at a point of interest the team cannot see
+    yet — the only menu-honesty gap (see the "continuous fog" section)."""
+    out: list[dict[str, Any]] = []
+    for entry in entries:
+        if entry["kind"] == "move":
+            target = Pos.from_dict(entry["target_pos"])
+            if not _team_sees_pos(state, table, team_id, target):
+                continue
+        out.append(entry)
+    return out
+
+
+def _fog_filter_outlook(
+    outlook: list[dict[str, Any]], state: CMatchState, table: RoleTable, team_id: str
+) -> list[dict[str, Any]]:
+    """Drop an enemy unit's outlook entry unless it is currently visible; a
+    team's own units' entries are always kept."""
+    out: list[dict[str, Any]] = []
+    for entry in outlook:
+        if entry["team_id"] == team_id:
+            out.append(entry)
+            continue
+        unit = _find_unit(state, entry["unit_id"])
+        if _team_sees_pos(state, table, team_id, unit.pos):
+            out.append(entry)
+    return out
+
+
 def build_briefing(
     state: CMatchState,
     unit_id: str,
     menu: Mapping[str, Any],
     messages: "list[dict[str, Any]] | tuple[()]" = (),
+    *,
+    fog: bool = False,
+    role_table: RoleTable | None = None,
 ) -> dict[str, Any]:
     """The JSON a mind receives at a decision point (the pinned contract shape).
 
@@ -259,9 +430,26 @@ def build_briefing(
     ``unit_id`` in ``state``; ``messages`` is the running social record (each
     other seat's messages so far). See the module docstring / the
     ``docs/continuous-contract.md`` for the field-by-field contract.
+
+    ``fog`` (default ``False``, so every pre-fog caller/test is unaffected)
+    applies the acting unit's team's union-of-vision-radii filter to
+    ``menu``/``outlook``/``board`` — see the "continuous fog" section above
+    for the exact rule. ``role_table`` supplies each role's ``vision_mu``;
+    it defaults to :func:`~league.engine.continuous.roles.build_role_table`'s
+    stock table when fog is on and none is given, so a caller need not thread
+    one through just to exercise the default roster.
     """
     unit = _find_unit(state, unit_id)
     game_time = state.clock
+    menu_entries = _menu_entries(menu, game_time)
+    outlook = initiative_outlook(state)
+    board = _board_projection(state)
+    if fog:
+        table = role_table or build_role_table()
+        team_id = unit.team_id
+        menu_entries = _fog_filter_menu(menu_entries, state, table, team_id)
+        outlook = _fog_filter_outlook(outlook, state, table, team_id)
+        board = _fog_filter_board(board, state, table, team_id)
     return {
         "game_time": game_time,
         "you": {
@@ -273,9 +461,9 @@ def build_briefing(
             "carrying": unit.carrying,
             "action": unit.action.to_dict() if unit.action is not None else None,
         },
-        "menu": _menu_entries(menu, game_time),
-        "outlook": initiative_outlook(state),
-        "board": _board_projection(state),
+        "menu": menu_entries,
+        "outlook": outlook,
+        "board": board,
         "messages": [dict(m) for m in messages],
         "clock_budget_note": CLOCK_BUDGET_NOTE.format(game_time=game_time),
     }
@@ -380,6 +568,155 @@ def make_cbot_file_chooser(spec: Mapping[str, Any]) -> CChooser:
     return choose
 
 
+# -- the mind-facing seat contract: baked into first contact (plan C8-t7) ----
+#
+# Cycle 7's live match found a lane-parity gap (spec c13/h4/c5/h18/c8/h8,
+# recorded in the cycle-7 live report): a grid mind always got a spoken seat
+# prompt baked into ``league/harness.py`` (``_SEAT_PROMPT``), but a continuous
+# mind got raw briefing JSON — the reply-shape/time-model/race-semantics/
+# menu-discipline prose lived only in the OPERATOR script
+# ``scripts/cseat_driver.py``'s own ``_CONTRACT``, so only a seat fielded
+# through that one script ever heard the rules. This section closes the gap:
+# the contract is now baked in HERE, for every text-facing driver kind, and
+# ``scripts/cseat_driver.py`` carries none of it any more (pure transport).
+#
+# "Text-facing" means ``command`` (plain or ``per_seat``) and the built-in
+# ``resident`` driver — the two kinds that serialize the briefing to a STRING
+# a live mind reads. ``bot``/``bot-file`` read the briefing dict directly (they
+# are code, not minds) and are unaffected — exactly the grid's own
+# bot/bot-file lane, which never saw ``_SEAT_PROMPT`` either.
+#
+# First contact vs. delta (mirrors ``league.harness.make_resident_driver``'s
+# own turn-1-vs-delta idiom, generalized to every text-facing kind here,
+# including ``command`` — unlike the grid, where only ``resident`` gets this
+# treatment and a plain ``command`` driver is retaught the rules every turn.
+# The continuous ``command`` lane earns the same treatment because cycle 7's
+# own operator script (``cseat_driver.py``) already assumed persistent,
+# resident-style seats even under a ``"type": "command"`` declaration — this
+# module now owns that assumption explicitly instead of leaving it to the
+# operator script to get right): the FIRST decision point a given agent id is
+# ever asked answers with the full baked contract; every later one gets a
+# short delta note. Tracking is per ``agent_id``, held in the chooser's own
+# closure so it lives exactly as long as the match (the same shape as the
+# resident chooser's pre-existing ``briefed`` set below).
+#
+# Leakage (the honesty condition): the contract text is static prose plus the
+# same JSON the briefing already carries — it never repeats a concrete number
+# the briefing withholds. The fog paragraph names the RULE (vision is your
+# team's living units' union, the scout usually sees widest) without quoting
+# an actual vision-radius value, and it is only ever included when the match
+# config actually has fog on (``no overclaiming when fog is off`` — the spec's
+# own phrase); see ``tests/test_charness_contract.py`` for the boundary proof,
+# mirroring ``tests/test_harness_fog.py``'s own leakage checks for the grid's
+# ``_SEAT_PROMPT``/scenario block.
+
+_FOG_NOTE = (
+    "- Fog is on: your board shows only what your team currently sees — the union of "
+    "every living unit on your team's own vision radius. Something outside that union "
+    "is simply absent from your board and menu; it may still exist, you have just not "
+    "seen it yet. Your scout sees widest among your executors, so where it stands "
+    "changes what your whole team can see — it is your team's eyes.\n"
+)
+
+_BOARD_LINE_FULL = (
+    "full ground truth: teams, units, control_points (with live takers), missions, "
+    "resource_nodes"
+)
+
+_BOARD_LINE_FOGGED = (
+    "your team's currently visible view, not full ground truth: teams (unfiltered), "
+    "plus units/control_points/missions/resource_nodes narrowed to what your team's "
+    "vision reaches right now (see the fog note above) — ground truth is still logged "
+    "for scoring/replay, you are just not shown all of it live"
+)
+
+#: The baked seat contract — first contact only. Adapted from cycle 7's
+#: ``scripts/cseat_driver.py`` ``_CONTRACT`` (the text a mind actually received
+#: in the cycle-7 live match), plus delivery contention (t3) and conditional
+#: fog wording (t5). ``{fog_note}``/``{board_line}`` are filled per-match by
+#: :func:`seat_prompt_text`; ``{briefing}`` is the exact JSON the briefing
+#: pins (see ``docs/continuous-contract.md``) — nothing added, nothing hidden.
+SEAT_CONTRACT = """You are {agent_id}, a live mind playing ONE unit ({unit_id}, role {role}) \
+for team {team_id} in a continuous-time League of Agents arena match.
+
+How this arena works — read carefully, it is NOT turn-based:
+- Time is INTEGER GAME-TIME, never wall-clock: your thinking time never advances the \
+clock. Every action has an in-game duration; while your unit executes one, the rest of \
+the world keeps moving on its own timeline. You are consulted again exactly when your \
+unit becomes idle (its action completed, failed, or was interrupted).
+- Positions are fixed-point ("mu" = milliunits; 1000 mu = 1 distance unit). Roles move \
+at different speeds and act at different durations — the role table is lopsided on \
+purpose.
+- Control points RACE: several units (even from both teams) can be mid-take on the same \
+post at once, and the FIRST to complete wins it — everyone else's attempt fails with \
+"post taken by a faster agent". Starting first does not mean finishing first: a faster \
+role that starts later can still beat you. Check "takers" on each control point and the \
+menu's completion_time before committing.
+- Deliveries can be DENIED: if an enemy unit is standing at the delivery site the \
+instant your delivery would complete, it fails instead of banking (an action_failed \
+event, reason "delivery denied by enemy presence at the site") — nothing is lost, you \
+keep carrying, and you get a fresh decision point. Only an enemy presence denies; two \
+teammates delivering at the same instant both succeed. A defended site is a real \
+tradeoff: wait it out, deliver elsewhere, or bring a teammate to clear it first.
+- Scoring is outcome points: held control points plus mission rewards for delivered \
+resources. No single unit can win the race AND run the economy inside the time limit — \
+split the labor with your teammate and say what you are doing.
+{fog_note}
+Each decision point you receive ONE JSON briefing:
+- game_time — the integer clock right now.
+- you — your unit: position, carrying, role, current action (null = idle).
+- menu — the ONLY actions legal for you right now; each entry carries kind, duration, \
+completion_time (absolute), and target/target_id. Menu discipline: your reply's \
+"action" must be copied verbatim from one of these entries — nothing invented, nothing \
+paraphrased.
+- outlook — which units finish their current action soonest; plan your timing around \
+who frees up when.
+- board — {board_line}.
+- messages — every broadcast so far; your teammates see yours at their next decision.
+
+Reply with EXACTLY ONE JSON object and nothing else — no prose, no code fences:
+{{"action": <ONE entry copied verbatim from menu>, "message": "<optional short \
+broadcast to your team>", "plan": "<optional: declare your team's plan, once>"}}
+An action copied from outside the menu parks your unit for this decision (wasted time). \
+To deliberately wait instead, set your reply's action to JSON null rather than omitting \
+it.
+
+Your first briefing follows.
+
+{briefing}"""
+
+#: The delta — every decision point after the first for a given seat. No
+#: rules re-teach (mirrors ``league.harness``'s own resident-delta idiom).
+SEAT_DELTA = """Decision point at game_time {game_time} — same match, same rules, same \
+reply contract (exactly one JSON object, action copied verbatim from menu or null).
+
+{briefing}"""
+
+
+def seat_prompt_text(briefing: Mapping[str, Any], *, fog: bool, first_contact: bool) -> str:
+    """The exact string a text-facing driver (``command``/``resident``) receives:
+    the baked :data:`SEAT_CONTRACT` on ``first_contact``, else the short
+    :data:`SEAT_DELTA`. ``fog`` gates the one conditional paragraph (the fog
+    note/board line) so an unfogged match's contract never claims fog exists —
+    the "no overclaiming when fog is off" honesty condition. The embedded
+    ``{briefing}`` is ``json.dumps(briefing)`` verbatim: this function adds
+    prose around the pinned briefing, never a byte of engine data beyond it.
+    """
+    you = briefing["you"]
+    briefing_json = json.dumps(briefing)
+    if first_contact:
+        return SEAT_CONTRACT.format(
+            agent_id=you["agent_id"],
+            unit_id=you["unit_id"],
+            role=you["role"],
+            team_id=you["team_id"],
+            fog_note=_FOG_NOTE if fog else "",
+            board_line=_BOARD_LINE_FOGGED if fog else _BOARD_LINE_FULL,
+            briefing=briefing_json,
+        )
+    return SEAT_DELTA.format(game_time=briefing["game_time"], briefing=briefing_json)
+
+
 # -- external agents as subprocesses (the ``command`` driver) ----------------
 
 
@@ -420,11 +757,32 @@ def _run_command(argv: list[str], prompt: str, timeout: float, who: str) -> dict
 
 
 def make_ccommand_chooser(
-    spec: Mapping[str, Any], agents: list[dict[str, Any]], *, per_seat: bool = False
+    spec: Mapping[str, Any],
+    agents: list[dict[str, Any]],
+    *,
+    per_seat: bool = False,
+    fog: bool = False,
 ) -> CChooser:
+    """A ``command`` driver: one subprocess call per decision point.
+
+    ``fog`` (default ``False``, so every pre-t7 caller/config is unaffected)
+    reaches :func:`seat_prompt_text` so the baked contract's fog paragraph is
+    only ever present when this match is actually fogged. ``contacted`` tracks
+    which agent ids have already been sent the full contract — per this
+    chooser's own closure, so it lives exactly as long as this team's driver
+    (the same shape as :func:`make_cresident_chooser`'s ``briefed`` set): the
+    FIRST decision point a given seat is ever asked carries
+    :data:`SEAT_CONTRACT`; every later one gets the short :data:`SEAT_DELTA` —
+    even though a plain ``command`` subprocess is otherwise stateless, so an
+    operator script (e.g. ``scripts/cseat_driver.py``) that manages its own
+    resident session no longer has to re-derive "have I taught this seat the
+    rules yet" itself; the harness already answers it before the seat ever
+    sees the prompt.
+    """
     team_argv = list(spec["argv"]) if spec.get("argv") else None
     team_timeout = float(spec.get("timeout", 300))
     by_agent = {a["id"]: a for a in (agents or [])}
+    contacted: set[str] = set()
 
     def choose(briefing: dict[str, Any], unit_id: str, team_id: str) -> Mapping[str, Any]:
         agent_id = briefing["you"]["agent_id"]
@@ -439,7 +797,10 @@ def make_ccommand_chooser(
             timeout = team_timeout
             if not argv:
                 raise CHarnessError("command driver requires an 'argv'")
-        return _run_command(argv, json.dumps(briefing), timeout, agent_id)
+        first_contact = agent_id not in contacted
+        contacted.add(agent_id)
+        prompt = seat_prompt_text(briefing, fog=fog, first_contact=first_contact)
+        return _run_command(argv, prompt, timeout, agent_id)
 
     return choose
 
@@ -456,7 +817,17 @@ CSESSION_TRANSPORTS: dict[str, Callable[[Mapping[str, Any], str, str], Any]] = {
 }
 
 
-def make_cresident_chooser(spec: Mapping[str, Any], agents: list[dict[str, Any]]) -> CChooser:
+def make_cresident_chooser(
+    spec: Mapping[str, Any], agents: list[dict[str, Any]], *, fog: bool = False
+) -> CChooser:
+    """The built-in ``resident`` driver: one long-lived session per seat.
+
+    First contact into a fresh session carries the full :data:`SEAT_CONTRACT`;
+    every later decision point into the SAME session gets the short
+    :data:`SEAT_DELTA` (the resident property — session persistence — is what
+    makes a delta safe to send at all). ``fog`` gates the contract's one
+    conditional paragraph, same as :func:`make_ccommand_chooser`.
+    """
     transport = spec.get("transport")
     if transport not in CSESSION_TRANSPORTS:
         raise CHarnessError(
@@ -474,11 +845,9 @@ def make_cresident_chooser(spec: Mapping[str, Any], agents: list[dict[str, Any]]
         if session is None:
             session = CSESSION_TRANSPORTS[transport](spec, match_id, agent_id)
             sessions[agent_id] = session
-        payload = dict(briefing)
-        # First contact carries the intro; later decision points are deltas into
-        # the SAME session (the resident property — session persistence).
-        payload["resident_intro"] = agent_id not in briefed
-        reply_text = session.send(json.dumps(payload), timeout=timeout)
+        first_contact = agent_id not in briefed
+        prompt = seat_prompt_text(briefing, fog=fog, first_contact=first_contact)
+        reply_text = session.send(prompt, timeout=timeout)
         briefed.add(agent_id)
         return _first_json_object(reply_text)
 
@@ -514,9 +883,17 @@ def cdriver_kind(spec: Mapping[str, Any]) -> str:
     )
 
 
-def build_cdriver(spec: Mapping[str, Any], agents: list[dict[str, Any]] | None) -> CChooser:
+def build_cdriver(
+    spec: Mapping[str, Any], agents: list[dict[str, Any]] | None, *, fog: bool = False
+) -> CChooser:
     """Construct the chooser for one team's driver spec (the continuous analog
-    of ``league.harness.build_driver``)."""
+    of ``league.harness.build_driver``). ``fog`` only reaches the text-facing
+    ``command``/``resident`` factories — it gates the baked contract's one
+    conditional paragraph (see ``seat_prompt_text``); ``bot``/``bot-file``
+    never see prose at all, so ``fog`` does not reach them here (the briefing
+    DICT they read is already fog-filtered upstream, uniformly, by
+    :func:`run_cmatch`'s own ``build_briefing`` call — a separate mechanism
+    from this module's seat-contract prose)."""
     kind = spec.get("type")
     if spec.get("per_seat") and kind not in ("command", "resident"):
         raise CHarnessError("per_seat is only supported for 'command' and 'resident' drivers")
@@ -525,9 +902,11 @@ def build_cdriver(spec: Mapping[str, Any], agents: list[dict[str, Any]] | None) 
     if kind == "bot-file":
         return make_cbot_file_chooser(spec)
     if kind == "resident":  # per-seat by definition
-        return make_cresident_chooser(spec, agents or [])
+        return make_cresident_chooser(spec, agents or [], fog=fog)
     if kind == "command":
-        return make_ccommand_chooser(spec, agents or [], per_seat=bool(spec.get("per_seat")))
+        return make_ccommand_chooser(
+            spec, agents or [], per_seat=bool(spec.get("per_seat")), fog=fog
+        )
     raise CHarnessError(
         f"unknown driver type {kind!r}; expected 'bot', 'bot-file', 'command' or 'resident'"
     )
@@ -667,9 +1046,17 @@ def run_cmatch(
     :class:`~league.engine.continuous.events.CMatchLog` with the harness's
     OBSERVATION events appended (fold no-ops, so ``log.final_state()`` is
     exactly the resolver's final state).
+
+    ``config["fog"]`` (default ``False``) turns on the continuous fog mode —
+    see the "continuous fog" section of the module docstring. It is read the
+    same way the grid harness reads its own top-level ``"fog"`` flag; fog is
+    strictly a briefing-layer projection, so this flag never reaches the
+    resolver and never changes the log (:func:`build_briefing` is the only
+    thing that sees it).
     """
     state = _resolve_initial(config, initial_state)
     table: RoleTable = role_table or build_role_table()
+    fog = bool(config.get("fog", False))
     team_specs = {t["id"]: t for t in config.get("teams", [])}
     override = dict(choosers or {})
 
@@ -684,7 +1071,7 @@ def run_cmatch(
         tcfg = team_specs.get(tid)
         if tcfg is None or "driver" not in tcfg:
             raise CHarnessError(f"team {tid!r} in the state has no driver in the config")
-        built[tid] = build_cdriver(tcfg["driver"], tcfg.get("agents"))
+        built[tid] = build_cdriver(tcfg["driver"], tcfg.get("agents"), fog=fog)
         driver_kinds[tid] = cdriver_kind(tcfg["driver"])
 
     match_id = str((config.get("match", {}) or {}).get("id") or state.match_id)
@@ -701,7 +1088,9 @@ def run_cmatch(
         team_id = unit.team_id
         agent_id = unit.agent_id
         game_time = cstate.clock
-        briefing = build_briefing(cstate, unit_id, menu, messages=messages)
+        briefing = build_briefing(
+            cstate, unit_id, menu, messages=messages, fog=fog, role_table=table
+        )
 
         started = _monotonic()
         try:

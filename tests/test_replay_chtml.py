@@ -26,6 +26,12 @@ import re
 from pathlib import Path
 
 from league.engine.continuous.events import CMatchLog
+from league.engine.continuous.grades import (
+    OFF_ROLE_DEN,
+    OFF_ROLE_NUM,
+    POST_TAKEN_POINTS,
+    cgrade_units,
+)
 from league.engine.continuous.resolve import ResolveResult, resolve_match
 from league.engine.continuous.scenario import get_cscenario, instantiate
 from league.engine.continuous.state import CAgentSlot
@@ -39,10 +45,26 @@ _PLAYTESTS = Path(__file__).resolve().parent.parent / "docs" / "playtests"
 # is the continuous face (or its CLI routing) bending the grid path, which the
 # continuous work must never touch. It is NOT a freeze on the grid face itself:
 # a deliberate grid-renderer change (like the cycle-6 restyle, PR #18, which
-# moved this pin from 5a1f8919… to its current value) legitimately regenerates
-# it — recompute render_html() on the committed log and say so in the PR.
+# moved this pin from 5a1f8919…) legitimately regenerates it — recompute
+# render_html() on the committed log and say so in the PR. Cycle 8 moved it
+# four times in one train: t4's ambient score changed the document's inline
+# JS, t10's grid scout eyes-only decision (docs/roles.md) flipped scout's
+# can_capture in league/engine/scenario.py — render_html() reads role stats
+# live from the scenario, not just the log, so the rendered role-table bytes
+# changed even though league/replay/html.py's markup for it did not (moved
+# from bfe89f92… to e571c6b3…, recomputed on the merged tree carrying both
+# changes; the log and its scored facts are untouched) — t8's Scorecard
+# deck tab (this file's own C8-t8 section) added the per-unit grades panel,
+# its guide section, and the embedded scorecard payload to every rendered
+# grid document (moved from e571c6b3… to 751e3a70…; again the log and its
+# scored facts are untouched — grades are a render-time fold of the log) —
+# and the cycle-8 audio-events amendment gave the document its event-sound
+# layer: the injected EVENT_SOUND motif table, the motif scheduler and fnv1a
+# helper in the inline JS, and the guide's listening "events" sentence (moved
+# from 751e3a70… to its current value; the log and its scored facts are, as
+# always, untouched — the layer is render-time JS over the same fold).
 _GRID_LOG_REL = "cycle-5/colleague-coop.log.jsonl"
-_GRID_HTML_SHA256 = "bfe89f9211fcd04670e8f7fe2da73c7592338fe8a8b56a7d39a4151ab56be7b2"
+_GRID_HTML_SHA256 = "8582e2e1f3424b0e4f9fcb606743c8a5685458fd1ebdc4f2ca85b32d8d52d8cf"
 
 
 def _committed_grid_log() -> MatchLog:
@@ -303,3 +325,78 @@ def test_continuous_face_does_not_port_the_grid_faces_tween_gif_theme_machinery(
     html = render_chtml(_race_log())
     assert "theme-toggle" not in html
     assert "STACK_OFFSETS" not in html
+
+
+# --------------------------------------------------------------------------- #
+# C8-t8 — the continuous face lists the scorecard facts in its minimal idiom
+# (spec c6/h6, c2/h15): a static section — no tabs, no client JS — with every
+# unit's grade and per-purpose breakdown, MVP/LVP marked, and one plain-text
+# paragraph explaining exactly what the grade weighs (cgrade_units' own
+# constants: the take_post award, the ×GRADE_UNIT scaling, the off-role
+# half-credit, and the pinned tie-break).
+# --------------------------------------------------------------------------- #
+
+
+def test_continuous_face_lists_grades_and_names_mvp_lvp() -> None:
+    """Payload + face carry the same scorecard facts cgrade_units computes:
+    every unit's grade and full purpose breakdown, ranked by grade descending
+    (canonical tie-break), with MVP and LVP marked by name."""
+    log = _race_log()
+    data = build_continuous_replay_data(log)
+    grades = cgrade_units(log)
+    assert data["grades"] == grades  # the payload IS the engine's own fold
+
+    html = render_chtml(log)
+    section = re.search(r'<section class="ccard cgrades-card">.*?</section>', html, re.S)
+    assert section, "scorecard section missing from the continuous face"
+    body = section.group(0)
+    assert "Scorecard" in body
+
+    # Every unit appears, ranked by grade descending with the canonical
+    # (team_id, unit_id) tie-break — the same order the payload proves.
+    ranked = sorted(grades["units"], key=lambda u: (-u["grade"], u["team_id"], u["unit_id"]))
+    positions = [body.index(f"<td>{u['unit_id']}") for u in ranked]
+    assert positions == sorted(positions)
+    assert body.count('class="cgrade-row"') == len(grades["units"])
+    for u in ranked:
+        assert str(u["grade"]) in body
+
+    # MVP/LVP marked in the table AND named in the verdict line, with grades.
+    mvp, lvp = grades["mvp"], grades["lvp"]
+    assert '<span class="cgrade-mvp">MVP</span>' in body
+    assert '<span class="cgrade-lvp">LVP</span>' in body
+    assert f"MVP: {mvp['unit_id']}" in body and f"grade {mvp['grade']}" in body
+    assert f"LVP: {lvp['unit_id']}" in body and f"grade {lvp['grade']}" in body
+
+    # The on-role (home) cell is visibly marked — one per unit whose role has
+    # a graded purpose (defender/harvester here; explorer/planner would not).
+    on_role_cells = sum(1 for u in grades["units"] for p in u["purposes"].values() if p["on_role"])
+    assert body.count("cgrade-home") > 0
+    # one CSS-class use per marked cell (the style rule lives in <style>)
+    assert body.count('class="cgrade-num cgrade-home"') == on_role_cells
+
+
+def test_continuous_scorecard_explains_the_weights_in_plain_text() -> None:
+    """The one-paragraph explanation names the exact weights: the take_post
+    award, the ×GRADE_UNIT mission/economy scaling, the eyes rate, the
+    off-role half-credit sentence and the pinned MVP/LVP tie-break."""
+    html = render_chtml(_race_log())
+    assert f"winning a take_post race earns {POST_TAKEN_POINTS} points" in html
+    assert (
+        f"off-role work earns {OFF_ROLE_NUM}/{OFF_ROLE_DEN} credit — "
+        "more than zero, never full" in html
+    )
+    assert "MVP is the highest grade, LVP the lowest; ties break by (team_id, unit_id)." in html
+    for purpose in ("race_hold", "economy", "eyes"):
+        assert purpose in html
+
+
+def test_continuous_scorecard_keeps_the_minimal_idiom() -> None:
+    """Frame v4 stays pinned: the scorecard is a static server-rendered
+    section — the ONLY <script> in the document is still the JSON data block,
+    and no grid deck chrome (tabs, draw functions) is ported over."""
+    html = render_chtml(_race_log())
+    assert html.count("<script") == 1
+    assert '<script id="cmatch-data" type="application/json">' in html
+    assert 'role="tablist"' not in html and "tabpanel" not in html
+    assert "drawScorecard" not in html

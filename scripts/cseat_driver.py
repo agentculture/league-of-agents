@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
 """Harness driver that fields a live Claude AGENT as a continuous-lane seat.
 
-The continuous harness (``league/charness.py``) hands ``command`` drivers the
-raw briefing JSON — deliberately: what a mind is TOLD about the contract is the
-operator's call, not the engine's (the grid lane bakes prompts into the harness;
-parity is a cycle-8 candidate, recorded in the cycle-7 report). This script is
-that operator layer for a ``claude`` seat: it wraps the briefing in the
-mind-facing contract from ``docs/continuous-contract.md`` on first contact,
-then threads every later decision point into the SAME ``claude`` session
-(``--session-id`` once, ``--resume`` after) — a resident seat, the same
+Transport only (plan C8-t7). The mind-facing seat contract — reply shape,
+time model, race semantics, menu discipline, delivery contention, and
+(conditionally) fog wording — used to live in a pair of module-level prompt
+templates owned by this very script; only a seat fielded through this exact
+script ever heard the rules, a lane-parity gap the cycle-7 live report
+flagged. The contract now lives in ``league.charness``, baked into the first
+decision-point message for every ``command``/``resident`` driver by the
+harness itself — see ``docs/continuous-contract.md`` for the text a mind
+actually receives.
+
+This script now does exactly one job: thread every decision point for a
+``claude`` seat into the SAME resident session (``--session-id`` once,
+``--resume`` after) and hand back whatever the model said, verbatim — the
 field-the-agent-not-the-API doctrine ``scripts/colleague_driver.py`` set for
-colleague seats in season 0. stdlib only.
+colleague seats in season 0. It never composes a prompt of its own; the text
+on stdin (contract on first contact, a short delta after) IS the prompt,
+forwarded to the ``claude`` CLI unchanged. stdlib only.
 
 Usage (as a continuous-harness command driver):
 
@@ -31,52 +38,30 @@ import pathlib
 import subprocess  # nosec B404
 import sys
 import uuid
+from typing import Any
 
-_CONTRACT = """You are {agent_id}, a live mind playing ONE unit ({unit_id}, role {role}) \
-for team {team_id} in a continuous-time League of Agents arena match.
 
-How this arena works — read carefully, it is NOT turn-based:
-- Time is INTEGER GAME-TIME, never wall-clock: your thinking time does not advance the \
-clock. Every action has an in-game duration; while your unit executes one, the rest of \
-the world keeps moving on its own timeline. You are consulted again exactly when your \
-unit becomes idle (action completed, failed, or interrupted).
-- Positions are fixed-point ("mu" = milliunits; 1000 mu = 1 distance unit). Roles move \
-at different speeds and act at different durations — the role table is lopsided on \
-purpose.
-- Actions RACE. Taking a control point takes real duration; several units (even from \
-both teams) can be mid-take on the same post at once, and the FIRST to complete wins it \
-— everyone else's attempt fails with "post taken by a faster agent". Starting first \
-does not mean finishing first: a faster role that starts later can still beat you. \
-Check "takers" on each control point and the menu's completion_time before committing.
-- Scoring is outcome points: held control points plus mission rewards for delivered \
-resources. No single unit can win the race AND run the economy inside the time limit — \
-split the labor with your teammate and say what you are doing.
+def _first_json_object(text: str) -> dict[str, Any]:
+    """Find the first parseable JSON object embedded in ``text``.
 
-Each decision point you receive ONE JSON briefing:
-- game_time — the integer clock right now.
-- you — your unit: position, carrying, role, current action (null = idle).
-- menu — the ONLY actions legal for you right now; each entry carries kind, duration, \
-completion_time (absolute), and target/target_id.
-- outlook — which units finish their current action soonest; plan your timing around \
-who frees up when.
-- board — full ground truth: teams, units, control_points (with live takers), \
-missions, resource_nodes.
-- messages — every broadcast so far; your teammates see yours at their next decision.
-
-Reply with EXACTLY ONE JSON object and nothing else — no prose, no code fences:
-{{"action": <ONE entry copied verbatim from menu>, "message": "<optional short \
-broadcast to your team>", "plan": "<optional: declare your team's plan, once>"}}
-An action not on the menu parks your unit for this decision (wasted time). Use \
-{{"action": null}} only to deliberately wait.
-
-Your first briefing follows.
-
-{briefing}"""
-
-_DELTA = """Decision point at game_time {game_time} — same match, same rules, same \
-reply contract (exactly one JSON object, action copied verbatim from menu or null).
-
-{briefing}"""
+    The incoming stdin payload is the harness's own baked prompt: contract
+    prose wrapped around the briefing on first contact, a short delta note
+    wrapped around it on every later decision point (``league.charness``'s
+    ``seat_prompt_text``). This script needs only the briefing's own
+    ``agent_id``/``match_id`` for session bookkeeping — never the prose
+    around it, and it composes none of its own.
+    """
+    decoder = json.JSONDecoder()
+    for start in range(len(text)):
+        if text[start] != "{":
+            continue
+        try:
+            obj, _ = decoder.raw_decode(text[start:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict):
+            return obj
+    raise ValueError("no JSON object found in harness input")
 
 
 def _session_path(match_id: str, agent_id: str) -> pathlib.Path:
@@ -94,8 +79,10 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    briefing_raw = sys.stdin.read()
-    briefing = json.loads(briefing_raw)
+    # Whatever the harness sent — contract-wrapped on first contact, a delta
+    # note later — is forwarded to the model exactly as received.
+    incoming = sys.stdin.read()
+    briefing = _first_json_object(incoming)
     you = briefing["you"]
     agent_id = str(you["agent_id"])
     match_id = str(briefing.get("board", {}).get("match_id") or "match")
@@ -104,20 +91,12 @@ def main() -> int:
     if spath.exists():
         session_id = json.loads(spath.read_text(encoding="utf-8"))["session_id"]
         argv = [args.command, "-p", "--resume", session_id, "--model", args.model]
-        prompt = _DELTA.format(game_time=briefing["game_time"], briefing=briefing_raw)
     else:
         session_id = str(uuid.uuid4())
         argv = [args.command, "-p", "--session-id", session_id, "--model", args.model]
-        prompt = _CONTRACT.format(
-            agent_id=agent_id,
-            unit_id=you["unit_id"],
-            role=you["role"],
-            team_id=you["team_id"],
-            briefing=briefing_raw,
-        )
 
     proc = subprocess.run(  # nosec B603 — operator-configured argv, shell=False
-        argv, input=prompt, capture_output=True, text=True, timeout=args.timeout, check=False
+        argv, input=incoming, capture_output=True, text=True, timeout=args.timeout, check=False
     )
     if proc.returncode != 0:
         print(proc.stderr.strip()[:500], file=sys.stderr)

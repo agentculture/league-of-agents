@@ -47,8 +47,10 @@ dimensions are odd; that fixed cell is the single shared, equidistant objective
 
 **The roster-size knob: ``executor_scale`` (C6-t2, spec c9).** The ROLE SET
 stays pinned (scout/harvester/defender, same fixed ``RoleStats`` as before —
-scout move 3 / carry 2 / vision 4, strictly the widest vision, spec c12;
-harvester move 2 / carry 3; defender move 2 / carry 1); what now scales is
+scout move 3 / carry 2 / vision 4, strictly the widest vision, spec c12, and
+(cycle-8 t10) ``can_capture=False`` — eyes-only, parity with the continuous
+lane's cycle-7 amendment, see ``docs/roles.md``; harvester move 2 / carry 3;
+defender move 2 / carry 1); what now scales is
 roster SIZE. ``executor_scale`` duplicates the two EXECUTOR roles — harvester
 and defender, the units that actually run the economy and hold points — this
 many times each; the scout stays singular (it is "the eyes of the team", a
@@ -120,7 +122,20 @@ EXECUTOR_SCALE_MIN, EXECUTOR_SCALE_MAX = 1, 4
 # a generated board unchanged. Roster SIZE (how many of each role) is the one
 # axis that now scales, via GenParams.executor_scale — see _unit_roles below.
 _ROLE_STATS: tuple[tuple[str, RoleStats], ...] = (
-    ("scout", RoleStats(move=3, carry=2, vision=4)),
+    # can_capture=False (cycle-8 t10): the generated scout is eyes-only too —
+    # docs/roles.md's Decision section, parity with the continuous lane.
+    (
+        "scout",
+        RoleStats(
+            move=3,
+            carry=2,
+            vision=4,
+            can_capture=False,
+            analog="the eyes — sees widest of the three, forbidden from capturing "
+            "control points (cycle-8 grid eyes-only-scout decision); keeps "
+            "gather/carry/deliver untouched",
+        ),
+    ),
     ("harvester", RoleStats(move=2, carry=3, vision=2)),
     ("defender", RoleStats(move=2, carry=1, vision=2)),
 )
