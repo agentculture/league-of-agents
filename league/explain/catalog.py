@@ -184,7 +184,7 @@ commits** — a stray call never silently advances the game.
         --action blue-u1:move:3,1 --action blue-u2:gather \\
         --message blue-1:"east is open" --apply
     league match tick <id> --apply         # force-resolve (timeouts)
-    league match score <id> --json         # outcome + cooperation + tempo
+    league match score <id> --json         # outcome + cooperation + tempo + units
     league match score <id> --substrate blue=cloud  # substrate-fair tempo
     league match probe <id> --json         # span-of-control: subagents, realization, guidance
     league match brief <id> [--team blue]  # markdown briefing (the agents' face)
@@ -197,6 +197,33 @@ commits** — a stray call never silently advances the game.
 formula, and its own published limits — is documented in
 `docs/tempo-methodology.md`; read it before trusting a converted number
 across two declared substrates.
+
+`score` also carries a `units` section (plan task t6, spec c6/c10/c15): a
+per-unit, role-purpose-weighted scorecard computed from the log alone
+(`league.engine.grades.grade_units` for grid, `league.engine.continuous.
+grades.cgrade_units` for continuous — the same lane detection `replay` uses),
+naming the match MVP and LVP. It is a NEW axis beside outcome/cooperation/
+tempo, never merged into any of them — grading a match never changes its
+team-axis numbers, and no ranking/ELO/cross-match aggregation verb exists
+anywhere in this CLI: MVP/LVP is named per match only. Shape (identical for
+both lanes; only the purpose names differ — grid: economy/control/recon/
+coordination, continuous: race_hold/economy/eyes):
+
+    "units": {
+      "match_id": "...", "purposes": ["economy", "control", "recon", "coordination"],
+      "units": {
+        "<unit_id>": {"team_id", "role", "home_purpose", "grade", "breakdown": {
+          "<purpose>": <points>, ...}, "mvp": bool, "lvp": bool}, ...
+      },
+      "mvp": {"unit_id", "team_id", "grade"} | null,
+      "lvp": {"unit_id", "team_id", "grade"} | null
+    }
+
+On-purpose contributions score full credit, off-purpose contributions still
+score — just at a discount ("a scout not scouting should still get points, but
+less" — the human review that asked for this, quoted verbatim). Text mode
+renders a ranked scorecard (best grade first) with `[MVP]`/`[LVP]` tags and
+each unit's per-purpose breakdown.
 
 `brief` is the markdown face for agents, served from the agentfront faces
 registry (`league/faces/`): `--json` returns the SAME facts the markdown
