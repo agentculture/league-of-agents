@@ -1,0 +1,41 @@
+{
+  "match": {
+    "scenario": "c-frontier-1",
+    "mode": "competitive",
+    "seed": 20260708,
+    "id": "c-frontier-live"
+  },
+  "fog": true,
+  "teams": [
+    {
+      "id": "blue",
+      "name": "Blue Meridian",
+      "driver": {
+        "type": "command",
+        "residency": "resident",
+        "argv": ["python3", "scripts/cseat_driver.py", "--model", "sonnet"],
+        "timeout": 240
+      },
+      "agents": [
+        { "id": "blue-scout", "model": "claude-sonnet", "role": "scout" },
+        { "id": "blue-harvester", "model": "claude-sonnet", "role": "harvester" },
+        { "id": "blue-defender", "model": "claude-sonnet", "role": "defender" }
+      ]
+    },
+    {
+      "id": "red",
+      "name": "Red Meridian",
+      "driver": {
+        "type": "command",
+        "residency": "resident",
+        "argv": ["python3", "scripts/cseat_driver.py", "--model", "sonnet"],
+        "timeout": 240
+      },
+      "agents": [
+        { "id": "red-scout", "model": "claude-sonnet", "role": "scout" },
+        { "id": "red-harvester", "model": "claude-sonnet", "role": "harvester" },
+        { "id": "red-defender", "model": "claude-sonnet", "role": "defender" }
+      ]
+    }
+  ]
+}
