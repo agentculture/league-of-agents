@@ -57,6 +57,7 @@ from league.replay import build_frames as build_video_frames
 from league.replay import (
     build_replay_data,
     indices_to_rgb,
+    motif_schedule,
     render_chtml,
     render_frame,
     render_gif,
@@ -1083,9 +1084,54 @@ def _repeat_count(delay_cs: int, output_fps: int) -> int:
     return max(1, round(delay_cs * output_fps / 100))
 
 
-def _render_mp4(
-    video, *, fps: int, tween: int, out_path: Path, provenance: str, match_id: str, seed: int
-) -> None:
+def _mp4_turn_samples(
+    video, data, *, output_fps: int, tween: int
+) -> tuple[dict[int, tuple[int, int]], int]:
+    """Map every played turn to ``(start_sample, interval_samples)`` on the
+    MP4's own timeline, plus the total held-frame count.
+
+    Derived from the exact held-frame counts the raw video pipe carries — the
+    frame sequence is the title card, then per turn one board frame followed
+    by its ``tween`` sub-frames (the final turn has none), then the closing
+    card — so an event motif lands at the sample where its turn's frame
+    appears on screen, to the same rounding ``samples_for_frames`` uses."""
+    cum = [0]
+    for frame in video.frames:
+        cum.append(cum[-1] + _repeat_count(frame.delay_cs, output_fps))
+    turns = [f["turn"] for f in data["frames"][1:]]
+    out: dict[int, tuple[int, int]] = {}
+    last = len(turns) - 1
+    for i, turn in enumerate(turns):
+        idx = 1 + i * (tween + 1)
+        nxt = idx + (tween + 1) if i < last else idx + 1
+        start = samples_for_frames(cum[idx], output_fps)
+        out[turn] = (start, samples_for_frames(cum[nxt], output_fps) - start)
+    return out, cum[-1]
+
+
+def _soundtrack_wav(video, data, *, fps: int, tween: int) -> bytes:
+    """The exact WAV the MP4 carries: the match's seeded ambient bed plus the
+    event-sound layer (cycle-8 audio-events amendment) — every notable event's
+    motif rendered at its turn's video time, from the same canonical table the
+    HTML replay plays live (``league.replay.audio.EVENT_SOUND``). Same log +
+    same settings -> byte-identical output."""
+    output_fps = fps * (tween + 1)
+    turn_samples, held_frames = _mp4_turn_samples(video, data, output_fps=output_fps, tween=tween)
+    schedule = motif_schedule(
+        data["events_by_turn"],
+        [t["id"] for t in data["teams"]],
+        {u["id"]: u["team"] for u in data["frames"][0]["units"]},
+        turn_samples,
+    )
+    return synthesize_wav(
+        data["match_id"],
+        data["seed"],
+        num_samples=samples_for_frames(held_frames, output_fps),
+        motifs=schedule,
+    )
+
+
+def _render_mp4(video, data, *, fps: int, tween: int, out_path: Path, provenance: str) -> None:
     """Pipe the same raw frames ffmpeg's way. The only subprocess call in the
     whole video-export feature — deliberately kept out of league/replay/video.py
     (library code stays subprocess-free and trivially testable).
@@ -1095,23 +1141,20 @@ def _render_mp4(
     ``fps``, every sub-frame would expand to a whole turn interval and the video
     would play ``tween + 1`` times slower than asked.
 
-    The MP4 also carries the match's ambient score (cycle-8 t9, spec c17/h10):
-    a WAV synthesized offline from the same ``match_id|seed`` identity the HTML
-    replay's live score derives its seed from — the same piece of music — sized
-    to the video's exact held-frame duration and muxed as a second input
-    (``-c:a aac -shortest``). The GIF path never comes here: GIF89a has no
-    audio channel, so its silence is format truth, not a missing feature."""
+    The MP4 also carries the match's soundtrack (cycle-8 t9 + the audio-events
+    amendment): a WAV synthesized offline from the same ``match_id|seed``
+    identity the HTML replay's live score derives its seed from — the same
+    piece of music — with the event-sound layer's motifs rendered at each
+    event's video time, sized to the video's exact held-frame duration and
+    muxed as a second input (``-c:a aac -shortest``). The GIF path never comes
+    here: GIF89a has no audio channel, so its silence is format truth, not a
+    missing feature."""
     output_fps = fps * (tween + 1)
     raw = bytearray()
-    held_frames = 0
     for frame in video.frames:
         rgb = indices_to_rgb(frame.indices, video.palette)
-        reps = _repeat_count(frame.delay_cs, output_fps)
-        raw += rgb * reps
-        held_frames += reps
-    wav_bytes = synthesize_wav(
-        match_id, seed, num_samples=samples_for_frames(held_frames, output_fps)
-    )
+        raw += rgb * _repeat_count(frame.delay_cs, output_fps)
+    wav_bytes = _soundtrack_wav(video, data, fps=fps, tween=tween)
     with tempfile.TemporaryDirectory(prefix="league-record-") as tmp_dir:
         wav_path = Path(tmp_dir) / "soundtrack.wav"
         wav_path.write_bytes(wav_bytes)
@@ -1218,12 +1261,11 @@ def cmd_match_record(args: argparse.Namespace) -> int:
             )
         _render_mp4(
             video,
+            data,
             fps=args.fps,
             tween=args.tween,
             out_path=out_path,
             provenance=provenance,
-            match_id=data["match_id"],
-            seed=data["seed"],
         )
         size = out_path.stat().st_size
     else:

@@ -1,4 +1,5 @@
-"""Offline ambient soundtrack for exported video (cycle-8 t9, spec c17/h10/h11).
+"""Offline ambient soundtrack for exported video (cycle-8 t9, spec c17/h10/h11),
+plus the event-sound layer both renderers share (cycle-8 audio-events amendment).
 
 The MP4 soundtrack and the HTML replay's ambient score are the SAME piece of
 music for the same match. This module is a pure-stdlib port of the decision
@@ -33,6 +34,25 @@ Performance: pads are additively synthesized at ``SAMPLE_RATE / 5`` (their
 content sits far below that Nyquist, and they pass a ~950 Hz low-pass anyway)
 and linearly upsampled; bells render sparsely at full rate. A one-minute
 score lands in a few seconds of pure Python.
+
+**The event-sound layer (cycle-8 audio-events amendment).** The user's
+directive, verbatim: "I like the soundtrack - but it should react or describe
+what's going on in the game. (Or events have a sound, so soundtrack + events
+sounds = this recording sounds)". The bed above stays exactly as it was; a
+second, even stricter-deterministic layer plays on top — every notable match
+event fires a short motif in the bed's own key at the moment playback reaches
+its turn, a pure function of ``(log, playback position)`` with no seeded
+randomness at all. :data:`EVENT_SOUND` is the ONE canonical motif table:
+``render_html`` injects it verbatim (as JSON) into the page's JavaScript and
+:func:`synthesize_wav` renders it offline, so the two renderers cannot drift
+by construction. High-frequency bookkeeping (``unit_moved``,
+``control_point_held``, ``turn_advanced``, declarations, latency probes) is
+deliberately silent — silence is a design choice, documented in
+``docs/replay-design.md``. The first roster team sounds in the lower octave,
+the second one octave up (``register_semitones``), so the two sides are
+tellable apart by ear; any per-event pitch variety hashes the event's own
+canonical fields via :func:`fnv1a` — never wall-clock, never unseeded
+randomness.
 """
 
 from __future__ import annotations
@@ -42,7 +62,7 @@ import math
 import sys
 import wave
 from array import array
-from typing import Callable
+from typing import Any, Callable, Mapping, Sequence
 
 SAMPLE_RATE = 44100
 CHANNELS = 1
@@ -79,6 +99,123 @@ _LP_LFO_DEPTH_HZ = 240.0
 _U32 = 0xFFFFFFFF
 _TWO_PI = 2.0 * math.pi
 
+# --- the event-sound layer: ONE canonical motif table, two renderers ---------
+#
+# ``render_html`` injects this structure verbatim (JSON) as the page's
+# ``EVENT_SOUND`` const; :func:`motif_schedule`/:func:`synthesize_wav` consume
+# it here. Change it in exactly one place — this dict — and both the live
+# replay and the exported MP4 soundtrack change together. Pitches are scale
+# steps over the SAME seeded root the ambient bed draws (``octave * 12 + step
+# + register`` semitones above ``root_hz``), so the layer never clashes with
+# the bed's key. ``team_field``/``unit_field`` name where the event's team
+# identity lives (units resolve through the roster); ``variant_steps``/
+# ``variant_key`` give an event deterministic pitch variety by FNV-1a-hashing
+# its own canonical fields. Every kind absent from ``motifs`` is silent BY
+# DESIGN (moves, holds, declarations, clock ticks — bookkeeping, not moments).
+EVENT_SOUND: dict[str, Any] = {
+    # Bus level for the whole layer (the page's eventBus gain), the per-note
+    # pre-bus peak (the bell voice's own 0.16), and the exponential-decay
+    # floor (the JS ramp target).
+    "level": 0.55,
+    "peak": 0.16,
+    "floor": 0.0001,
+    # The second roster team plays one octave above the first — blue vs red
+    # by ear (index % 2, so the rule extends past two teams unchanged).
+    "register_semitones": 12,
+    "voices": {
+        "chime": {"partials": [[1.0, 1.0], [2.01, 0.38], [3.02, 0.13]], "attack": 0.008},
+        "pluck": {"partials": [[1.0, 1.0], [2.0, 0.22]], "attack": 0.004},
+        "thud": {"partials": [[1.0, 1.0]], "attack": 0.01},
+        "blip": {"partials": [[1.0, 1.0]], "attack": 0.002},
+    },
+    "motifs": {
+        # A point changes hands: the bright rising-fourth chime — the
+        # "something happened" moment.
+        "control_point_captured": {
+            "voice": "chime",
+            "octave": 3,
+            "steps": [0, 5],
+            "vels": [1.0, 1.0],
+            "gap": 0.09,
+            "dur": 0.55,
+            "vel": 0.9,
+            "team_field": "team_id",
+        },
+        # A mission pays off (deliver target met, hold reward earned): a
+        # gentle three-note ascending arpeggio.
+        "mission_completed": {
+            "voice": "chime",
+            "octave": 2,
+            "steps": [0, 4, 7],
+            "vels": [0.85, 0.9, 1.0],
+            "gap": 0.11,
+            "dur": 0.8,
+            "vel": 0.7,
+            "team_field": "team_id",
+        },
+        # A single soft mallet pluck, low velocity; its degree varies by
+        # hashing unit|node so the economy has texture, deterministically.
+        "resource_gathered": {
+            "voice": "pluck",
+            "octave": 1,
+            "steps": [0],
+            "vels": [1.0],
+            "gap": 0.0,
+            "dur": 0.4,
+            "vel": 0.35,
+            "unit_field": "unit_id",
+            "variant_steps": [0, 2, 4],
+            "variant_key": ["unit_id", "node_id"],
+        },
+        # A warm two-note rising resolution — the haul lands.
+        "resource_delivered": {
+            "voice": "pluck",
+            "octave": 2,
+            "steps": [4, 7],
+            "vels": [0.9, 1.0],
+            "gap": 0.12,
+            "dur": 0.6,
+            "vel": 0.55,
+            "team_field": "team_id",
+        },
+        # Denied — failed order, delivery contention, capture rejection: a
+        # low muted thud with a soft minor-second decay. Clearly audible as
+        # "denied", never harsh (the contention rule becoming audible is a
+        # feature, not noise).
+        "action_rejected": {
+            "voice": "thud",
+            "octave": 0,
+            "steps": [0, 1],
+            "vels": [1.0, 0.55],
+            "gap": 0.05,
+            "dur": 0.5,
+            "vel": 0.8,
+            "team_field": "team_id",
+        },
+        # Coordination made audible: a tiny high blip, very quiet.
+        "message_sent": {
+            "voice": "blip",
+            "octave": 4,
+            "steps": [0],
+            "vels": [1.0],
+            "gap": 0.0,
+            "dur": 0.09,
+            "vel": 0.18,
+            "team_field": "team_id",
+        },
+        # The final whistle: a short cadence, neutral register.
+        "match_finished": {
+            "voice": "chime",
+            "octave": 2,
+            "steps": [7, 11, 12],
+            "vels": [0.8, 0.85, 1.0],
+            "gap": 0.16,
+            "dur": 1.2,
+            "vel": 0.8,
+        },
+    },
+}
+
 
 def mulberry32(seed: int) -> Callable[[], float]:
     """The exact PRNG the HTML score embeds, bit-for-bit.
@@ -100,19 +237,25 @@ def mulberry32(seed: int) -> Callable[[], float]:
     return rnd
 
 
-def score_seed(match_id: str, seed: int) -> int:
-    """FNV-1a (32-bit) over ``f"{match_id}|{seed}"`` — the page's audioSeed().
+def fnv1a(text: str) -> int:
+    """FNV-1a (32-bit) over a string — the page's own ``fnv1a`` helper.
 
-    Iterates UTF-16 code units to match ``charCodeAt`` exactly (match ids are
+    Iterates UTF-16 code units to match ``charCodeAt`` exactly (inputs are
     ASCII in practice, but the port should not quietly diverge on the day one
-    isn't).
+    isn't). Seeds the ambient score (via :func:`score_seed`) and hashes event
+    fields for the motif layer's deterministic pitch variety.
     """
-    data = f"{match_id}|{seed}".encode("utf-16-le")
+    data = text.encode("utf-16-le")
     h = 2166136261
     for i in range(0, len(data), 2):
         h ^= data[i] | (data[i + 1] << 8)
         h = (h * 16777619) & _U32
     return h
+
+
+def score_seed(match_id: str, seed: int) -> int:
+    """FNV-1a over ``f"{match_id}|{seed}"`` — the page's audioSeed()."""
+    return fnv1a(f"{match_id}|{seed}")
 
 
 def _midi_hz(m: int) -> float:
@@ -169,6 +312,100 @@ def samples_for_frames(held_frames: int, output_fps: int) -> int:
     frames at ``output_fps`` — the same numbers ``_render_mp4`` pipes, so the
     soundtrack covers the video to the nearest sample."""
     return round(held_frames * SAMPLE_RATE / output_fps)
+
+
+# --- the event-sound layer: scheduling + note plans (both renderers) ---------
+
+
+def _motif_register(motif: Mapping[str, Any], data: Mapping[str, Any], team_index, unit_teams):
+    """Semitone register for an event: the page's ``motifRegister``, exactly.
+
+    Team identity comes from the motif's declared ``team_field`` (or through
+    the roster via ``unit_field`` for events that only name a unit); the
+    second roster team plays ``register_semitones`` up. Unknown/absent teams
+    (e.g. the neutral final whistle) sit in the base register.
+    """
+    team_field = motif.get("team_field")
+    unit_field = motif.get("unit_field")
+    if team_field:
+        tid = data.get(team_field)
+    elif unit_field:
+        tid = unit_teams.get("" if data.get(unit_field) is None else str(data.get(unit_field)))
+    else:
+        tid = None
+    idx = team_index.get(tid)
+    if idx is None:
+        return 0
+    return (idx % 2) * EVENT_SOUND["register_semitones"]
+
+
+def _motif_variant(motif: Mapping[str, Any], data: Mapping[str, Any]) -> int:
+    """Deterministic pitch-variety index: the page's ``motifVariant``, exactly
+    — FNV-1a over the event's own canonical fields, never entropy."""
+    variant_steps = motif.get("variant_steps")
+    if not variant_steps:
+        return 0
+    parts = []
+    for key in motif["variant_key"]:
+        value = data.get(key)
+        parts.append("" if value is None else str(value))
+    return fnv1a("|".join(parts)) % len(variant_steps)
+
+
+def motif_notes(
+    kind: str, register: int, variant: int, root_hz: float
+) -> list[tuple[float, float, float, float, str]]:
+    """The notes one event motif plays — the page's ``motifPlan``, exactly.
+
+    Returns ``(offset_seconds, frequency_hz, velocity, duration_seconds,
+    voice)`` per note: pitches are the motif's scale steps over the bed's own
+    seeded root (``octave * 12 + step + register`` semitones up), note ``i``
+    starts ``i * gap`` after the motif's fire time. Pinned against the
+    embedded JS in tests/test_replay_audio.py, the t9 discipline.
+    """
+    motif = EVENT_SOUND["motifs"][kind]
+    steps = [motif["variant_steps"][variant]] if motif.get("variant_steps") else motif["steps"]
+    notes = []
+    for i, step in enumerate(steps):
+        freq = root_hz * 2.0 ** ((motif["octave"] * 12 + step + register) / 12)
+        notes.append(
+            (i * motif["gap"], freq, motif["vel"] * motif["vels"][i], motif["dur"], motif["voice"])
+        )
+    return notes
+
+
+def motif_schedule(
+    events_by_turn: Mapping[str, Sequence[Mapping[str, Any]]],
+    team_ids: Sequence[str],
+    unit_teams: Mapping[str, str],
+    turn_samples: Mapping[int, tuple[int, int]],
+) -> list[tuple[int, str, int, int]]:
+    """Resolve a match's event log into scheduled motifs for the offline WAV.
+
+    ``events_by_turn`` is the replay fold's own projection (the same structure
+    the page reads as ``M.events_by_turn``); ``turn_samples`` maps each played
+    turn to ``(start_sample, interval_samples)`` in the output timeline.
+    Within a turn, the k-th sounding event (of n) fires at ``start + interval
+    * k / n`` — a pure function of the event's position among the turn's
+    sounding events, the page's own spread rule, so simultaneous events never
+    stack into a click. Kinds absent from the motif table contribute nothing.
+
+    Returns ``(start_sample, kind, register_semitones, variant)`` tuples for
+    :func:`synthesize_wav`'s ``motifs`` argument.
+    """
+    team_index = {tid: i for i, tid in enumerate(team_ids)}
+    out: list[tuple[int, str, int, int]] = []
+    motifs = EVENT_SOUND["motifs"]
+    for turn in sorted(turn_samples):
+        start, interval = turn_samples[turn]
+        sounding = [e for e in events_by_turn.get(str(turn), ()) if e["kind"] in motifs]
+        n = len(sounding)
+        for k, event in enumerate(sounding):
+            motif = motifs[event["kind"]]
+            register = _motif_register(motif, event["data"], team_index, unit_teams)
+            variant = _motif_variant(motif, event["data"])
+            out.append((start + round(interval * k / n), event["kind"], register, variant))
+    return out
 
 
 # --- rendering ---------------------------------------------------------------
@@ -284,6 +521,43 @@ def _mix_bells(mix: array, bells: list[tuple[float, float, float]], num_samples:
                 mix[n0 + k] += e * sin(w * k)
 
 
+def _mix_motifs(
+    mix: array, motifs: Sequence[tuple[int, str, int, int]], root_hz: float, num_samples: int
+) -> None:
+    """The event layer at full rate: every scheduled motif's notes, with the
+    exact envelope the page's ``motifNote`` schedules — a linear attack to the
+    table's per-note peak, then an exponential decay to its floor at
+    ``dur / ratio`` seconds per partial (the same shape as the bells)."""
+    sin = math.sin
+    level = EVENT_SOUND["level"]
+    peak_gain = EVENT_SOUND["peak"]
+    floor = EVENT_SOUND["floor"]
+    voices = EVENT_SOUND["voices"]
+    for start, kind, register, variant in motifs:
+        for offset, freq, vel, dur, voice_name in motif_notes(kind, register, variant, root_hz):
+            n0 = start + round(offset * SAMPLE_RATE)
+            if n0 >= num_samples:
+                continue
+            voice = voices[voice_name]
+            attack_n = int(voice["attack"] * SAMPLE_RATE)
+            for ratio, amp in voice["partials"]:
+                gain = peak_gain * vel * amp
+                peak = gain * level
+                w = _TWO_PI * freq * ratio / SAMPLE_RATE
+                total_n = int(dur / ratio * SAMPLE_RATE)
+                step = peak / attack_n
+                for k in range(min(attack_n, num_samples - n0)):
+                    mix[n0 + k] += (k * step) * sin(w * k)
+                decay_n = total_n - attack_n
+                if decay_n <= 0:  # pragma: no cover - no voice decays inside its attack
+                    continue
+                r = (floor / gain) ** (1.0 / decay_n)
+                e = peak
+                for k in range(attack_n, min(total_n, num_samples - n0)):
+                    e *= r
+                    mix[n0 + k] += e * sin(w * k)
+
+
 def _quantize(mix: array, num_samples: int) -> bytes:
     """Master gain (with the HTML score's 2s fade-in and the offline closing
     fade-out), gentle soft-knee limiting, and 16-bit little-endian PCM."""
@@ -308,13 +582,22 @@ def _quantize(mix: array, num_samples: int) -> bytes:
     return out.tobytes()
 
 
-def synthesize_wav(match_id: str, seed: int, *, num_samples: int) -> bytes:
+def synthesize_wav(
+    match_id: str,
+    seed: int,
+    *,
+    num_samples: int,
+    motifs: Sequence[tuple[int, str, int, int]] = (),
+) -> bytes:
     """Synthesize the match's ambient score as WAV bytes: mono 16-bit PCM at
     44100 Hz, exactly ``num_samples`` frames long.
 
-    Same ``(match_id, seed, num_samples)`` -> byte-identical output; the
-    same identity is what seeds the HTML replay's score, so the MP4 and the
-    page play the same piece.
+    Same ``(match_id, seed, num_samples, motifs)`` -> byte-identical output;
+    the same identity is what seeds the HTML replay's score, so the MP4 and
+    the page play the same piece. ``motifs`` is the event-sound layer's
+    schedule (:func:`motif_schedule`) — the recording's sound is the bed plus
+    these motifs; an empty schedule leaves the bed bytes exactly as they were
+    before the amendment.
     """
     if num_samples < 0:
         raise ValueError(f"num_samples must be >= 0, got {num_samples}")
@@ -328,6 +611,8 @@ def synthesize_wav(match_id: str, seed: int, *, num_samples: int) -> bytes:
         _lowpass_with_lfo(pad_buf)
         _upsample_pads_into(mix, pad_buf, num_samples)
         _mix_bells(mix, bells, num_samples)
+        if motifs:
+            _mix_motifs(mix, motifs, root_hz, num_samples)
     pcm = _quantize(mix, num_samples)
     buf = io.BytesIO()
     with wave.open(buf, "wb") as w:

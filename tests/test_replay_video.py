@@ -999,6 +999,50 @@ def test_match_record_gif_bytes_are_unchanged_by_the_soundtrack_wave() -> None:
     assert hashlib.sha256(gif).hexdigest() == _GIF_PIN_SHA256
 
 
+# --- C8 audio-events amendment — the MP4 soundtrack gains the event layer:
+# --- the exact motif table the HTML page plays live, rendered offline at
+# --- each event's video time. The GIF pin above must stay green untouched.
+
+
+def test_mp4_soundtrack_carries_the_event_layer_for_a_committed_log() -> None:
+    """The WAV the MP4 muxes is the bed PLUS the event motifs: for a
+    committed log with real captures, deliveries, a denial, and messages, the
+    soundtrack differs from a bed-only render of the same identity and
+    length, and stays byte-deterministic; motif turn positions derive from
+    the video's own held-frame timeline (title card first, then one board
+    frame + tweens per turn)."""
+    from league.cli._commands.match import _mp4_turn_samples, _soundtrack_wav
+    from league.replay.audio import samples_for_frames, synthesize_wav
+    from league.replay.html import build_replay_data
+
+    fps, tween = 2, 4
+    output_fps = fps * (tween + 1)
+    log = _coop_log()
+    data = build_replay_data(log)
+    video = build_frames(data, cell_px=6, turn_delay_cs=50, theme="light", tween=tween)
+
+    turn_samples, held_frames = _mp4_turn_samples(video, data, output_fps=output_fps, tween=tween)
+    # Every played turn is mapped; the first starts right after the title
+    # card's hold (200cs -> 20 output frames), and every non-final turn spans
+    # exactly one 50cs turn hold (5 output frames) of samples.
+    assert set(turn_samples) == {f["turn"] for f in data["frames"][1:]}
+    first_turn = data["frames"][1]["turn"]
+    assert turn_samples[first_turn][0] == samples_for_frames(20, output_fps)
+    non_final = [f["turn"] for f in data["frames"][1:-1]]
+    for turn in non_final:
+        assert turn_samples[turn][1] == samples_for_frames(5, output_fps)
+
+    wav = _soundtrack_wav(video, data, fps=fps, tween=tween)
+    assert wav == _soundtrack_wav(video, data, fps=fps, tween=tween)
+    bed_only = synthesize_wav(
+        data["match_id"],
+        data["seed"],
+        num_samples=samples_for_frames(held_frames, output_fps),
+    )
+    assert len(wav) == len(bed_only)
+    assert wav != bed_only  # the events are audibly in the recording
+
+
 def test_match_record_missing_match_id_errors_cleanly(arena, capsys) -> None:
     rc = main(["match", "record", "no-such-match", "--out", "x.gif"])
     assert rc == 1
