@@ -575,6 +575,87 @@ def test_ambient_audio_keeps_the_document_deterministic_and_offline() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# C8 audio-events amendment — the score reacts to the match. The user's
+# directive, verbatim: "I like the soundtrack - but it should react or
+# describe what's going on in the game. (Or events have a sound, so
+# soundtrack + events sounds = this recording sounds)". The bed stays as-is;
+# every notable event fires a short motif when playback advances onto its
+# turn. ONE canonical table drives both renderers: the page's EVENT_SOUND
+# const is league.replay.audio.EVENT_SOUND injected verbatim as JSON.
+# --------------------------------------------------------------------------- #
+
+
+def test_event_sound_table_ships_identically_in_both_renderers() -> None:
+    """The motif table in the page IS the offline renderer's table: extract
+    the injected JS const and compare it to the canonical Python structure —
+    one design, two implementations, drift impossible by construction."""
+    from league.replay.audio import EVENT_SOUND
+
+    html = render_html(_play_match())
+    match = re.search(r"const EVENT_SOUND = (\{.*?\});", html, re.S)
+    assert match, "injected EVENT_SOUND table missing"
+    assert json.loads(match.group(1)) == json.loads(json.dumps(EVENT_SOUND))
+    assert "__EVENT_SOUND__" not in html  # the placeholder never leaks
+
+
+def test_event_motifs_fire_only_on_a_normal_forward_advance() -> None:
+    """Scrubbing, jumping, and stepping backwards never replay skipped
+    events — a jump is navigation, not time passing. The ONLY call site is
+    the render path's forward-advance branch (the same discipline as the
+    board fx), and the scheduler spreads a turn's sounding events by their
+    position (k/n of the turn interval), never by wall-clock."""
+    html = render_html(_play_match())
+    assert "function fireMotifs" in html
+    assert "if (forward) fireMotifs(frame);" in html
+    # Exactly two mentions: the definition and the single forward call site.
+    assert html.count("fireMotifs(") == 2
+    # Position-of-event spread, and the roster-order octave split by ear.
+    assert "interval * k / sounding.length" in html
+    assert "register_semitones" in html
+
+
+def test_event_layer_rides_the_existing_toggle_and_stays_deterministic() -> None:
+    """One control governs bed + events: the note toggle stays OFF by default
+    and the motif path is gated on the same AUDIO state the bed uses. The
+    document stays byte-deterministic, entropy-free, and asset-free with the
+    event layer aboard."""
+    log = _play_match()
+    html = render_html(log)
+    # The same toggle, still off by default (the t4 contract, unchanged).
+    btn = re.search(r'<button id="btn-audio".*?>', html, re.S)
+    assert btn and 'aria-pressed="false"' in btn.group(0)
+    assert html.count("new (window.AudioContext") == 1  # still born on the gesture
+    # Motifs are governed by the toggle's own state, never a second switch.
+    assert "if (!AUDIO.on || !AUDIO.graph" in html
+    # Determinism and self-containment survive the amendment.
+    assert render_html(log) == html
+    for banned in ("Math.random(", "Date.now(", "<audio", "data:audio", ".mp3", ".ogg", ".wav"):
+        assert banned not in html, f"banned marker {banned!r} found in replay"
+
+
+def test_guide_listening_section_explains_the_event_layer() -> None:
+    """The assessor guide tells the reviewer what reacts: the motif
+    vocabulary, the octave split by roster order, and that bookkeeping is
+    silent by design — and the page renders the sentence."""
+    log = _play_match()
+    listening = build_replay_data(log)["guide"]["listening"]
+    for phrase in (
+        "rising fourth",
+        "arpeggio",
+        "mallet pluck",
+        "two-note rise",
+        "muted thud",
+        "blip",
+        "cadence",
+        "octave",
+        "silent by design",
+    ):
+        assert phrase in listening["events"], f"guide misses {phrase!r}"
+    html = render_html(log)
+    assert "G.listening.events" in html
+
+
+# --------------------------------------------------------------------------- #
 # C8-t8 — the replay surfaces the scorecard (spec c6/h6, c2/h15): MVP/LVP and
 # per-unit grades in a Scorecard deck tab, plus a guide section that explains
 # EXACTLY what the grade weighs. The reviewer test: payload, replay and guide

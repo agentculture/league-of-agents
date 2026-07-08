@@ -410,6 +410,86 @@ lands it **on the record**, exactly as for the HTML score: a recorded
 reviewer verdict, not a developer assertion; a miss is a finding for the
 next cycle, not a silent pass.
 
+### Event sounds — the score reacts to the match (cycle-8 amendment)
+
+> **Provenance — the user's directive, verbatim (cycle-8 audio-events
+> amendment):** "I like the soundtrack - but it should react or describe
+> what's going on in the game. (Or events have a sound, so soundtrack +
+> events sounds = this recording sounds)"
+
+The chosen interpretation: the ambient bed above stays exactly as it was; a
+**deterministic event-sound layer** plays on top. Every notable match event
+gets a short motif, fired at the moment playback reaches that event's turn —
+the recording's sound *is* bed + event motifs. Where the bed is a pure
+function of the seed, this layer is a pure function of **(log, playback
+position)** — no seeded randomness at all: any per-event pitch variety hashes
+the event's own canonical fields (FNV-1a), never wall-clock, never entropy.
+
+**The motif table.** All pitches are scale steps over the **same seeded root
+the bed draws** (`octave × 12 + step + register` semitones above `root_hz`),
+so the layer can never clash with the bed's key:
+
+| Event | Motif | Pitch source |
+| --- | --- | --- |
+| `control_point_captured` (post taken) | bright rising-fourth chime | steps 0→5, octave 3, chime voice |
+| `mission_completed` (incl. hold reward) | gentle three-note ascending arpeggio | steps 0→4→7, octave 2, chime voice |
+| `resource_gathered` | single soft mallet pluck, low velocity | one of steps {0, 2, 4} by `fnv1a(unit_id\|node_id) % 3`, octave 1, pluck voice |
+| `resource_delivered` | warm two-note rising resolution | steps 4→7, octave 2, pluck voice |
+| `action_rejected` (failed order, delivery denied, capture rejected) | low muted thud with a soft minor-second decay — clearly "denied", never harsh (the delivery-contention rule becoming audible is a feature) | steps 0 + 1, octave 0, thud voice |
+| `message_sent` | tiny high blip, very quiet (coordination made audible) | step 0, octave 4, blip voice |
+| `match_finished` | short cadence | steps 7→11→12, octave 2, chime voice, neutral register |
+
+**Silence is a design choice.** `unit_moved`, `control_point_held`,
+`turn_advanced`, `turn_resolved`, `action_declared`, `plan_declared`,
+`seat_latency`, `match_started`, and `unit_defeated` play **no sound**: they
+are high-frequency bookkeeping or declaration-stage noise, and sounding them
+would bury the moments that matter. The *resolution* events carry the sound
+(a declared order that fails still sounds — as the denial thud).
+
+**Team legibility by ear.** The team listed first in the roster plays in the
+lower octave; the second plays `register_semitones` (12) up — blue vs red
+actions are tellable apart without looking. The rule is `(team index % 2) ×
+12`, so it extends past two teams unchanged. Events that only name a unit
+(gathers) resolve their team through the roster; the final whistle is
+register-neutral.
+
+**One table, two renderers.** The motif table is defined once —
+`league.replay.audio.EVENT_SOUND` — and `render_html` injects it verbatim
+(as JSON) into the page's JS as the `EVENT_SOUND` const, so the live page
+and the offline WAV render the identical design and cannot drift by
+construction (the same discipline t9 used to mirror t4's engine, one step
+stronger). The note plans (`motifPlan` in the page, `motif_notes` offline)
+are pinned against each other in `tests/test_replay_audio.py` via values
+extracted from the rendered document's own JS under node.
+
+**Intra-turn offsets.** The k-th of a turn's n *sounding* events fires
+`interval × k / n` into the turn interval — a pure function of the event's
+position among the turn's sounding events (silent kinds occupy no slot), so
+simultaneous events spread instead of stacking into a click, and identical
+logs always sound identical. In the page the interval is the current
+playback speed's turn hold; in the MP4 it is the turn's exact held-frame
+span on the video timeline.
+
+**Scrubbing never replays history.** Motifs fire **only on a normal forward
+advance** (a playback tick or a single next-step) — the same rule as the
+board's celebration fx. Jumping, scrubbing, deep links, and reverse steps
+are navigation, not time passing, so skipped events are never machine-gunned
+into the ear. The existing note toggle governs bed + events together — one
+control, still **off by default**, and the document stays byte-deterministic
+and self-contained (the injected table is a constant).
+
+**The MP4 carries the same layer.** `synthesize_wav` accepts the motif
+schedule (`motif_schedule`), and `league match record --format mp4` renders
+each motif at its event's video time — the turn→frame→sample mapping the mux
+already knows, with the same k/n intra-turn offsets. Same log + same
+settings → byte-identical WAV, as before; an empty schedule reproduces the
+t9 bed bytes exactly (unit-tested). **The GIF stays byte-unchanged and
+silent** (format truth; the byte-pin in `tests/test_replay_video.py` still
+guards it). **The continuous face stays silent** this amendment too: frame
+v4 is pinned minimal — no client JS — so there is nothing for event audio to
+ride on; it inherits the event layer when the continuous lane earns its own
+interactive cycle (the same decision t4 recorded for the bed).
+
 ## Scorecard — the per-unit axis in both faces (cycle 8)
 
 > **Provenance — the human review's ask, verbatim (cycle-8 spec c10):** *"We

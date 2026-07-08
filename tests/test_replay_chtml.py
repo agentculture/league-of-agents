@@ -47,19 +47,24 @@ _PLAYTESTS = Path(__file__).resolve().parent.parent / "docs" / "playtests"
 # a deliberate grid-renderer change (like the cycle-6 restyle, PR #18, which
 # moved this pin from 5a1f8919…) legitimately regenerates it — recompute
 # render_html() on the committed log and say so in the PR. Cycle 8 moved it
-# three times in one train: t4's ambient score changed the document's inline
+# four times in one train: t4's ambient score changed the document's inline
 # JS, t10's grid scout eyes-only decision (docs/roles.md) flipped scout's
 # can_capture in league/engine/scenario.py — render_html() reads role stats
 # live from the scenario, not just the log, so the rendered role-table bytes
 # changed even though league/replay/html.py's markup for it did not (moved
 # from bfe89f92… to e571c6b3…, recomputed on the merged tree carrying both
-# changes; the log and its scored facts are untouched) — and t8's Scorecard
+# changes; the log and its scored facts are untouched) — t8's Scorecard
 # deck tab (this file's own C8-t8 section) added the per-unit grades panel,
 # its guide section, and the embedded scorecard payload to every rendered
-# grid document (moved from e571c6b3… to its current value; again the log and
-# its scored facts are untouched — grades are a render-time fold of the log).
+# grid document (moved from e571c6b3… to 751e3a70…; again the log and its
+# scored facts are untouched — grades are a render-time fold of the log) —
+# and the cycle-8 audio-events amendment gave the document its event-sound
+# layer: the injected EVENT_SOUND motif table, the motif scheduler and fnv1a
+# helper in the inline JS, and the guide's listening "events" sentence (moved
+# from 751e3a70… to its current value; the log and its scored facts are, as
+# always, untouched — the layer is render-time JS over the same fold).
 _GRID_LOG_REL = "cycle-5/colleague-coop.log.jsonl"
-_GRID_HTML_SHA256 = "751e3a705c7076e5f72265ac0b087f75f301e340ac482a38d1d6a62dbadd8912"
+_GRID_HTML_SHA256 = "8582e2e1f3424b0e4f9fcb606743c8a5685458fd1ebdc4f2ca85b32d8d52d8cf"
 
 
 def _committed_grid_log() -> MatchLog:

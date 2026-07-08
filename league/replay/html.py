@@ -47,6 +47,16 @@ rationale, palette values, and the ``validate_palette.js`` results):
   match always plays the same music. No audio asset, no request, no bytes
   change: the AudioContext is created lazily on the enabling gesture, and
   enabling/disabling never touches the document (see ``docs/replay-design.md``).
+* **The score reacts to the match** (cycle-8 audio-events amendment). On top
+  of the bed, every notable event fires a short motif in the bed's own key
+  when playback advances onto its turn — captures, missions, gathers,
+  deliveries, denials, messages, the final whistle; moves and bookkeeping are
+  silent by design. The motif table is ``league.replay.audio.EVENT_SOUND``,
+  injected verbatim into the page's JS (one canonical table, two renderers —
+  the exported MP4 renders the identical layer offline). Motifs fire only on
+  a normal forward advance (scrubbing/jumping never replays skipped events),
+  spread across the turn interval by each event's position — a pure function
+  of the log and the playback position, no entropy anywhere.
 * The page embeds the replay data as one ``<script type="application/json">``
   block derived from the log — the HTML and ``--json`` projections cannot
   diverge because they are the same fold.
@@ -79,6 +89,7 @@ from league.engine.scoring import (
 )
 from league.engine.state import MatchState
 from league.engine.tick import CP_POINTS
+from league.replay.audio import EVENT_SOUND
 
 # Per-theme palette tokens — the SAME validated hex values behind the CSS
 # custom properties in ``_TEMPLATE`` below, one deliberately-stepped set per
@@ -896,6 +907,17 @@ def _listening(initial: MatchState) -> dict[str, Any]:
             f"music, audio stays off until you enable it, and enabling changes nothing "
             f"about the document."
         ),
+        "events": (
+            "The score also reacts to the match (the user's directive: soundtrack + "
+            "event sounds = this recording's sound): as playback reaches each turn, its "
+            "notable events play short motifs in the bed's own key — a capture rings a "
+            "bright rising fourth, a completed mission a gentle three-note arpeggio, a "
+            "gather a soft mallet pluck, a delivery a warm two-note rise, a denied order "
+            "a low muted thud, a team message a tiny high blip, and the final whistle a "
+            "short cadence. The first roster team sounds an octave below the second, so "
+            "the sides are tellable apart by ear; moves and bookkeeping stay silent by "
+            "design. The exported MP4 soundtrack renders the identical motif table."
+        ),
         "rate": (
             "Rate the mood on the record: the target, verbatim from the user's brief, is "
             "“content and relaxed, but also curious and intrigued”. If the score "
@@ -909,7 +931,12 @@ def render_html(log: MatchLog) -> str:
     """The single-file human view. No external requests, ever."""
     payload = json.dumps(build_replay_data(log), sort_keys=True, ensure_ascii=False)
     payload = payload.replace("</", "<\\/")  # keep </script> out of the data block
-    return _TEMPLATE.replace("__MATCH_DATA__", payload)
+    # The event-sound motif table (cycle-8 audio-events amendment) is defined
+    # ONCE, in league.replay.audio.EVENT_SOUND, and injected verbatim — the
+    # page and the offline WAV renderer read the same structure, so the two
+    # implementations cannot drift. A constant, so bytes stay deterministic.
+    motifs = json.dumps(EVENT_SOUND, sort_keys=True, separators=(",", ":"))
+    return _TEMPLATE.replace("__MATCH_DATA__", payload).replace("__EVENT_SOUND__", motifs)
 
 
 _TEMPLATE = """<!DOCTYPE html>
@@ -1754,6 +1781,7 @@ function renderGuide() {
   if (G.listening) {
     const s5 = gSection(G.listening.title);
     s5.appendChild(gEl('p', 'guide-p', G.listening.how));
+    if (G.listening.events) s5.appendChild(gEl('p', 'guide-p', G.listening.events));
     s5.appendChild(gEl('p', 'guide-p', G.listening.rate));
     body.appendChild(s5);
   }
@@ -1809,6 +1837,10 @@ function render(forward) {
   $('turn-label').textContent = `turn ${f.turn} / ${M.turn_limit}`;
   updateWinner();
   if (forward && !reduce) spawnFx(frame);
+  // Event motifs fire only on a normal forward advance — never on a scrub,
+  // jump, or reverse — and are NOT gated by reduced-motion (sound is not
+  // motion; the note toggle is their own opt-in).
+  if (forward) fireMotifs(frame);
 }
 
 function go(i) {
@@ -1961,11 +1993,15 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-function audioSeed() {
-  const s = M.match_id + '|' + M.seed;  // data already embedded in the page
-  let h = 2166136261 >>> 0;             // FNV-1a over it
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+function fnv1a(s) {                     // FNV-1a, 32-bit — seeds the score and
+  let h = 2166136261 >>> 0;             // hashes event fields for the motif
+  for (let i = 0; i < s.length; i++) {  // layer (deterministic, entropy-free)
+    h ^= s.charCodeAt(i); h = Math.imul(h, 16777619);
+  }
   return h >>> 0;
+}
+function audioSeed() {
+  return fnv1a(M.match_id + '|' + M.seed);  // data already embedded in the page
 }
 // Master stays conservative (about a -18 dBFS feel behind a gentle safety
 // compressor): the score plays UNDER someone watching a replay, never over it.
@@ -1979,7 +2015,7 @@ const PAD_CHORDS = [                    // semitones above root; no minor-3rd lo
 ];
 const BELL_STEPS = [0, 2, 4, 7, 9, 11, 14, 16];  // pentatonic-plus-maj7, two octaves up
 const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
-const AUDIO = { graph: null, timer: null, on: false };
+const AUDIO = { graph: null, timer: null, on: false, rootHz: null };
 
 function makeImpulse(ctx, rnd) {        // synthesized reverb tail — never a fetched asset
   const len = Math.floor(3.2 * ctx.sampleRate);
@@ -2012,7 +2048,11 @@ function buildAudio(seed) {
   const bellBus = ctx.createGain(); bellBus.gain.value = 0.75; bellBus.connect(master);
   const bellSend = ctx.createGain(); bellSend.gain.value = 0.9;
   bellBus.connect(bellSend); bellSend.connect(rev);   // bells ride mostly in the reverb
-  return { ctx, master, padBus, bellBus };
+  // The event-motif layer rides dry — crisp, legible "something happened"
+  // sounds over the washy bed (the offline WAV renders it dry too).
+  const eventBus = ctx.createGain(); eventBus.gain.value = EVENT_SOUND.level;
+  eventBus.connect(master);
+  return { ctx, master, padBus, bellBus, eventBus };
 }
 function padChord(A, rootHz, steps, t, dur) {
   // long attack, long release — successive chords crossfade into one bed
@@ -2056,6 +2096,7 @@ function startScore() {
   const padRnd = mulberry32(seed ^ 0x51AB3C02);
   const bellRnd = mulberry32(seed ^ 0x9E3779B9);
   const rootHz = midiHz(ROOT_MIDI[Math.floor(mulberry32(seed)() * ROOT_MIDI.length)]);
+  AUDIO.rootHz = rootHz;  // the event-motif layer plays in the bed's own key
   const t0 = A.ctx.currentTime + 0.08;
   let padT = 0, chord = 0, bellT = 2 + bellRnd() * 3;
   function ahead() {
@@ -2094,7 +2135,7 @@ function audioToggle() {
   if (AUDIO.on) {
     AUDIO.on = false;
     clearInterval(AUDIO.timer); AUDIO.timer = null;
-    const A = AUDIO.graph; AUDIO.graph = null;
+    const A = AUDIO.graph; AUDIO.graph = null; AUDIO.rootHz = null;
     if (A) {
       A.master.gain.cancelScheduledValues(A.ctx.currentTime);
       A.master.gain.setValueAtTime(A.master.gain.value, A.ctx.currentTime);
@@ -2109,6 +2150,73 @@ function audioToggle() {
   }
 }
 $('btn-audio').onclick = audioToggle;
+
+// ---- Event sounds (cycle-8 audio-events amendment): the score REACTS to the
+// match — soundtrack + event sounds = this recording's sound. Every notable
+// event fires a short motif in the bed's own key at the moment playback
+// advances onto its turn. EVENT_SOUND below is injected verbatim from
+// league/replay/audio.py's canonical table: ONE design, two renderers (this
+// page live, the MP4 soundtrack offline), zero drift by construction.
+// High-frequency bookkeeping (unit_moved, control_point_held, declarations,
+// clock ticks) is deliberately absent — silence is a design choice. The layer
+// is a pure function of (log, playback position): pitch variety hashes the
+// event's own canonical fields (fnv1a), the two teams sit an octave apart by
+// roster order, and the k-th of a turn's n sounding events fires k/n of the
+// way into the turn interval — position, never wall-clock jitter. The same
+// note toggle governs bed + events (one control, OFF by default), and the
+// motifs fire ONLY on a normal forward advance: scrubbing or jumping is
+// navigation, not time passing, so skipped events are never replayed.
+const EVENT_SOUND = __EVENT_SOUND__;
+const unitTeam = {};
+roster.forEach(u => { unitTeam[u.id] = u.team; });
+function motifRegister(m, d) {
+  const tid = m.team_field ? d[m.team_field]
+    : m.unit_field ? unitTeam[d[m.unit_field]] : null;
+  const idx = teamIndex[tid];
+  return idx == null ? 0 : (idx % 2) * EVENT_SOUND.register_semitones;
+}
+function motifVariant(m, d) {
+  if (!m.variant_steps) return 0;
+  return fnv1a(m.variant_key.map(k => String(d[k] ?? '')).join('|'))
+    % m.variant_steps.length;
+}
+function motifPlan(kind, reg, variant, rootHz) {
+  // The notes one motif plays: (offset s, freq Hz, velocity, duration s,
+  // voice). Mirrored bit-for-bit by league/replay/audio.py's motif_notes —
+  // the offline WAV pins these decisions in tests/test_replay_audio.py.
+  const m = EVENT_SOUND.motifs[kind];
+  const steps = m.variant_steps ? [m.variant_steps[variant]] : m.steps;
+  return steps.map((st, i) => [i * m.gap,
+    rootHz * Math.pow(2, (m.octave * 12 + st + reg) / 12),
+    m.vel * m.vels[i], m.dur, m.voice]);
+}
+function motifNote(A, voice, f, t, vel, dur) {
+  // Near-harmonic partials, a short linear attack, exponential decay to the
+  // table's floor at dur/ratio — the bell envelope's shape, event-sized.
+  for (const [ratio, amp] of voice.partials) {
+    const o = A.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * ratio;
+    const g = A.ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(EVENT_SOUND.peak * vel * amp, t + voice.attack);
+    g.gain.exponentialRampToValueAtTime(EVENT_SOUND.floor, t + dur / ratio);
+    o.connect(g); g.connect(A.eventBus); o.start(t); o.stop(t + dur / ratio + 0.05);
+  }
+}
+function playMotif(kind, d, t) {
+  const m = EVENT_SOUND.motifs[kind];
+  for (const [dt, f, vel, dur, voice] of
+       motifPlan(kind, motifRegister(m, d), motifVariant(m, d), AUDIO.rootHz))
+    motifNote(AUDIO.graph, EVENT_SOUND.voices[voice], f, t + dt, vel, dur);
+}
+function fireMotifs(fi) {
+  if (!AUDIO.on || !AUDIO.graph || !AUDIO.rootHz || fi === 0) return;
+  const evts = M.events_by_turn[String(M.frames[fi].turn)] || [];
+  const sounding = evts.filter(e => EVENT_SOUND.motifs[e.kind]);
+  if (!sounding.length) return;
+  const interval = SPEEDS[String(speed)] / 1000;
+  const t0 = AUDIO.graph.ctx.currentTime + 0.02;
+  sounding.forEach((e, k) => playMotif(e.kind, e.data, t0 + interval * k / sounding.length));
+}
 
 setSpeed(1);
 // Deep link: replay.html#t7 opens on turn 7, so reviewers can point at a frame.

@@ -15,11 +15,13 @@ CMatchLog`. Two lanes, both honest: the grid face above is untouched.
 
 The MP4 export additionally carries the match's ambient score
 (``synthesize_wav``, cycle-8 t9): a pure-stdlib offline render of the same
-seeded music the HTML page synthesizes live (see :mod:`league.replay.audio`).
-The GIF stays silent — GIF89a has no audio channel.
+seeded music the HTML page synthesizes live (see :mod:`league.replay.audio`),
+plus the event-sound layer (``motif_schedule``, cycle-8 audio-events
+amendment) — the same canonical motif table the page plays live. The GIF
+stays silent — GIF89a has no audio channel.
 """
 
-from league.replay.audio import samples_for_frames, synthesize_wav
+from league.replay.audio import motif_schedule, samples_for_frames, synthesize_wav
 from league.replay.chtml import build_continuous_replay_data, render_chtml
 from league.replay.html import build_assessor_guide, build_replay_data, render_html
 from league.replay.tui import render_frame, run_interactive_shell
@@ -44,6 +46,7 @@ __all__ = [
     "build_assessor_guide",
     "build_replay_data",
     "render_html",
+    "motif_schedule",
     "samples_for_frames",
     "synthesize_wav",
     "build_continuous_replay_data",
