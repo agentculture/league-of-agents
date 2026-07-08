@@ -24,8 +24,12 @@ from typing import Any
 from league.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
 from league.cli._output import emit_result
 from league.engine.continuous.events import CMatchLog
+from league.engine.continuous.grades import PURPOSES as CONTINUOUS_GRADE_PURPOSES
+from league.engine.continuous.grades import cgrade_units
+from league.engine.continuous.resolve import outcome_points as continuous_outcome_points
 from league.engine.continuous.scenario import CONTINUOUS_ID_PREFIX
 from league.engine.events import MatchLog
+from league.engine.grades import grade_units
 from league.engine.knowledge import KnowledgeFrame, knowledge_by_turn, latest_knowledge
 from league.engine.legal import legal_actions
 from league.engine.probe import probe_match
@@ -289,8 +293,9 @@ def cmd_match_overview(args: argparse.Namespace) -> int:
             "act": "stage a team's orders; resolves when all teams have staged "
             "(dry-run; --apply)",
             "tick": "force-resolve the turn with whatever is staged (dry-run; --apply)",
-            "score": "outcome + cooperation + tempo scores from the log "
-            "(--substrate <team>=<name> to convert tempo)",
+            "score": "outcome + cooperation + tempo scores from the log, plus a "
+            "per-unit role-purpose scorecard naming MVP/LVP (grid or continuous, "
+            "detected automatically; --substrate <team>=<name> to convert tempo)",
             "probe": "span-of-control probe: subagents fielded, per-seat realization, "
             "guidance linkage, from the log alone",
             "brief": "markdown briefing from the faces registry (--team for the fogged view)",
@@ -744,14 +749,162 @@ def _tempo_line(payload: dict[str, Any]) -> str:
     )
 
 
+# Per-unit role-purpose scorecards (plan task t6, spec c6/c10/c15/h13): a NEW
+# axis beside the team-level outcome/cooperation/tempo, never merged into any
+# of them. ``grade_units``/``cgrade_units`` (plan tasks t1/t2) each return
+# their own lane-native shape — the two shapes below normalize BOTH into one
+# common presentation shape (same keys, same MVP/LVP flag convention) so a
+# caller reading ``report["units"]`` never has to branch on which lane a match
+# came from. Only the *names* of the purposes differ per lane (grid: economy/
+# control/recon/coordination; continuous: race_hold/economy/eyes) — the
+# engine's per-unit grade/breakdown math is untouched, this is presentation
+# only. Boundary (spec: no ranking/ELO surface anywhere): this section names a
+# MATCH's MVP/LVP only; nothing here reads or writes another match's data, and
+# no aggregation across the ``units`` dicts of different matches ever happens.
+
+
+def _units_section(
+    *,
+    match_id: str,
+    purposes: tuple[str, ...],
+    units: dict[str, dict[str, Any]],
+    mvp: dict[str, Any] | None,
+    lvp: dict[str, Any] | None,
+) -> dict[str, Any]:
+    mvp_id = mvp["unit_id"] if mvp else None
+    lvp_id = lvp["unit_id"] if lvp else None
+    return {
+        "match_id": match_id,
+        "purposes": list(purposes),
+        "units": {
+            unit_id: {**entry, "mvp": unit_id == mvp_id, "lvp": unit_id == lvp_id}
+            for unit_id, entry in units.items()
+        },
+        "mvp": mvp,
+        "lvp": lvp,
+    }
+
+
+def _grid_units_section(log: MatchLog) -> dict[str, Any]:
+    """The grid lane's units section — ``grade_units`` (league.engine.grades,
+    plan t1) verbatim, normalized to the shared presentation shape."""
+    report = grade_units(log)
+    units = {
+        unit_id: {
+            "team_id": entry["team_id"],
+            "role": entry["role"],
+            "home_purpose": entry["home_purpose"],
+            "grade": entry["grade"],
+            "breakdown": dict(entry["breakdown"]),
+        }
+        for unit_id, entry in report["units"].items()
+    }
+    return _units_section(
+        match_id=report["match_id"],
+        purposes=tuple(report["purposes"]),
+        units=units,
+        mvp=report["mvp"],
+        lvp=report["lvp"],
+    )
+
+
+def _continuous_units_section(clog: CMatchLog) -> dict[str, Any]:
+    """The continuous lane's units section — ``cgrade_units`` (league.engine.
+    continuous.grades, plan t2) verbatim, normalized to the shared shape.
+
+    ``cgrade_units`` raises ``ValueError`` for a match with no units at all
+    (a malformed/empty roster) — turned into a clean ``CliError`` here rather
+    than let it become the top-level dispatcher's generic "unexpected: ..."
+    wrapper, per the CLI's own error contract.
+    """
+    try:
+        report = cgrade_units(clog)
+    except ValueError as err:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"cannot grade match {clog.initial_state.match_id!r}: {err}",
+            remediation="a match needs at least one unit on its roster to be graded",
+        ) from err
+    units: dict[str, dict[str, Any]] = {}
+    for unit in report["units"]:
+        home_purpose = next(
+            (purpose for purpose, entry in unit["purposes"].items() if entry["on_role"]), None
+        )
+        units[unit["unit_id"]] = {
+            "team_id": unit["team_id"],
+            "role": unit["role"],
+            "home_purpose": home_purpose,
+            "grade": unit["grade"],
+            "breakdown": {purpose: entry["points"] for purpose, entry in unit["purposes"].items()},
+        }
+    return _units_section(
+        match_id=report["match_id"],
+        purposes=CONTINUOUS_GRADE_PURPOSES,
+        units=units,
+        mvp=report["mvp"],
+        lvp=report["lvp"],
+    )
+
+
+def _render_units_lines(units_section: dict[str, Any]) -> list[str]:
+    """A readable scorecard: units ranked by grade (ties broken the same
+    canonical ``(team_id, unit_id)`` way ``grade_units``/``cgrade_units`` break
+    their own MVP/LVP ties), MVP/LVP marked, every purpose's contribution
+    shown."""
+    lines = ["units (role-purpose scorecard):"]
+    ordered = sorted(
+        units_section["units"].items(),
+        key=lambda kv: (-kv[1]["grade"], kv[1]["team_id"], kv[0]),
+    )
+    if not ordered:
+        lines.append("  (no units to grade)")
+        return lines
+    for unit_id, entry in ordered:
+        tag = " [MVP]" if entry["mvp"] else " [LVP]" if entry["lvp"] else ""
+        breakdown = ", ".join(
+            f"{purpose} {points}" for purpose, points in entry["breakdown"].items()
+        )
+        lines.append(
+            f"  {unit_id} ({entry['team_id']}, {entry['role']}) grade {entry['grade']}{tag}"
+            f" — {breakdown}"
+        )
+    return lines
+
+
 def cmd_match_score(args: argparse.Namespace) -> int:
+    """Outcome + cooperation + tempo (grid) or outcome (continuous), plus the
+    per-unit role-purpose scorecard both lanes share (plan task t6).
+
+    Routing mirrors ``cmd_match_replay`` exactly (plan C7-t9's sniff-first
+    discipline, spec c12): the log's OWN header shape is authoritative
+    (``clock``/no ``grid_width`` -> continuous); the ``CONTINUOUS_ID_PREFIX``
+    naming convention only picks the error voice when there is no log on disk
+    to sniff. A grid match is byte-identical to before this task except for
+    the additive ``units`` key — team axes (outcome/cooperation/tempo) are
+    computed by the same untouched calls they always were.
+    """
     json_mode = bool(getattr(args, "json", False))
-    log = _load(Store(), args.match_id)
+    store = Store()
+    path = store.log_path(args.match_id)
+    if path.is_file():
+        route_continuous = _sniff_continuous_log(path.read_text(encoding="utf-8"))
+    else:
+        route_continuous = args.match_id.startswith(CONTINUOUS_ID_PREFIX)
+
+    if route_continuous:
+        return _cmd_match_score_continuous(args, json_mode)
+
+    log = _load(store, args.match_id)
     report = score_match(log, version=getattr(args, "cooperation_version", "v0"))
     # Tempo is a THIRD axis, computed at read time and published BESIDE outcome
     # and cooperation — never merged into either (spec c4/h4).
     substrates = _substrates_from_args(args, list(report["outcome"]))
     report["tempo"] = score_tempo(log, substrates=substrates)
+    # The per-unit scorecard is a FOURTH axis, beside — never inside — the
+    # three above: it is computed independently, from the same log, by a
+    # module that never imports scoring.py/tempo.py (AST-enforced in
+    # tests/test_grades.py), so it can only ever sit next to team scores.
+    report["units"] = _grid_units_section(log)
     if json_mode:
         emit_result(report, json_mode=True)
         return 0
@@ -764,6 +917,42 @@ def cmd_match_score(args: argparse.Namespace) -> int:
             f"resources {outcome['resources']}), cooperation {coop['score']}/100, "
             f"{_tempo_line(report['tempo'][team_id])}"
         )
+    lines.append("")
+    lines.extend(_render_units_lines(report["units"]))
+    emit_result("\n".join(lines), json_mode=False)
+    return 0
+
+
+def _cmd_match_score_continuous(args: argparse.Namespace, json_mode: bool) -> int:
+    """The continuous lane's score path (plan task t6): outcome facts exactly
+    as the continuous engine already computes them today (``outcome_points``,
+    ``status``, ``winner`` — the same facts ``build_continuous_replay_data``'s
+    own ``outcome`` block surfaces), plus the same-shaped ``units`` scorecard
+    the grid lane carries. There is no continuous cooperation/tempo axis yet
+    (out of this task's scope) — only outcome + units.
+    """
+    clog = _load_continuous(Store(), args.match_id)
+    initial = clog.initial_state
+    final = clog.final_state()
+    report: dict[str, Any] = {
+        "match_id": initial.match_id,
+        "scenario_id": initial.scenario_id,
+        "mode": initial.mode,
+        "status": final.status,
+        "winner": final.winner,
+        "outcome": continuous_outcome_points(final),
+    }
+    report["units"] = _continuous_units_section(clog)
+    if json_mode:
+        emit_result(report, json_mode=True)
+        return 0
+    lines = [
+        f"{report['match_id']}: winner {report['winner'] or '—'} ({report['status']})",
+    ]
+    for team_id, points in report["outcome"].items():
+        lines.append(f"  {team_id}: outcome {points}")
+    lines.append("")
+    lines.extend(_render_units_lines(report["units"]))
     emit_result("\n".join(lines), json_mode=False)
     return 0
 
@@ -1264,7 +1453,11 @@ def register(sub: argparse._SubParsersAction) -> None:
     tick.add_argument("--json", action="store_true", help="Emit structured JSON.")
     tick.set_defaults(func=cmd_match_tick)
 
-    score = noun_sub.add_parser("score", help="Outcome + cooperation + tempo scores from the log.")
+    score = noun_sub.add_parser(
+        "score",
+        help="Outcome + cooperation + tempo scores, plus a per-unit MVP/LVP scorecard, "
+        "from the log (grid or continuous, detected automatically).",
+    )
     score.add_argument("match_id", help="Match id.")
     score.add_argument("--json", action="store_true", help="Emit structured JSON.")
     score.add_argument(
