@@ -13,9 +13,16 @@ convention, spec honesty h11):
   coordinating through the EXISTING plan/message channels, no new mechanics.
 
 Binding decision (plan risk r4, pinned JOIN not replace): scout / harvester /
-defender keep their exact stats and behaviour; the new roles are additive, and
-the ``skirmish-1`` determinism fixture stays byte-identical (asserted here and
-by ``tests/test_determinism_gate.py``).
+defender keep their exact stats and behaviour; the new roles are additive.
+
+Cycle-8 task t10 makes one further, separate, deliberate cut on top of r4:
+the grid scout's ``can_capture`` flips to ``False`` (eyes-only, parity with
+the continuous lane's own cycle-7 amendment — see ``docs/roles.md``'s
+Decision section). That IS a real behaviour change for scout alone (harvester
+and defender are still exactly as r4 pinned them), and it deliberately
+regenerates ``tests/fixtures/determinism.hash`` — see
+``tests/test_determinism_gate.py``'s module docstring for the regeneration
+procedure and this task's commit for the documented before/after.
 """
 
 from __future__ import annotations
@@ -84,14 +91,21 @@ def test_recon_scenario_is_registered_and_rosters_new_roles_with_executors() -> 
 
 
 def test_existing_roles_keep_their_stats_and_default_capabilities() -> None:
-    """JOIN, not replace: scout/harvester/defender are byte-for-byte unchanged
-    and default to the pre-existing behaviour (can gather, can capture)."""
+    """JOIN, not replace: scout/harvester/defender's move/carry/vision numbers
+    are byte-for-byte unchanged. harvester/defender also keep the pre-existing
+    default capabilities (can gather, can capture); the scout keeps
+    ``can_gather=True`` but — cycle-8 t10, docs/roles.md's Decision section —
+    is now ``can_capture=False``: eyes-only, parity with the continuous lane's
+    own cycle-7 amendment."""
     for sid in ("skirmish-1", "skirmish-2"):
         scenario = get_scenario(sid)
-        for role in ("scout", "harvester", "defender"):
+        for role in ("harvester", "defender"):
             stats = scenario.stats_for(role)
             assert stats.can_gather is True
             assert stats.can_capture is True
+        scout = scenario.stats_for("scout")
+        assert scout.can_gather is True
+        assert scout.can_capture is False
     s1 = get_scenario("skirmish-1")
     assert (
         s1.stats_for("scout").move,

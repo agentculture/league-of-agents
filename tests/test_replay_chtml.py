@@ -39,11 +39,17 @@ _PLAYTESTS = Path(__file__).resolve().parent.parent / "docs" / "playtests"
 # is the continuous face (or its CLI routing) bending the grid path, which the
 # continuous work must never touch. It is NOT a freeze on the grid face itself:
 # a deliberate grid-renderer change (like the cycle-6 restyle, PR #18, which
-# moved this pin from 5a1f8919…, or the cycle-8 t4 ambient score, which moved
-# it from bfe89f92… to its current value) legitimately regenerates it —
-# recompute render_html() on the committed log and say so in the PR.
+# moved this pin from 5a1f8919…) legitimately regenerates it — recompute
+# render_html() on the committed log and say so in the PR. Cycle 8 moved it
+# twice in one train: t4's ambient score changed the document's inline JS, and
+# t10's grid scout eyes-only decision (docs/roles.md) flipped scout's
+# can_capture in league/engine/scenario.py — render_html() reads role stats
+# live from the scenario, not just the log, so the rendered role-table bytes
+# changed even though league/replay/html.py's markup for it did not (moved
+# from bfe89f92… to its current value, recomputed on the merged tree carrying
+# both changes; the log and its scored facts are untouched).
 _GRID_LOG_REL = "cycle-5/colleague-coop.log.jsonl"
-_GRID_HTML_SHA256 = "a938748576e59cc41184a1d3f6b18da931f8458523eb26d9785a55b3467ffe72"
+_GRID_HTML_SHA256 = "e571c6b33910b81649ff94d7dbc5eeb16f00eb74b369d5756bb916765c344f08"
 
 
 def _committed_grid_log() -> MatchLog:

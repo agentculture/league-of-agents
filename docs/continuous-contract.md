@@ -92,8 +92,8 @@ Field by field:
   of reasoning at all — it is forbidden from `take_post` in the continuous
   lane, a human-reviewed amendment, cycle 7 pre-publish: "scouts should not be
   able to take posts — only be the 'eyes'". Its menu simply never offers
-  `take_post`; see [`docs/roles.md`](roles.md) for how this splits from the
-  grid lane, where scout is unchanged.)
+  `take_post`; see [`docs/roles.md`](roles.md) for the cycle-8 decision that
+  brought the grid lane's scout to the same eyes-only rule.)
 - **`board`** — a projection of the whole state: teams, units, control points
   (with their concurrent `takers`), missions, and resource nodes. Fogless by
   default; with `config["fog"]` on (plan C8-t5), `units`/`control_points`/

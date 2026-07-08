@@ -199,6 +199,23 @@ def test_deliver_legality_agrees_with_resolve_turn_when_not_carrying() -> None:
     assert [e.data["reason"] for e in rejected] == ["nothing to deliver"]
 
 
+def test_scout_can_capture_is_false_mirroring_the_tick() -> None:
+    """Cycle-8 t10: the grid scout is eyes-only. ``legal_actions`` must report
+    ``can_capture: false`` for it exactly as ``resolve_turn``'s own occupancy
+    filter treats it (tests/test_engine_tick.py's scout capture tests) —
+    while every other capability (gather, move, deliver, hold) stays intact."""
+    state = active_match()
+    actions = legal_actions(state, SCENARIO, "blue-u1")  # blue-u1 is the scout
+    assert actions["can_capture"] is False
+    assert actions["can_gather"] is True
+    assert actions["hold"] is True
+
+    harvester = legal_actions(state, SCENARIO, "blue-u2")
+    defender = legal_actions(state, SCENARIO, "blue-u3")
+    assert harvester["can_capture"] is True
+    assert defender["can_capture"] is True
+
+
 def test_hold_is_always_legal() -> None:
     state = active_match()
     for unit in state.units:

@@ -202,6 +202,12 @@ def test_generated_scenario_is_well_formed() -> None:
     # scout keeps the strictly-widest vision (spec c12)
     visions = {role: stats.vision for role, stats in scenario.role_stats}
     assert all(visions["scout"] > v for role, v in visions.items() if role != "scout")
+    # cycle-8 t10: the generated scout is eyes-only too (docs/roles.md) — it
+    # keeps gather, but can never capture a control point.
+    assert scenario.stats_for("scout").can_gather is True
+    assert scenario.stats_for("scout").can_capture is False
+    assert scenario.stats_for("harvester").can_capture is True
+    assert scenario.stats_for("defender").can_capture is True
     assert len(scenario.control_points) == 2 * params.control_point_pairs
     assert len(scenario.resource_nodes) == 2 * params.resource_node_pairs
     deliver = [m for m in scenario.missions if m.kind == "deliver"]

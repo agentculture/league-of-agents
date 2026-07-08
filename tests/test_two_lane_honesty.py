@@ -94,7 +94,14 @@ _GRID_GRADES_MODULE = "grades.py"
 # fixture, and if a later task legitimately needs to, both the fixture file
 # AND this constant must change together in the same, documented commit —
 # exactly the visibility the grid gate's own docstring already asks for.
-_GRID_DETERMINISM_HASH = "187f917aaa2a63c5426c7810f7a178548c8c351e2bb82d8c578de6227d00df9f"
+#
+# Cycle-8 t10 is exactly that later task: the grid scout's can_capture flips
+# to False (docs/roles.md's Decision section), skirmish-1's canonical script
+# in tests/test_determinism_gate.py genuinely resolves differently (blue's
+# scout no longer captures cp-east; blue's defender captures cp-center
+# instead once red's scout stops contesting it), so both the fixture and this
+# constant move together here, in the same documented commit.
+_GRID_DETERMINISM_HASH = "a4b2628bf5199db02ecdec88c80791d4fd9de93c1c808dc48c50c3ad58a92bca"
 _CONTINUOUS_DETERMINISM_HASH = "96ae89c58d865b5973d1f15143114e221384880fce7c5356fd7d59d44312627d"
 
 
