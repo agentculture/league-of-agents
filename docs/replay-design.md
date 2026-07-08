@@ -356,12 +356,59 @@ path like everything else.
 guide's "Ambient score" section quotes the target verbatim — "content and
 relaxed, but also curious and intrigued" — and the next human review rates
 whether the score lands it; a miss is a finding for the next cycle, not a
-silent pass. The exported-video soundtrack (a WAV synthesized offline from
-the same match seed, muxed into MP4) is a separate task (cycle-8 t9). The
-**continuous face deliberately stays silent this wave**: frame v4 is pinned
-minimal — no transport, no client JS — so there is no idiomatic home for a
-toggle there yet; it inherits audio when the continuous lane earns its own
-visual cycle.
+silent pass. The exported-video soundtrack (below) sits under the same
+obligation. The **continuous face deliberately stays silent this wave**:
+frame v4 is pinned minimal — no transport, no client JS — so there is no
+idiomatic home for a toggle there yet; it inherits audio when the continuous
+lane earns its own visual cycle.
+
+### The exported soundtrack — the same piece, offline (cycle-8 t9)
+
+`league match record --format mp4` muxes the match's ambient score into the
+video: `league/replay/audio.py` (pure stdlib — `wave`, `math`, `array`; the
+runtime dependency list stays empty) synthesizes a WAV offline and the
+existing optional-ffmpeg path adds it as a second input (`-i soundtrack.wav
+-c:a aac -shortest` — every pre-existing video argument is untouched, and the
+no-ffmpeg error contract is exactly what it was).
+
+**Same match, same music.** The offline render is a port of the HTML score's
+decision engine, not a second composition: the seed is FNV-1a over
+`match_id|seed` (the page's own `audioSeed()`), every musical decision
+consumes a bit-exact `mulberry32` port, and each voice draws from the same
+independent stream (`seed ^ 0x51AB3C02` pads, `seed ^ 0x9E3779B9` bells) —
+so the chord root, the lydian pad progression, and the bell cadence are
+note-for-note the piece the HTML toggle plays for that match. The port is
+pinned against the JavaScript itself: `tests/test_replay_audio.py` carries
+uint32 PRNG streams and full 60-second decision tables extracted from
+`html.py`'s embedded code running under node, and fails if the two engines
+ever drift.
+
+**Documented differences, all sample-level, none decision-level.** WebAudio's
+convolver reverb has no cheap pure-Python equivalent, so the offline render
+drops the synthesized reverb tail (its seed stream is independent — skipping
+it changes no other draw) and substitutes a one-pole low-pass (with the same
+950 Hz ± 240 Hz × 0.045 Hz LFO breath) for the biquad; and it adds a short
+closing fade-out, because an MP4 ends and the page never does. Output is
+**mono 16-bit PCM at 44100 Hz** — mono because the HTML graph's stereo width
+comes only from the reverb this render omits. The WAV covers the MP4's exact
+duration (its sample count derives from the same held-frame total the raw
+video pipe carries), and the same log + same record settings produce a
+**byte-identical WAV** (unit-tested).
+
+**The GIF stays silent by format truth.** GIF89a simply has no audio channel
+— there is nothing to mux into, so silence there is a property of the format,
+not a missing feature. `--format gif` output is byte-unchanged by the
+soundtrack work, pinned by a committed-log GIF hash in
+`tests/test_replay_video.py`.
+
+**The reviewer verdict obligation extends to the MP4 (spec h11).** The mood
+target for the exported soundtrack is the same verbatim directive quoted at
+the top of this section — "a pleasent music that will complement the
+experience and make me feel content and relaxed, but also curious and
+intrigued" — and the next human review rates whether the MP4 soundtrack
+lands it **on the record**, exactly as for the HTML score: a recorded
+reviewer verdict, not a developer assertion; a miss is a finding for the
+next cycle, not a silent pass.
 
 ## Scorecard — the per-unit axis in both faces (cycle 8)
 

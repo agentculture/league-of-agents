@@ -18,6 +18,7 @@ import os
 import shutil
 import subprocess  # nosec B404
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,8 @@ from league.replay import (
     render_gif,
     render_html,
     run_interactive_shell,
+    samples_for_frames,
+    synthesize_wav,
 )
 from league.store import Store, validate_id
 
@@ -302,7 +305,8 @@ def cmd_match_overview(args: argparse.Namespace) -> int:
             "replay": "self-contained HTML replay on stdout (grid or continuous, "
             "detected automatically)",
             "record": "render the match log to a shareable GIF (or --format mp4 with "
-            "ffmpeg on PATH), offline, to --out <file> (--theme light|dark, --tween N)",
+            "ffmpeg on PATH — MP4 carries the match's seeded ambient soundtrack), "
+            "offline, to --out <file> (--theme light|dark, --tween N)",
             "tui": "replay-stepping terminal view: ground truth or --team fog "
             "(--frame N for non-interactive; --no-color)",
         },
@@ -1079,7 +1083,9 @@ def _repeat_count(delay_cs: int, output_fps: int) -> int:
     return max(1, round(delay_cs * output_fps / 100))
 
 
-def _render_mp4(video, *, fps: int, tween: int, out_path: Path, provenance: str) -> None:
+def _render_mp4(
+    video, *, fps: int, tween: int, out_path: Path, provenance: str, match_id: str, seed: int
+) -> None:
     """Pipe the same raw frames ffmpeg's way. The only subprocess call in the
     whole video-export feature — deliberately kept out of league/replay/video.py
     (library code stays subprocess-free and trivially testable).
@@ -1087,46 +1093,67 @@ def _render_mp4(video, *, fps: int, tween: int, out_path: Path, provenance: str)
     The container runs at ``fps * (tween + 1)`` so each tween sub-frame maps to
     ~one output frame and a full turn still spans 1/fps seconds — at plain
     ``fps``, every sub-frame would expand to a whole turn interval and the video
-    would play ``tween + 1`` times slower than asked."""
+    would play ``tween + 1`` times slower than asked.
+
+    The MP4 also carries the match's ambient score (cycle-8 t9, spec c17/h10):
+    a WAV synthesized offline from the same ``match_id|seed`` identity the HTML
+    replay's live score derives its seed from — the same piece of music — sized
+    to the video's exact held-frame duration and muxed as a second input
+    (``-c:a aac -shortest``). The GIF path never comes here: GIF89a has no
+    audio channel, so its silence is format truth, not a missing feature."""
     output_fps = fps * (tween + 1)
     raw = bytearray()
+    held_frames = 0
     for frame in video.frames:
         rgb = indices_to_rgb(frame.indices, video.palette)
-        raw += rgb * _repeat_count(frame.delay_cs, output_fps)
-    try:
-        subprocess.run(  # nosec B603 B607
-            [
-                "ffmpeg",
-                "-y",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-f",
-                "rawvideo",
-                "-pixel_format",
-                "rgb24",
-                "-video_size",
-                f"{video.width}x{video.height}",
-                "-framerate",
-                str(output_fps),
-                "-i",
-                "-",
-                "-pix_fmt",
-                "yuv420p",
-                "-metadata",
-                f"comment={provenance}",
-                str(out_path),
-            ],
-            input=bytes(raw),
-            check=True,
-            capture_output=True,
-        )
-    except subprocess.CalledProcessError as err:
-        raise CliError(
-            code=EXIT_ENV_ERROR,
-            message=f"ffmpeg failed: {err.stderr.decode(errors='replace')[:300]}",
-            remediation="drop --format (defaults to gif, the always-works path)",
-        ) from err
+        reps = _repeat_count(frame.delay_cs, output_fps)
+        raw += rgb * reps
+        held_frames += reps
+    wav_bytes = synthesize_wav(
+        match_id, seed, num_samples=samples_for_frames(held_frames, output_fps)
+    )
+    with tempfile.TemporaryDirectory(prefix="league-record-") as tmp_dir:
+        wav_path = Path(tmp_dir) / "soundtrack.wav"
+        wav_path.write_bytes(wav_bytes)
+        try:
+            subprocess.run(  # nosec B603 B607
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "rawvideo",
+                    "-pixel_format",
+                    "rgb24",
+                    "-video_size",
+                    f"{video.width}x{video.height}",
+                    "-framerate",
+                    str(output_fps),
+                    "-i",
+                    "-",
+                    "-i",
+                    str(wav_path),
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-c:a",
+                    "aac",
+                    "-shortest",
+                    "-metadata",
+                    f"comment={provenance}",
+                    str(out_path),
+                ],
+                input=bytes(raw),
+                check=True,
+                capture_output=True,
+            )
+        except subprocess.CalledProcessError as err:
+            raise CliError(
+                code=EXIT_ENV_ERROR,
+                message=f"ffmpeg failed: {err.stderr.decode(errors='replace')[:300]}",
+                remediation="drop --format (defaults to gif, the always-works path)",
+            ) from err
 
 
 def cmd_match_record(args: argparse.Namespace) -> int:
@@ -1189,7 +1216,15 @@ def cmd_match_record(args: argparse.Namespace) -> int:
                     "(the default)"
                 ),
             )
-        _render_mp4(video, fps=args.fps, tween=args.tween, out_path=out_path, provenance=provenance)
+        _render_mp4(
+            video,
+            fps=args.fps,
+            tween=args.tween,
+            out_path=out_path,
+            provenance=provenance,
+            match_id=data["match_id"],
+            seed=data["seed"],
+        )
         size = out_path.stat().st_size
     else:
         gif_bytes = render_gif(
@@ -1511,8 +1546,10 @@ def register(sub: argparse._SubParsersAction) -> None:
         "--format",
         choices=("gif", "mp4"),
         default="gif",
-        help="gif (default): pure-stdlib, always works, no install. mp4: pipes the same "
-        "frames through ffmpeg — requires ffmpeg on PATH, else errors naming the gif "
+        help="gif (default): pure-stdlib, always works, no install — and silent, because "
+        "GIF has no audio channel. mp4: pipes the same frames through ffmpeg plus the "
+        "match's deterministic ambient soundtrack (the HTML replay's own seeded score, "
+        "synthesized offline) — requires ffmpeg on PATH, else errors naming the gif "
         "fallback.",
     )
     record.add_argument(
