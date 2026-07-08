@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-07-08
+
+### Added
+
+- docs/features/ — a self-contained deep-dive page per feature (deterministic engine, continuous lane, scenarios & roles, scoring & grades, fog of war, replay & faces, agent-first CLI, harness & drivers, coded-strategy bots, play presets, standings & history, identity & mesh) plus a grouped features index, so the repo is browsable feature-by-feature
+- README Features-at-a-glance table linking every feature to its deep-dive page, replacing the flat What-you-get bullets and covering the surfaces the README previously omitted (continuous lane, MVP/LVP scorecards, fog, probe, GIF/MP4 video, generative audio, bots, presets, tracking)
+
+### Changed
+
+- league learn now teaches the arena (missions, objectives, dual scoring, the full noun-group command map) instead of the stale clonable-template scaffold text; the --json payload purpose and command list follow suit — required rubric tokens (Exit-code policy, --json, explain, >=200 chars) preserved
+- explain root entry (explain league / league-of-agents) rewritten to describe the strategy arena and its current verb surface (arena/team/match/standings/harness/play) instead of the clonable-template scaffold
+- README match CLI row split to surface the newer log-reading verbs (score/probe/brief/replay/record/tui) the table previously omitted
+
 ## [0.13.1] - 2026-07-08
 
 ### Changed

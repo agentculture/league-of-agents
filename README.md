@@ -8,30 +8,27 @@ become a coherent, strategic, cooperative team under constraint?* Matches are
 deterministic and replayable, scored on **both mission outcome and cooperation
 quality**, beautiful for humans and `--json`-practical for agents.
 
-## What you get
+## Features at a glance
 
-- **A deterministic arena engine** (`league/engine/`) — immutable match state,
-  an append-only event log as the single source of truth, and a pure seedable
-  tick: same declared actions + same seed → same outcome, enforced by a CI
-  determinism gate.
-- **Dual scoring** — mission outcome plus a cooperation-quality heuristic
-  (delegation, communication, plan coherence, discipline), computed from the
-  match log alone.
-- **A published tempo axis** — per-team speed, converted against a
-  per-substrate calibration baseline with raw latency always shown beside it;
-  see [`docs/tempo-methodology.md`](docs/tempo-methodology.md) for the
-  calibration, the conversion, and its limits.
-- **A self-contained HTML replay** per match — one file, both themes, no
-  external requests — rendered from the same fold as the JSON projection.
-- **An agent-first CLI** cited from [teken](https://github.com/agentculture/teken):
-  every write verb is dry-run by default (`--apply` commits), every read verb
-  takes `--json`, no third-party runtime dependencies.
-- **An agent-player harness** — field teams of live models (one independent
-  mind per seat, coordinating only through in-game messages) or deterministic
-  baseline bots, all through the public CLI surface.
-- **A mesh identity + the guildmaster skill kit** — `culture.yaml`,
-  `AGENTS.colleague.md`, and 11 vendored skills under `.claude/skills/`
-  (see [`docs/skill-sources.md`](docs/skill-sources.md)).
+Every row links to a deep-dive page under [`docs/features/`](docs/features/).
+
+| Feature | One line | Deep dive |
+|---------|----------|-----------|
+| **Deterministic engine** | Immutable state, an event log as the single source of truth, canonical-order resolution, CI determinism gate. | [→](docs/features/deterministic-engine.md) |
+| **Continuous lane** | A real-time sibling engine — fixed-point positions, event-timeline initiative, first-class race semantics. | [→](docs/features/continuous-lane.md) |
+| **Scenarios & roles** | Boards that force coordination by construction; roles as engine-enforced capability contracts. | [→](docs/features/scenarios-and-roles.md) |
+| **Scoring & grades** | Dual scoring (outcome + cooperation), a published tempo axis, a span-of-control probe, per-unit MVP/LVP scorecards. | [→](docs/features/scoring-and-grades.md) |
+| **Fog of war** | Per-role vision, an accumulating knowledge fold, fog mode, and orchestrator information levers. | [→](docs/features/fog-of-war.md) |
+| **Replay & faces** | Self-contained HTML replay (both lanes), markdown briefing, terminal view, offline GIF/MP4 video, generative audio. | [→](docs/features/replay-and-faces.md) |
+| **Agent-first CLI** | Dry-run by default, `--json` everywhere, a stable error/exit-code contract, no third-party runtime deps. | [→](docs/features/agent-first-cli.md) |
+| **Harness & drivers** | Field live models (one mind per seat) or bots — stateless, resident, and orchestrator modes. | [→](docs/features/harness-and-drivers.md) |
+| **Coded-strategy bots** | A public-surface bot lane with declared bronze/silver/gold difficulty tiers. | [→](docs/features/coded-strategy-bots.md) |
+| **Play presets** | One-command launch of every bundled mode (solo / team / orchestrator / resident vs. the house bot). | [→](docs/features/play-presets.md) |
+| **Standings & history** | Cross-match trends, per team and per agent, straight from the record. | [→](docs/features/standings-and-history.md) |
+| **Identity & mesh** | `culture.yaml`, the `colleague` backend, `doctor` invariants, and a vendored cite-don't-import skill kit. | [→](docs/features/identity-and-mesh.md) |
+
+New to the repo? The [features index](docs/features/README.md) groups these into
+engine, scoring, replay, play, and agent-identity clusters with a paragraph each.
 
 ## Quickstart
 
@@ -88,7 +85,8 @@ uv run league play start resident-vs-bot --apply      # one long-lived session p
 | `whoami` / `learn` / `explain <path>` / `overview` / `doctor` | Agent-first introspection: identity, self-teaching, per-path docs, snapshot, invariants. |
 | `arena list\|show` | The scenario catalog (read-only). |
 | `team register\|list\|show` | Rosters: agent seats as `id:model:role` triples. |
-| `match new\|act\|tick\|show\|list\|score\|replay\|rematch` | The play loop: stage orders, deterministic resolution, dual scores, HTML replay, fair rematches (same scenario+seed, new roster). |
+| `match new\|act\|tick\|show\|list` | The play loop: stage orders, deterministic canonical-order resolution, current state (`--team`/`--fog` for one team's view). |
+| `match score\|probe\|brief\|replay\|record\|tui\|rematch` | Read the log back: dual scores + MVP/LVP, span-of-control probe, markdown briefing, self-contained HTML replay, offline GIF/MP4 video, terminal view, fair rematches (same scenario+seed, new roster). |
 | `standings` / `history` | Per-team and per-agent trends across all recorded matches. |
 | `harness run` | Play a configured match with live drivers end to end. |
 | `play list\|show\|start` | One-command launch of a bundled preset mode (solo/team/orchestrator/resident vs. the house bot). |
