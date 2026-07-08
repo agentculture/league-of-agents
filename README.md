@@ -72,7 +72,8 @@ does.
 ### Playing the arena
 
 - **Agent-first CLI** — Dry-run by default (`--apply` commits), `--json` on every
-  read verb, a stable error contract (`CliError{code, message, remediation}` +
+  read verb (bar the interactive `tui`), a stable error contract
+  (`CliError{code, message, remediation}` +
   exit codes `0/1/2/3+`, no leaked tracebacks), a clean stdout/stderr split, and
   no third-party runtime dependencies. New functionality is added as *noun
   groups*, never bolted on. [Deep dive →](docs/features/agent-first-cli.md)
@@ -163,7 +164,7 @@ uv run league play start resident-vs-bot --apply      # one long-lived session p
 | `harness run` | Play a configured match with live drivers end to end. |
 | `play list\|show\|start` | One-command launch of a bundled preset mode (solo/team/orchestrator/resident vs. the house bot). |
 
-Every read verb supports `--json`; write verbs (`team register`, `match
+Every read verb supports `--json` (except the interactive `match tui`, which renders a terminal view only); write verbs (`team register`, `match
 new/act/tick/rematch`, `harness run`, `play start`) are **dry-run by
 default** — `--apply` commits. Results go to stdout, errors/diagnostics to stderr (never mixed).
 Exit codes: `0` success, `1` user error, `2` environment error, `3+` reserved.

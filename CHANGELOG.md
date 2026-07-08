@@ -18,6 +18,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - explain root entry (explain league / league-of-agents) rewritten to describe the strategy arena and its current verb surface (arena/team/match/standings/harness/play) instead of the clonable-template scaffold
 - README match CLI row split to surface the newer log-reading verbs (score/probe/brief/replay/record/tui) the table previously omitted
 
+### Fixed
+
+- `learn` and the `explain` root/introspection pages printed `league-of-agents <verb>` example commands, but the only installed console script is `league` (the `[project.scripts]` entry), so those examples were not runnable. Every *runnable* example now uses `league …` (matching the README quickstart); the `# league-of-agents <verb>` doc headings and the argparse `prog` stay as the intentional distribution/display name (Qodo review, PR #27)
+- Corrected the "every read verb supports `--json`" claim in `learn`, the `explain` root, and the README — the interactive `match tui` accepts `--json` but always renders a terminal view, so it is now named as the one exception rather than silently contradicting the promise (Qodo review, PR #27)
+
 ## [0.13.1] - 2026-07-08
 
 ### Changed

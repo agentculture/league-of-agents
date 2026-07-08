@@ -26,13 +26,16 @@ constraint? Drive it through this agent-first CLI (cited from the teken
 
 Commands
 --------
+Run the installed `league` console script (the distribution is named
+league-of-agents).
+
 Introspection:
-  league-of-agents whoami             Identity from culture.yaml.
-  league-of-agents learn              This self-teaching prompt.
-  league-of-agents explain <path>...  Markdown docs for any noun/verb path.
-  league-of-agents overview           Descriptive snapshot of the agent.
-  league-of-agents doctor             Check the agent-identity invariants.
-  league-of-agents cli overview       Describe the CLI surface itself.
+  league whoami                       Identity from culture.yaml.
+  league learn                        This self-teaching prompt.
+  league explain <path>...            Markdown docs for any noun/verb path.
+  league overview                     Descriptive snapshot of the agent.
+  league doctor                       Check the agent-identity invariants.
+  league cli overview                 Describe the CLI surface itself.
 
 The arena:
   league arena list|show              The scenario catalog (read-only).
@@ -51,7 +54,8 @@ are dry-run by default; add --apply to commit.
 
 Machine-readable output
 -----------------------
-Every read verb supports --json. Errors in JSON mode emit
+Every read verb supports --json, except the interactive league match tui, which
+renders a terminal view only. Errors in JSON mode emit
 {"code", "message", "remediation"} to stderr. Stdout and stderr never mix.
 
 Exit-code policy
@@ -63,8 +67,8 @@ Exit-code policy
 
 More detail
 -----------
-  league-of-agents explain league-of-agents
-  league-of-agents explain match
+  league explain league
+  league explain match
 """
 
 
@@ -102,7 +106,7 @@ def _as_json_payload() -> dict[str, object]:
             "2": "environment/setup error",
         },
         "json_support": True,
-        "explain_pointer": "league-of-agents explain <path>",
+        "explain_pointer": "league explain <path>",
     }
 
 

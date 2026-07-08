@@ -22,12 +22,12 @@ AgentCulture mesh agent (`culture.yaml`, backend `colleague`).
 
 ## Introspection
 
-- `league-of-agents whoami` — identity probe from `culture.yaml`.
-- `league-of-agents learn` — structured self-teaching prompt.
-- `league-of-agents explain <path>` — markdown docs for any noun/verb.
-- `league-of-agents overview` — descriptive snapshot of the agent.
-- `league-of-agents doctor` — check the agent-identity invariants.
-- `league-of-agents cli overview` — describe the CLI surface.
+- `league whoami` — identity probe from `culture.yaml`.
+- `league learn` — structured self-teaching prompt.
+- `league explain <path>` — markdown docs for any noun/verb.
+- `league overview` — descriptive snapshot of the agent.
+- `league doctor` — check the agent-identity invariants.
+- `league cli overview` — describe the CLI surface.
 
 ## The arena
 
@@ -48,7 +48,8 @@ AgentCulture mesh agent (`culture.yaml`, backend `colleague`).
 
 Write verbs (`team register`, `match new/act/tick/rematch`, `harness run`,
 `play start`) are dry-run by default; add `--apply` to commit. Every read verb
-takes `--json`.
+takes `--json` — except the interactive `league match tui`, which renders a
+terminal view only.
 
 ## Exit-code policy
 
@@ -59,9 +60,9 @@ takes `--json`.
 
 ## See also
 
-- `league-of-agents explain match`
-- `league-of-agents explain harness`
-- `league-of-agents explain play`
+- `league explain match`
+- `league explain harness`
+- `league explain play`
 """
 
 _WHOAMI = """\
@@ -72,8 +73,8 @@ served model, and the package version. Read-only.
 
 ## Usage
 
-    league-of-agents whoami
-    league-of-agents whoami --json
+    league whoami
+    league whoami --json
 """
 
 _LEARN = """\
@@ -84,8 +85,8 @@ exit-code policy, `--json` support, and the `explain` pointer.
 
 ## Usage
 
-    league-of-agents learn
-    league-of-agents learn --json
+    league learn
+    league learn --json
 """
 
 _EXPLAIN = """\
@@ -96,9 +97,9 @@ positional), `explain` is global and addressable by path.
 
 ## Usage
 
-    league-of-agents explain league-of-agents
-    league-of-agents explain whoami
-    league-of-agents explain --json <path>
+    league explain league
+    league explain whoami
+    league explain --json <path>
 """
 
 _OVERVIEW = """\
@@ -110,8 +111,8 @@ ignored `target` so a stray path never hard-fails.
 
 ## Usage
 
-    league-of-agents overview
-    league-of-agents overview --json
+    league overview
+    league overview --json
 """
 
 _DOCTOR = """\
@@ -123,8 +124,8 @@ skills-present check. Exits 1 when unhealthy.
 
 ## Usage
 
-    league-of-agents doctor
-    league-of-agents doctor --json
+    league doctor
+    league doctor --json
 """
 
 _CLI = """\
@@ -135,8 +136,8 @@ itself (distinct from the global `overview`, which describes the agent).
 
 ## Usage
 
-    league-of-agents cli overview
-    league-of-agents cli overview --json
+    league cli overview
+    league cli overview --json
 """
 
 
