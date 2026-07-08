@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] - 2026-07-08
+
+### Changed
+
+- Refactored `_render_board_svg` into four independent layer helpers (`_render_resource_nodes`, `_render_missions`, `_render_control_points`, `_render_units`) plus a flat orchestrator, clearing SonarCloud `python:S3776` (cognitive complexity 27 -> under the 15 threshold); output is byte-identical, pinned by the existing determinism/snapshot replay tests (issue #25)
+
 ## [0.13.0] - 2026-07-08
 
 ### Added

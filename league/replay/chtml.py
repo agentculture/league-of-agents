@@ -296,16 +296,8 @@ def _describe_event(entry: dict[str, Any]) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def _render_board_svg(frame: dict[str, Any], board: dict[str, int], team_ids: list[str]) -> str:
-    scale = _scale(board["width"], board["height"])
-    w = _BOARD_PAD_PX * 2 + board["width"] * scale
-    h = _BOARD_PAD_PX * 2 + board["height"] * scale
-    parts: list[str] = [
-        f'<svg viewBox="0 0 {w:.1f} {h:.1f}" class="cboard" role="img" '
-        f'aria-label="board at t={frame["clock"]}">',
-        f'<rect x="0" y="0" width="{w:.1f}" height="{h:.1f}" class="cboard-bg"/>',
-    ]
-
+def _render_resource_nodes(frame: dict[str, Any], scale: float) -> list[str]:
+    parts: list[str] = []
     for node in frame["resource_nodes"]:
         cx, cy = _px(node["pos"]["x"], scale), _px(node["pos"]["y"], scale)
         r = _NODE_R
@@ -321,8 +313,13 @@ def _render_board_svg(frame: dict[str, Any], board: dict[str, int], team_ids: li
             f'<text x="{cx:.1f}" y="{cy + 3:.1f}" text-anchor="middle" class="cnode-num">'
             f"{node['remaining']}</text>"
         )
+    return parts
 
-    cp_squares = {(c["pos"]["x"], c["pos"]["y"]) for c in frame["control_points"]}
+
+def _render_missions(
+    frame: dict[str, Any], scale: float, cp_squares: set[tuple[int, int]]
+) -> list[str]:
+    parts: list[str] = []
     for ms in frame["missions"]:
         # Frame v5: mission sites are drawn (a dashed square + id), so a
         # delivery contest — units converging on the shared bank — happens
@@ -346,7 +343,11 @@ def _render_board_svg(frame: dict[str, Any], board: dict[str, int], team_ids: li
             f'<text x="{cx:.1f}" y="{label_y:.1f}" text-anchor="middle" class="cms-id">'
             f"{_esc(ms['id'])}</text>"
         )
+    return parts
 
+
+def _render_control_points(frame: dict[str, Any], scale: float, team_ids: list[str]) -> list[str]:
+    parts: list[str] = []
     for cp in frame["control_points"]:
         cx, cy = _px(cp["pos"]["x"], scale), _px(cp["pos"]["y"], scale)
         owner = cp["owner"]
@@ -373,7 +374,11 @@ def _render_board_svg(frame: dict[str, Any], board: dict[str, int], team_ids: li
                 f"<title>{_esc(taker['unit_id'])} taking — completes t="
                 f"{taker['completion_time']}</title></circle>"
             )
+    return parts
 
+
+def _render_units(frame: dict[str, Any], scale: float, team_ids: list[str]) -> list[str]:
+    parts: list[str] = []
     for unit in frame["units"]:
         if not unit["alive"]:
             continue
@@ -396,7 +401,27 @@ def _render_board_svg(frame: dict[str, Any], board: dict[str, int], team_ids: li
             f'<text x="{cx:.1f}" y="{cy + 4:.1f}" text-anchor="middle" class="cunit-glyph">'
             f"{_esc(glyph)}</text></g>"
         )
+    return parts
 
+
+def _render_board_svg(frame: dict[str, Any], board: dict[str, int], team_ids: list[str]) -> str:
+    # Orchestrator: the board is four independent, watchable layers drawn in a
+    # fixed back-to-front order (nodes, missions, control points, units). Each
+    # layer is its own helper so this stays flat; the concatenation order — and
+    # thus the output bytes — is the contract the replay tests pin.
+    scale = _scale(board["width"], board["height"])
+    w = _BOARD_PAD_PX * 2 + board["width"] * scale
+    h = _BOARD_PAD_PX * 2 + board["height"] * scale
+    parts: list[str] = [
+        f'<svg viewBox="0 0 {w:.1f} {h:.1f}" class="cboard" role="img" '
+        f'aria-label="board at t={frame["clock"]}">',
+        f'<rect x="0" y="0" width="{w:.1f}" height="{h:.1f}" class="cboard-bg"/>',
+    ]
+    cp_squares = {(c["pos"]["x"], c["pos"]["y"]) for c in frame["control_points"]}
+    parts.extend(_render_resource_nodes(frame, scale))
+    parts.extend(_render_missions(frame, scale, cp_squares))
+    parts.extend(_render_control_points(frame, scale, team_ids))
+    parts.extend(_render_units(frame, scale, team_ids))
     parts.append("</svg>")
     return "".join(parts)
 
