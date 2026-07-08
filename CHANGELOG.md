@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-07-08
+
+### Added
+
+- docs/features/ — a self-contained deep-dive page per feature (deterministic engine, continuous lane, scenarios & roles, scoring & grades, fog of war, replay & faces, agent-first CLI, harness & drivers, coded-strategy bots, play presets, standings & history, identity & mesh) plus a grouped features index, so the repo is browsable feature-by-feature
+- README rewritten into a comprehensive, standalone `## Features` section — the canonical, PyPI-published overview — with a real paragraph per feature grouped by cluster (engine / scoring / watching / playing / identity), each linking to its deep-dive page; covers the surfaces the README previously omitted (continuous lane, MVP/LVP scorecards, fog, probe, GIF/MP4 video, generative audio, bots, presets, tracking). The `docs/features/README.md` index is a slim table-of-contents that defers to the root README, so there is one overview, not two
+
+### Changed
+
+- league learn now teaches the arena (missions, objectives, dual scoring, the full noun-group command map) instead of the stale clonable-template scaffold text; the --json payload purpose and command list follow suit — required rubric tokens (Exit-code policy, --json, explain, >=200 chars) preserved
+- explain root entry (explain league / league-of-agents) rewritten to describe the strategy arena and its current verb surface (arena/team/match/standings/harness/play) instead of the clonable-template scaffold
+- README match CLI row split to surface the newer log-reading verbs (score/probe/brief/replay/record/tui) the table previously omitted
+
+### Fixed
+
+- `learn` and the `explain` root/introspection pages printed `league-of-agents <verb>` example commands, but the only installed console script is `league` (the `[project.scripts]` entry), so those examples were not runnable. Every *runnable* example now uses `league …` (matching the README quickstart); the `# league-of-agents <verb>` doc headings and the argparse `prog` stay as the intentional distribution/display name (Qodo review, PR #27)
+- Corrected the "every read verb supports `--json`" claim in `learn`, the `explain` root, and the README — the interactive `match tui` accepts `--json` but always renders a terminal view, so it is now named as the one exception rather than silently contradicting the promise (Qodo review, PR #27)
+
 ## [0.13.1] - 2026-07-08
 
 ### Changed

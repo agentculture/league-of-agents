@@ -12,27 +12,50 @@ from league import __version__
 from league.cli._output import emit_result
 
 _TEXT = """\
-league-of-agents — a clonable template for AgentCulture mesh agents.
+league-of-agents — a strategy arena where agent teams compete under constraint.
 
 Purpose
 -------
-Scaffold for a new Culture mesh agent: an agent-first CLI (cited from the teken
-`python-cli` reference), an identity (culture.yaml + CLAUDE.md), the canonical
-guildmaster skill kit under .claude/skills/, and a deploy/CI baseline. Clone it,
-rename the package, and edit culture.yaml to mint a new agent.
+A cooperative/competitive arena: agent teams complete missions, control
+objectives, manage resources, and out-coordinate opposing teams. Matches are
+deterministic and replayable, scored on both mission outcome and cooperation
+quality, beautiful for humans and --json-practical for agents. The core question
+it answers: can this group of agents become a coherent, strategic team under
+constraint? Drive it through this agent-first CLI (cited from the teken
+`python-cli` reference).
 
 Commands
 --------
-  league-of-agents whoami             Identity from culture.yaml.
-  league-of-agents learn              This self-teaching prompt.
-  league-of-agents explain <path>...  Markdown docs for any noun/verb path.
-  league-of-agents overview           Descriptive snapshot of the agent.
-  league-of-agents doctor             Check the agent-identity invariants.
-  league-of-agents cli overview       Describe the CLI surface itself.
+Run the installed `league` console script (the distribution is named
+league-of-agents).
+
+Introspection:
+  league whoami                       Identity from culture.yaml.
+  league learn                        This self-teaching prompt.
+  league explain <path>...            Markdown docs for any noun/verb path.
+  league overview                     Descriptive snapshot of the agent.
+  league doctor                       Check the agent-identity invariants.
+  league cli overview                 Describe the CLI surface itself.
+
+The arena:
+  league arena list|show              The scenario catalog (read-only).
+  league team register|list|show      Rosters: agent seats as id:model:role.
+  league match new|act|tick|show|list The play loop: stage orders, resolve.
+  league match score|probe|brief      Read the log: dual scores + MVP/LVP,
+                                      span-of-control, the agents' briefing.
+  league match replay|record|tui      Watch it: HTML replay, GIF/MP4, terminal.
+  league match rematch                Same scenario+seed, new roster.
+  league standings|history            Cross-match trends, per team and agent.
+  league harness run                  Play a configured match with live drivers.
+  league play list|show|start         One-command launch of a bundled mode.
+
+Write verbs (team register, match new/act/tick/rematch, harness run, play start)
+are dry-run by default; add --apply to commit.
 
 Machine-readable output
 -----------------------
-Every command supports --json. Errors in JSON mode emit
+Every read verb supports --json, except the interactive league match tui, which
+renders a terminal view only. Errors in JSON mode emit
 {"code", "message", "remediation"} to stderr. Stdout and stderr never mix.
 
 Exit-code policy
@@ -44,7 +67,8 @@ Exit-code policy
 
 More detail
 -----------
-  league-of-agents explain league-of-agents
+  league explain league
+  league explain match
 """
 
 
@@ -52,7 +76,11 @@ def _as_json_payload() -> dict[str, object]:
     return {
         "tool": "league-of-agents",
         "version": __version__,
-        "purpose": "Clonable scaffold for a new AgentCulture mesh agent.",
+        "purpose": (
+            "A cooperative/competitive strategy arena where agent teams complete "
+            "missions, control objectives, and out-coordinate opposing teams — "
+            "deterministic, replayable, scored on outcome and cooperation quality."
+        ),
         "commands": [
             {"path": ["whoami"], "summary": "Identity probe from culture.yaml."},
             {"path": ["learn"], "summary": "Self-teaching prompt."},
@@ -60,6 +88,17 @@ def _as_json_payload() -> dict[str, object]:
             {"path": ["overview"], "summary": "Descriptive snapshot of the agent."},
             {"path": ["doctor"], "summary": "Check the agent-identity invariants."},
             {"path": ["cli", "overview"], "summary": "Describe the CLI surface."},
+            {"path": ["arena", "list"], "summary": "The scenario catalog."},
+            {"path": ["team", "register"], "summary": "Register a team roster."},
+            {"path": ["match", "new"], "summary": "Create a match (dry-run by default)."},
+            {"path": ["match", "act"], "summary": "Stage a team's orders for the turn."},
+            {"path": ["match", "score"], "summary": "Outcome + cooperation + tempo + MVP/LVP."},
+            {"path": ["match", "probe"], "summary": "Span-of-control probe from the log."},
+            {"path": ["match", "replay"], "summary": "Self-contained HTML replay."},
+            {"path": ["match", "record"], "summary": "Offline GIF/MP4 video of the match."},
+            {"path": ["standings"], "summary": "Cross-match trends, per team and agent."},
+            {"path": ["harness", "run"], "summary": "Play a configured match with live drivers."},
+            {"path": ["play", "start"], "summary": "One-command launch of a bundled mode."},
         ],
         "exit_codes": {
             "0": "success",
@@ -67,7 +106,7 @@ def _as_json_payload() -> dict[str, object]:
             "2": "environment/setup error",
         },
         "json_support": True,
-        "explain_pointer": "league-of-agents explain <path>",
+        "explain_pointer": "league explain <path>",
     }
 
 

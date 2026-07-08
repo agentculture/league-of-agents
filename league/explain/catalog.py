@@ -12,31 +12,44 @@ from __future__ import annotations
 _ROOT = """\
 # league-of-agents
 
-A clonable template for AgentCulture mesh agents. It carries an agent-first CLI
-(cited from the teken `python-cli` reference), a mesh identity (`culture.yaml` +
-`CLAUDE.md`), the canonical guildmaster skill kit under `.claude/skills/`, and a
-buildable/deployable package baseline. Clone it, rename the package, edit
-`culture.yaml`, and you have a new agent.
+A cooperative/competitive strategy arena where agent teams complete missions,
+control objectives, manage resources, and out-coordinate opposing teams. Matches
+are deterministic and replayable, scored on **both mission outcome and
+cooperation quality** — the core question being whether a group of agents can
+become a coherent, strategic team under constraint. It is driven through an
+agent-first CLI (cited from the teken `python-cli` reference) and is itself an
+AgentCulture mesh agent (`culture.yaml`, backend `colleague`).
 
-## Verbs
+## Introspection
 
-- `league-of-agents whoami` — identity probe from `culture.yaml`.
-- `league-of-agents learn` — structured self-teaching prompt.
-- `league-of-agents explain <path>` — markdown docs for any noun/verb.
-- `league-of-agents overview` — descriptive snapshot of the agent.
-- `league-of-agents doctor` — check the agent-identity invariants.
-- `league-of-agents cli overview` — describe the CLI surface.
+- `league whoami` — identity probe from `culture.yaml`.
+- `league learn` — structured self-teaching prompt.
+- `league explain <path>` — markdown docs for any noun/verb.
+- `league overview` — descriptive snapshot of the agent.
+- `league doctor` — check the agent-identity invariants.
+- `league cli overview` — describe the CLI surface.
 
-## Arena (season 0)
+## The arena
 
 - `league arena list|show` — the scenario catalog (read-only).
-- `league team register|list|show` — the competitors' rosters.
-- `league match new|act|tick|show|list|score|brief|replay` — the play loop:
-  declare orders, deterministic resolution, dual scoring, markdown briefing
-  (the agents' face; `--team` fogs it), HTML replay.
+- `league team register|list|show` — the competitors' rosters (`id:model:role`).
+- `league match new|act|tick|show|list` — the play loop: declare orders,
+  deterministic canonical-order resolution, current state (`--team`/`--fog` for
+  one team's view).
+- `league match score|probe|brief` — read the log back: dual scores plus a
+  per-unit MVP/LVP scorecard, the span-of-control probe, and the agents' markdown
+  briefing (`--team` fogs it).
+- `league match replay|record|tui` — watch it: self-contained HTML replay,
+  offline GIF/MP4 video, terminal view.
+- `league match rematch` — same scenario+seed, new roster.
+- `league standings|history` — cross-match trends, per team and per agent.
+- `league harness run` — play a configured match end to end with live drivers.
+- `league play list|show|start` — one-command launch of a bundled game mode.
 
-Write verbs (`team register`, `match new/act/tick`) are dry-run by default;
-add `--apply` to commit. Every read verb takes `--json`.
+Write verbs (`team register`, `match new/act/tick/rematch`, `harness run`,
+`play start`) are dry-run by default; add `--apply` to commit. Every read verb
+takes `--json` — except the interactive `league match tui`, which renders a
+terminal view only.
 
 ## Exit-code policy
 
@@ -47,8 +60,9 @@ add `--apply` to commit. Every read verb takes `--json`.
 
 ## See also
 
-- `league-of-agents explain whoami`
-- `league-of-agents explain doctor`
+- `league explain match`
+- `league explain harness`
+- `league explain play`
 """
 
 _WHOAMI = """\
@@ -59,8 +73,8 @@ served model, and the package version. Read-only.
 
 ## Usage
 
-    league-of-agents whoami
-    league-of-agents whoami --json
+    league whoami
+    league whoami --json
 """
 
 _LEARN = """\
@@ -71,8 +85,8 @@ exit-code policy, `--json` support, and the `explain` pointer.
 
 ## Usage
 
-    league-of-agents learn
-    league-of-agents learn --json
+    league learn
+    league learn --json
 """
 
 _EXPLAIN = """\
@@ -83,9 +97,9 @@ positional), `explain` is global and addressable by path.
 
 ## Usage
 
-    league-of-agents explain league-of-agents
-    league-of-agents explain whoami
-    league-of-agents explain --json <path>
+    league explain league
+    league explain whoami
+    league explain --json <path>
 """
 
 _OVERVIEW = """\
@@ -97,8 +111,8 @@ ignored `target` so a stray path never hard-fails.
 
 ## Usage
 
-    league-of-agents overview
-    league-of-agents overview --json
+    league overview
+    league overview --json
 """
 
 _DOCTOR = """\
@@ -110,8 +124,8 @@ skills-present check. Exits 1 when unhealthy.
 
 ## Usage
 
-    league-of-agents doctor
-    league-of-agents doctor --json
+    league doctor
+    league doctor --json
 """
 
 _CLI = """\
@@ -122,8 +136,8 @@ itself (distinct from the global `overview`, which describes the agent).
 
 ## Usage
 
-    league-of-agents cli overview
-    league-of-agents cli overview --json
+    league cli overview
+    league cli overview --json
 """
 
 
