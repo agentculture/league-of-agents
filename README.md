@@ -8,27 +8,99 @@ become a coherent, strategic, cooperative team under constraint?* Matches are
 deterministic and replayable, scored on **both mission outcome and cooperation
 quality**, beautiful for humans and `--json`-practical for agents.
 
-## Features at a glance
+## Features
 
-Every row links to a deep-dive page under [`docs/features/`](docs/features/).
+Everything the arena offers, grouped. Each feature has a deep-dive page under
+[`docs/features/`](docs/features/) with the full mechanism, but the substance is
+here — you shouldn't have to leave this page to understand what League of Agents
+does.
 
-| Feature | One line | Deep dive |
-|---------|----------|-----------|
-| **Deterministic engine** | Immutable state, an event log as the single source of truth, canonical-order resolution, CI determinism gate. | [→](docs/features/deterministic-engine.md) |
-| **Continuous lane** | A real-time sibling engine — fixed-point positions, event-timeline initiative, first-class race semantics. | [→](docs/features/continuous-lane.md) |
-| **Scenarios & roles** | Boards that force coordination by construction; roles as engine-enforced capability contracts. | [→](docs/features/scenarios-and-roles.md) |
-| **Scoring & grades** | Dual scoring (outcome + cooperation), a published tempo axis, a span-of-control probe, per-unit MVP/LVP scorecards. | [→](docs/features/scoring-and-grades.md) |
-| **Fog of war** | Per-role vision, an accumulating knowledge fold, fog mode, and orchestrator information levers. | [→](docs/features/fog-of-war.md) |
-| **Replay & faces** | Self-contained HTML replay (both lanes), markdown briefing, terminal view, offline GIF/MP4 video, generative audio. | [→](docs/features/replay-and-faces.md) |
-| **Agent-first CLI** | Dry-run by default, `--json` everywhere, a stable error/exit-code contract, no third-party runtime deps. | [→](docs/features/agent-first-cli.md) |
-| **Harness & drivers** | Field live models (one mind per seat) or bots — stateless, resident, and orchestrator modes. | [→](docs/features/harness-and-drivers.md) |
-| **Coded-strategy bots** | A public-surface bot lane with declared bronze/silver/gold difficulty tiers. | [→](docs/features/coded-strategy-bots.md) |
-| **Play presets** | One-command launch of every bundled mode (solo / team / orchestrator / resident vs. the house bot). | [→](docs/features/play-presets.md) |
-| **Standings & history** | Cross-match trends, per team and per agent, straight from the record. | [→](docs/features/standings-and-history.md) |
-| **Identity & mesh** | `culture.yaml`, the `colleague` backend, `doctor` invariants, and a vendored cite-don't-import skill kit. | [→](docs/features/identity-and-mesh.md) |
+### The engine
 
-New to the repo? The [features index](docs/features/README.md) groups these into
-engine, scoring, replay, play, and agent-identity clusters with a paragraph each.
+- **Deterministic engine (grid lane)** — Match state is immutable frozen
+  dataclasses with a stable `state_hash`; an append-only event log is the single
+  source of truth (the tick never edits state — it emits events and folds them,
+  so replaying a log reproduces the outcome exactly); resolution is
+  canonical-order, sorted by `(team_id, unit_id)`, so submission order never
+  matters. A CI determinism gate replays a scripted match against a committed
+  hash. [Deep dive →](docs/features/deterministic-engine.md)
+- **Continuous engine lane (real-time)** — A second engine that resolves an
+  *event timeline* instead of turns: integer milliunit positions (no floats),
+  initiative decided by who finishes first with a canonical
+  `(time, team_id, unit_id)` tie-break, and first-class race semantics (the
+  slower taker of a contested point fails with `post taken by a faster agent`).
+  Provably independent of the grid lane, with its own determinism hash.
+  [Deep dive →](docs/features/continuous-lane.md)
+- **Scenarios & roles** — The boards a match runs on (grid, objectives, economy,
+  roster). Scenarios force coordination *by construction*: lopsided role stats
+  and a turn limit below the best solo run (proven by arithmetic in tests) mean a
+  team that won't divide labour loses. Roles are engine-enforced capability
+  contracts — `move`/`carry`/`vision` plus `can_gather`/`can_capture` — never
+  prompt conventions; if a role can't do something, the tick rejects it and
+  `legal_actions` never offers it. [Deep dive →](docs/features/scenarios-and-roles.md)
+
+### Scoring & inspection
+
+- **Scoring & grades** — Every match is graded on more than who won: mission
+  outcome, a **cooperation-quality** heuristic (delegation, communication, plan
+  coherence, discipline), a published **tempo** axis (per-substrate calibrated,
+  raw latency always shown), a **span-of-control probe** (how many subagents a
+  mind actually fielded and how well it commanded them), and per-unit
+  **role-purpose scorecards** that name an MVP and LVP. All computed from the log
+  alone; deliberately no ELO or cross-match ranking.
+  [Deep dive →](docs/features/scoring-and-grades.md)
+- **Fog of war & vision** — Per-role vision radii plus an accumulating knowledge
+  fold turn a match into an information game: under fog a team sees only what it
+  has witnessed or been told, never the full board. Fog is a projection in the
+  harness/CLI, never an engine mutation. Orchestrator mode adds declared
+  `map-read` and `unit-comms` levers. [Deep dive →](docs/features/fog-of-war.md)
+- **Standings & history** — Two read-only trend verbs computed straight from the
+  match logs: per-team W/L/D and cooperation trend, and per-agent records. The
+  one place cross-match aggregation lives — and only ever over recorded results.
+  [Deep dive →](docs/features/standings-and-history.md)
+
+### Watching a match
+
+- **Replay & faces** — One log, many faces, all derived from the same fold so
+  they can't disagree: a **self-contained HTML replay** (one file, both themes,
+  no external requests; a full play/pause/scrub transport in the continuous
+  face), a **markdown briefing** (the agents' face, with `--json` parity), a
+  **terminal view**, **offline GIF/MP4 video** (pure-stdlib GIF, `ffmpeg` MP4
+  with a seeded soundtrack), and **generative ambient audio**.
+  [Deep dive →](docs/features/replay-and-faces.md)
+
+### Playing the arena
+
+- **Agent-first CLI** — Dry-run by default (`--apply` commits), `--json` on every
+  read verb, a stable error contract (`CliError{code, message, remediation}` +
+  exit codes `0/1/2/3+`, no leaked tracebacks), a clean stdout/stderr split, and
+  no third-party runtime dependencies. New functionality is added as *noun
+  groups*, never bolted on. [Deep dive →](docs/features/agent-first-cli.md)
+- **Agent-player harness & drivers** — Play a whole match through the public CLI
+  surface with live models (one independent mind per seat, coordinating *only*
+  through in-game messages) or bots. Driver kinds: `bot`, `command` (stateless),
+  `resident` (a persistent session per seat), and `bot-file`. Residency is a
+  recorded fairness axis; orchestrator mode runs a master mind over per-seat
+  ground agents. Which model sits in a seat is config, not code.
+  [Deep dive →](docs/features/harness-and-drivers.md)
+- **Coded-strategy bots** — A lane of automations with committed, readable
+  strategies that play the *public* surface only (no engine internals, no
+  nondeterminism — both enforced by AST scan), with declared **bronze/silver/gold**
+  difficulty tiers and recorded proof the ordering holds.
+  [Deep dive →](docs/features/coded-strategy-bots.md)
+- **Play presets** — One-command launch of every bundled mode
+  (`solo`/`team`/`orchestrator`/`resident` vs. the house bot, plus a fully-offline
+  bot-vs-bot) — no hand-authored `team register` / `match new` / `harness run`
+  dance. [Deep dive →](docs/features/play-presets.md)
+
+### The agent itself
+
+- **Identity & mesh** — League of Agents is itself an AgentCulture mesh agent:
+  `culture.yaml` declares its nick/backend/model (backend `colleague` →
+  `AGENTS.colleague.md`), `whoami` reads identity without a YAML dependency,
+  `doctor` checks the mesh invariants, and a vendored *cite-don't-import* skill
+  kit lives under `.claude/skills/`.
+  [Deep dive →](docs/features/identity-and-mesh.md)
 
 ## Quickstart
 

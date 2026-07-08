@@ -10,7 +10,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - docs/features/ — a self-contained deep-dive page per feature (deterministic engine, continuous lane, scenarios & roles, scoring & grades, fog of war, replay & faces, agent-first CLI, harness & drivers, coded-strategy bots, play presets, standings & history, identity & mesh) plus a grouped features index, so the repo is browsable feature-by-feature
-- README Features-at-a-glance table linking every feature to its deep-dive page, replacing the flat What-you-get bullets and covering the surfaces the README previously omitted (continuous lane, MVP/LVP scorecards, fog, probe, GIF/MP4 video, generative audio, bots, presets, tracking)
+- README rewritten into a comprehensive, standalone `## Features` section — the canonical, PyPI-published overview — with a real paragraph per feature grouped by cluster (engine / scoring / watching / playing / identity), each linking to its deep-dive page; covers the surfaces the README previously omitted (continuous lane, MVP/LVP scorecards, fog, probe, GIF/MP4 video, generative audio, bots, presets, tracking). The `docs/features/README.md` index is a slim table-of-contents that defers to the root README, so there is one overview, not two
 
 ### Changed
 
