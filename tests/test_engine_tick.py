@@ -177,6 +177,98 @@ def test_capture_then_hold_mission_completes() -> None:
     assert mission.completed_by == ("blue",)
 
 
+def test_scout_occupancy_never_builds_a_capture_streak() -> None:
+    """Cycle-8 t10 decision: the grid scout is eyes-only, exactly like the
+    explorer/planner (tests/test_engine_roles.py) — its occupancy of a
+    control point never builds or contests a streak."""
+    state = active_match()
+    state = _move_unit(state, "blue-u1", (9, 2))  # scout parks on cp-east
+    captured = False
+    for _ in range(SCENARIO.capture_hold_turns + 1):
+        state, events = resolve_turn(
+            state, SCENARIO, {"blue": {"actions": [{"unit_id": "blue-u1", "action": "hold"}]}}
+        )
+        if any(e.kind == "control_point_captured" for e in events):
+            captured = True
+    assert not captured
+    cp = next(c for c in state.control_points if c.id == "cp-east")
+    assert cp.owner is None
+    assert cp.hold == ()
+
+
+def test_scout_alone_on_a_point_gets_an_explicit_capture_rejection() -> None:
+    """Not a silent skip: standing alone on a point a scout can never capture
+    emits the engine's standard failure treatment — an ``action_rejected``
+    event with a clear reason — every turn it recurs, mirroring how the
+    continuous lane explicitly rejects its own eyes-only scout's take_post."""
+    state = active_match()
+    state = _move_unit(state, "blue-u1", (9, 2))  # cp-east
+    state, events = resolve_turn(
+        state, SCENARIO, {"blue": {"actions": [{"unit_id": "blue-u1", "action": "hold"}]}}
+    )
+    rejections = [e for e in events if e.kind == "action_rejected"]
+    assert len(rejections) == 1
+    reason = rejections[0]
+    assert reason.data == {
+        "team_id": "blue",
+        "unit_id": "blue-u1",
+        "reason": "this role cannot capture control points",
+    }
+    # It recurs: the scout is still there, still ineligible, next turn too.
+    state, events = resolve_turn(
+        state, SCENARIO, {"blue": {"actions": [{"unit_id": "blue-u1", "action": "hold"}]}}
+    )
+    assert [e.data["reason"] for e in events if e.kind == "action_rejected"] == [
+        "this role cannot capture control points"
+    ]
+
+
+def test_scout_alongside_a_capable_teammate_is_not_rejected_redundantly() -> None:
+    """The rejection only fires when the scout's team has no OTHER occupant
+    already covering the point — a capable teammate standing beside it means
+    the team's occupancy is already decided, so the scout's own presence is
+    genuinely irrelevant, not worth a redundant event."""
+    state = active_match()
+    state = _move_unit(state, "blue-u1", (9, 2))  # scout, cp-east
+    state = _move_unit(state, "blue-u3", (9, 2))  # defender, same square
+    state, events = resolve_turn(
+        state,
+        SCENARIO,
+        {
+            "blue": {
+                "actions": [
+                    {"unit_id": "blue-u1", "action": "hold"},
+                    {"unit_id": "blue-u3", "action": "hold"},
+                ]
+            }
+        },
+    )
+    assert not [e for e in events if e.kind == "action_rejected"]
+    cp = next(c for c in state.control_points if c.id == "cp-east")
+    assert cp.hold == (("blue", 1),)
+
+
+def test_enemy_scout_does_not_contest_a_capture_streak() -> None:
+    """The both-ways contrast for the eyes-only scout: it can neither BUILD a
+    streak (proven above) NOR contest one. A blue defender captures cp-east
+    with an enemy scout standing right there — a defender contesting the
+    identical square resets the streak instead (test_contested_point_resets_
+    the_streak already proves the contest side with two defenders)."""
+    state = active_match()
+    state = _move_unit(state, "blue-u3", (9, 2))  # blue defender
+    state = _move_unit(state, "red-u1", (9, 2))  # red scout — should not count
+    captured = False
+    for _ in range(SCENARIO.capture_hold_turns):
+        state, events = resolve_turn(
+            state, SCENARIO, {"blue": {"actions": [{"unit_id": "blue-u3", "action": "hold"}]}}
+        )
+        if any(e.kind == "control_point_captured" for e in events):
+            captured = True
+    assert captured
+    cp = next(c for c in state.control_points if c.id == "cp-east")
+    assert cp.owner == "blue"
+
+
 def test_contested_point_resets_the_streak() -> None:
     state = active_match()
     state = _move_unit(state, "blue-u3", (6, 5))

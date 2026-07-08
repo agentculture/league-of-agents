@@ -25,14 +25,23 @@ stats below and in ``docs/roles.md``:
   by design — it wins by coordinating through the existing plan/message
   channels (no new engine mechanic), so fielding one is a real tradeoff.
 * **scout** — *quick reconnaissance pass*: fast, wide sight, light carry.
+  ``can_capture=False`` (cycle-8 task t10, docs/roles.md "Decision" section):
+  the grid scout is **eyes-only**, matching the continuous lane's own
+  human-reviewed eyes-only-scout amendment (cycle 7) — a scout's occupancy
+  never builds or contests a control-point streak, exactly like the
+  explorer/planner above. It keeps every other capability (move, vision,
+  gather, carry, deliver) untouched; only holding a point is withdrawn.
 * **harvester** / **defender** — *implementers (executor class)*: they run the
   economy and hold objectives (``can_gather``/``can_capture`` both ``True``).
 
-The two capability booleans default to ``True`` so every pre-existing role
-(scout / harvester / defender) keeps its exact behaviour — the new roles are a
-JOIN, not a replace (plan risk r4), and ``RoleStats`` is scenario config that
-never enters ``MatchState``/``state_hash``, so adding these fields cannot
-perturb the committed determinism fixture.
+The two capability booleans default to ``True`` so harvester/defender keep
+their exact behaviour — the new roles are a JOIN, not a replace (plan risk
+r4), and ``RoleStats`` is scenario config that never enters
+``MatchState``/``state_hash``, so adding/flipping these fields cannot perturb
+``MatchState`` shape (though flipping a pre-existing role's *value*, as cycle-8
+does for scout, is a genuine rule change and DOES perturb which events a
+script produces — see ``tests/test_determinism_gate.py``'s regenerated
+fixture).
 """
 
 from __future__ import annotations
@@ -124,8 +133,21 @@ def _skirmish_1() -> Scenario:
         role_stats=(
             # Vision radii keep the scout the eyes of the team: strictly
             # farther than every other role (spec c12 — visibility as the
-            # specialization axis).
-            ("scout", RoleStats(move=3, carry=1, vision=4)),
+            # specialization axis). can_capture=False (cycle-8 t10): the scout
+            # is eyes-only, parity with the continuous lane's cycle-7
+            # amendment — see docs/roles.md's Decision section.
+            (
+                "scout",
+                RoleStats(
+                    move=3,
+                    carry=1,
+                    vision=4,
+                    can_capture=False,
+                    analog="the eyes — sees widest of the three, forbidden from "
+                    "capturing control points (cycle-8 grid eyes-only-scout decision); "
+                    "keeps gather/carry/deliver untouched",
+                ),
+            ),
             ("harvester", RoleStats(move=2, carry=3, vision=2)),
             ("defender", RoleStats(move=2, carry=1, vision=2)),
         ),
@@ -190,7 +212,22 @@ def _skirmish_2() -> Scenario:
             # The scout stays the eyes of the team (strictly the largest
             # radius — spec c12) and carries a satchel worth relaying; the
             # harvester hauls but crawls; the defender walks and watches.
-            ("scout", RoleStats(move=3, carry=2, vision=4)),
+            # can_capture=False (cycle-8 t10): the scout is eyes-only here too
+            # — the coordinated-feasibility proof already routes the hold
+            # mission through the defender (tests/test_engine_skirmish2.py),
+            # so this costs the scout nothing it was relied on for.
+            (
+                "scout",
+                RoleStats(
+                    move=3,
+                    carry=2,
+                    vision=4,
+                    can_capture=False,
+                    analog="the eyes — sees widest of the three, forbidden from "
+                    "capturing control points (cycle-8 grid eyes-only-scout decision); "
+                    "keeps gather/carry/deliver untouched",
+                ),
+            ),
             ("harvester", RoleStats(move=2, carry=3, vision=2)),
             ("defender", RoleStats(move=2, carry=1, vision=2)),
         ),

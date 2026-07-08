@@ -40,9 +40,15 @@ _PLAYTESTS = Path(__file__).resolve().parent.parent / "docs" / "playtests"
 # continuous work must never touch. It is NOT a freeze on the grid face itself:
 # a deliberate grid-renderer change (like the cycle-6 restyle, PR #18, which
 # moved this pin from 5a1f8919… to its current value) legitimately regenerates
-# it — recompute render_html() on the committed log and say so in the PR.
+# it — recompute render_html() on the committed log and say so in the PR. The
+# same applies one layer down: cycle-8 t10's grid scout eyes-only decision
+# (docs/roles.md) changed scout's can_capture from true to false in
+# league/engine/scenario.py — render_html() reads role stats live from the
+# scenario, not just the log, so this committed log's rendered role-table
+# bytes changed even though league/replay/html.py itself did not (moved from
+# bfe89f92… to its current value; the log and its scored facts are untouched).
 _GRID_LOG_REL = "cycle-5/colleague-coop.log.jsonl"
-_GRID_HTML_SHA256 = "bfe89f9211fcd04670e8f7fe2da73c7592338fe8a8b56a7d39a4151ab56be7b2"
+_GRID_HTML_SHA256 = "f6d5cf31ba116d6edf5508e4cd560092e006df3888d8501e9e33e69734d63e58"
 
 
 def _committed_grid_log() -> MatchLog:

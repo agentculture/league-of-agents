@@ -21,9 +21,14 @@ v0 resolution rules (documented here, exercised in tests):
   nothing — a stray call never silently advances the game.
 * Roles are engine-enforced capability contracts (spec h11). A role with
   ``can_gather=False`` (explorer/planner) has its ``gather`` rejected outright;
-  a role with ``can_capture=False`` never counts as a control-point occupant,
-  so it neither builds nor contests a capture streak. Both default ``True`` —
-  scout/harvester/defender are unchanged.
+  a role with ``can_capture=False`` (explorer/planner, and — cycle-8 t10 —
+  the grid scout, eyes-only for parity with the continuous lane's own
+  cycle-7 amendment) never counts as a control-point occupant, so it neither
+  builds nor contests a capture streak. There is no separate ``capture``
+  order (capture is streak-based, driven by whoever's *standing* on the
+  point), so the "rejection" for this capability is an explicit
+  ``action_rejected`` event emitted whenever a capture-incapable unit is the
+  sole thing standing between its team and a streak — not a silent skip.
 * Messages and a per-team plan are free, observational, and on the record —
   coordination is played *through* the engine so cooperation can be scored.
 * Control points: sole occupancy builds a streak (``hold``). A non-owner's
@@ -248,12 +253,17 @@ def resolve_turn(
 
     # 7. Control points: streaks, contests, captures.
     #
-    # A role with can_capture=False (the explorer/planner) never counts as an
-    # occupant here: its presence neither builds a capture streak nor contests
-    # another team's — an explorer standing alone on a point leaves it
-    # effectively unoccupied for capture purposes. There is no "capture" order,
-    # so this occupancy filter IS the enforcement; legal_actions mirrors it via
-    # the can_capture flag (spec h11).
+    # A role with can_capture=False (the explorer/planner, and — cycle-8 t10 —
+    # the grid scout) never counts as an occupant here: its presence neither
+    # builds a capture streak nor contests another team's — such a unit
+    # standing alone on a point leaves it effectively unoccupied for capture
+    # purposes. There is no "capture" order to reject at declaration time (this
+    # is occupancy-driven, not action-driven), so the engine surfaces the same
+    # impossibility the way it surfaces every other one: an explicit
+    # ``action_rejected`` event with a reason, once per turn per affected unit,
+    # never a silent skip (mirrors the continuous lane's explicit take_post
+    # rejection for its own eyes-only scout). legal_actions mirrors the
+    # capability itself via the can_capture flag (spec h11).
     for cp in mid.control_points:
         occupants = {
             u.team_id
@@ -262,6 +272,30 @@ def resolve_turn(
             and scenario.stats_for(u.role).can_capture
             and positions.get(u.id, u.pos) == cp.pos
         }
+        # A capture-incapable unit here counts for nothing — but only surface
+        # the rejection when its team has no OTHER (capable) occupant already
+        # covering the point, so a capable teammate standing alongside it
+        # isn't drowned in redundant noise.
+        incapable_here = sorted(
+            (
+                u
+                for u in mid.units
+                if u.alive
+                and not scenario.stats_for(u.role).can_capture
+                and positions.get(u.id, u.pos) == cp.pos
+                and u.team_id not in occupants
+            ),
+            key=lambda u: (u.team_id, u.id),
+        )
+        for u in incapable_here:
+            emit(
+                "action_rejected",
+                {
+                    "team_id": u.team_id,
+                    "unit_id": u.id,
+                    "reason": "this role cannot capture control points",
+                },
+            )
         if len(occupants) != 1:
             if cp.hold:
                 emit("control_point_held", {"cp_id": cp.id, "team_id": "", "turns": 0})
