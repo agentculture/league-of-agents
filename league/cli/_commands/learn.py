@@ -24,8 +24,9 @@ it answers: can this group of agents become a coherent, strategic team under
 constraint? Drive it through this agent-first CLI (cited from the teken
 `python-cli` reference).
 
-Introspection
--------------
+Commands
+--------
+Introspection:
   league-of-agents whoami             Identity from culture.yaml.
   league-of-agents learn              This self-teaching prompt.
   league-of-agents explain <path>...  Markdown docs for any noun/verb path.
@@ -33,8 +34,7 @@ Introspection
   league-of-agents doctor             Check the agent-identity invariants.
   league-of-agents cli overview       Describe the CLI surface itself.
 
-The arena
----------
+The arena:
   league arena list|show              The scenario catalog (read-only).
   league team register|list|show      Rosters: agent seats as id:model:role.
   league match new|act|tick|show|list The play loop: stage orders, resolve.
