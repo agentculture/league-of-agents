@@ -29,10 +29,17 @@ rationale, palette values, and the ``validate_palette.js`` results):
   capture, a flash celebrates deliveries and mission completions, a red ring
   marks a defeat. Play/pause with an adjustable speed. Timing is CSS-only, so
   generation stays byte-deterministic — the same log renders identical HTML.
-* **The side panel is a tabbed deck** (Guide / Events / Teams / Score) that uses
-  the viewport width and keeps the board hero in view — the assessor guide is
-  the default tab, scrolling inside its own panel rather than pushing the board
-  off-screen.
+* **The side panel is a tabbed deck** (Guide / Events / Teams / Score /
+  Scorecard) that uses the viewport width and keeps the board hero in view —
+  the assessor guide is the default tab, scrolling inside its own panel rather
+  than pushing the board off-screen.
+* **The Scorecard tab is the per-unit axis** (cycle-8 t8, spec c6/h6): units
+  ranked by grade descending (canonical tie-break), MVP/LVP chips riding the
+  winner-chip vocabulary, and every unit's per-purpose breakdown with its
+  role's HOME purpose typographically marked (bold ink + a ×2 tag — no new
+  color job). Grades come from :func:`league.engine.grades.grade_units` at
+  render time, so the document stays a pure function of the log; the guide
+  gains a section explaining exactly what the grade weighs.
 * **An ambient score, off by default** (cycle-8 t4, spec c17/h10). The
   transport's note toggle plays a generative Eno-vein score — slow lydian pads
   under sparse bells — synthesized at play time with WebAudio primitives from a
@@ -52,6 +59,15 @@ import math
 from typing import Any, Callable
 
 from league.engine.events import MatchLog, fold_events
+from league.engine.grades import (
+    CAPTURE_POINTS,
+    HOLD_POINTS,
+    MESSAGE_POINTS,
+    MOVE_POINTS,
+    OFF_ROLE_MULTIPLIER,
+    ON_ROLE_MULTIPLIER,
+    grade_units,
+)
 from league.engine.probe import probe_match
 from league.engine.scenario import Scenario, get_scenario
 from league.engine.scoring import (
@@ -184,7 +200,50 @@ def build_replay_data(log: MatchLog) -> dict[str, Any]:
         "frames": frames,
         "events_by_turn": {str(k): v for k, v in events_by_turn.items()},
         "scores": score_match(log),
+        "scorecard": build_scorecard(log),
         "guide": build_assessor_guide(log),
+    }
+
+
+def build_scorecard(log: MatchLog) -> dict[str, Any]:
+    """The per-unit scorecard the deck's Scorecard tab renders (plan C8-t8).
+
+    A thin display projection over :func:`league.engine.grades.grade_units` —
+    the grades themselves are the engine's own fold of the log (pure function,
+    byte-deterministic); this only re-shapes them for ranked rendering:
+    ``units`` is a LIST ordered by grade descending with the canonical
+    ``(team_id, unit_id)`` tie-break (so the top row is the MVP), each entry
+    carrying its role, home purpose, grade, full per-purpose breakdown, and
+    ``mvp``/``lvp`` flags naming the exact units ``grade_units`` names.
+    """
+    grades = grade_units(log)
+    mvp, lvp = grades["mvp"], grades["lvp"]
+    ranked = sorted(
+        grades["units"],
+        key=lambda uid: (-grades["units"][uid]["grade"], grades["units"][uid]["team_id"], uid),
+    )
+    units = []
+    for uid in ranked:
+        entry = grades["units"][uid]
+        units.append(
+            {
+                "unit_id": uid,
+                "team_id": entry["team_id"],
+                "role": entry["role"],
+                "home_purpose": entry["home_purpose"],
+                "grade": entry["grade"],
+                "breakdown": dict(entry["breakdown"]),
+                "mvp": mvp is not None and uid == mvp["unit_id"],
+                "lvp": lvp is not None and uid == lvp["unit_id"],
+            }
+        )
+    return {
+        "purposes": grades["purposes"],
+        "on_role_multiplier": ON_ROLE_MULTIPLIER,
+        "off_role_multiplier": OFF_ROLE_MULTIPLIER,
+        "units": units,
+        "mvp": mvp,
+        "lvp": lvp,
     }
 
 
@@ -241,6 +300,7 @@ def build_assessor_guide(log: MatchLog) -> dict[str, Any]:
         "phases": _phases(initial, frame_turns),
         "key_moments": _key_moments(log, final, snap),
         "judging": _judging(log),
+        "scorecard": _scorecard_guide(build_scorecard(log)),
         "listening": _listening(initial),
     }
     guide["checklist"] = _checklist(log, guide, snap)
@@ -761,6 +821,64 @@ def _checklist(
     return checklist
 
 
+def _scorecard_guide(scorecard: dict[str, Any]) -> dict[str, Any]:
+    """Section (c2): the per-unit scorecard explained EXACTLY (plan C8-t8,
+    spec c6/h6/h15) — the four buckets and the event kinds that feed them, the
+    on-role multiplier, the MVP/LVP tie-break, and a verdict naming THIS
+    match's best and worst unit and why. Every number is interpolated from
+    ``league.engine.grades``' own pinned constants, so the guide can never
+    drift from the formula it explains; the reviewer test (spec h6) is that
+    guide + deck alone answer who carried, who sank, and why."""
+    what = (
+        f"Every unit earns points in four buckets, each fed by the log events that are "
+        f"its plainest observable proxy: economy (resource_gathered and resource_delivered, "
+        f"weighted by the event's own amount), control (control_point_captured "
+        f"{CAPTURE_POINTS} pts and control_point_held {HOLD_POINTS} pt, credited to the "
+        f"team's units standing on the point), recon (unit_moved, {MOVE_POINTS} pt per "
+        f"move), and coordination (message_sent, {MESSAGE_POINTS} pt per message)."
+    )
+    weights = (
+        f"A contribution on the unit's own role's home purpose counts "
+        f"×{ON_ROLE_MULTIPLIER} (double); the identical contribution made off-role counts "
+        f"×{OFF_ROLE_MULTIPLIER} — still more than zero, always less than on-role. "
+        f"A unit's grade is the sum of its four buckets; the marked bucket in each "
+        f"Scorecard row is that unit's home purpose."
+    )
+    tie_break = (
+        "MVP is the unit with the highest grade, LVP the lowest; ties break "
+        "canonically, ascending by (team_id, unit_id)."
+    )
+    return {
+        "title": "Scorecard — best and worst seat",
+        "what": what,
+        "weights": weights,
+        "tie_break": tie_break,
+        "verdict": _scorecard_verdict(scorecard),
+    }
+
+
+def _scorecard_verdict(scorecard: dict[str, Any]) -> str:
+    """This match's own MVP/LVP named with the why (their top bucket)."""
+    mvp, lvp = scorecard["mvp"], scorecard["lvp"]
+    if mvp is None or lvp is None:
+        return "No units to grade in this match."
+    by_id = {u["unit_id"]: u for u in scorecard["units"]}
+
+    def phrase(label: str, named: dict[str, Any]) -> str:
+        u = by_id[named["unit_id"]]
+        if u["grade"] == 0:
+            detail = "no scored contribution in any bucket"
+        else:
+            top = max(scorecard["purposes"], key=lambda p: u["breakdown"][p])
+            where = "its home purpose" if u["home_purpose"] == top else "off-role work"
+            detail = f"top bucket {top} at {u['breakdown'][top]} — {where}"
+        return f"{label}: {u['unit_id']} ({u['team_id']} {u['role']}, grade {u['grade']}; {detail})"
+
+    if mvp["unit_id"] == lvp["unit_id"]:
+        return f"This match graded a single unit, so it is both. {phrase('MVP and LVP', mvp)}."
+    return f"This match — {phrase('MVP', mvp)}. {phrase('LVP', lvp)}."
+
+
 def _listening(initial: MatchState) -> dict[str, Any]:
     """Section (e): the ambient score (cycle-8 t4, spec c17/h10/h12) — what the
     transport's note toggle plays, why it is deterministic for THIS match, and
@@ -1060,6 +1178,33 @@ body.booting #unit-layer g { transition: none; }
   height: 8px; border-radius: 5px; background: var(--track); position: relative; overflow: hidden;
 }
 .bar > i { position: absolute; inset: 0 auto 0 0; border-radius: 5px; display: block; }
+/* Scorecard tab — the per-unit axis (cycle-8 t8). Units ranked by grade;
+   MVP/LVP ride the chip vocabulary with the fixed status hues (the
+   winner-chip precedent — a labeled verdict, never a team color); the HOME
+   purpose is typographically marked (bold ink + a ×N tag), never a new color
+   job. Theme tokens only, so both designed themes style it. */
+.sc-unit { padding: 10px 0; border-top: 1px solid var(--grid); }
+.sc-unit:first-of-type { border-top: none; padding-top: 2px; }
+.sc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sc-head .dot { width: 9px; height: 9px; border-radius: 3px; flex: 0 0 auto; }
+.sc-name { font-weight: 640; color: var(--ink); }
+.sc-role { color: var(--muted); font-size: 12px; }
+.sc-grade {
+  margin-left: auto; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.sc-chip-mvp { color: var(--good); border-color: var(--good); font-weight: 600; }
+.sc-chip-lvp { color: var(--critical); border-color: var(--critical); font-weight: 600; }
+.sc-breakdown {
+  display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 6px;
+  font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+.sc-purpose { display: inline-flex; align-items: baseline; gap: 4px; }
+.sc-purpose.sc-home { color: var(--ink); font-weight: 650; }
+.sc-x2 {
+  background: var(--chip); border: 1px solid var(--ring); border-radius: 5px;
+  padding: 0 4px; font-size: 10px; color: var(--ink-2); font-weight: 600;
+}
 footer { margin-top: 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 footer kbd {
   font-family: var(--font); background: var(--chip); border: 1px solid var(--ring);
@@ -1163,6 +1308,8 @@ footer kbd {
           aria-selected="false" aria-controls="panel-teams" tabindex="-1">Teams</button>
         <button class="tab" id="tab-score" role="tab" data-tab="score"
           aria-selected="false" aria-controls="panel-score" tabindex="-1">Score</button>
+        <button class="tab" id="tab-scorecard" role="tab" data-tab="scorecard"
+          aria-selected="false" aria-controls="panel-scorecard" tabindex="-1">Scorecard</button>
       </div>
       <div class="tabpanels">
         <div class="tabpanel" id="panel-guide" role="tabpanel" data-tab="guide"
@@ -1173,6 +1320,8 @@ footer kbd {
           aria-labelledby="tab-teams" hidden><div id="teams"></div></div>
         <div class="tabpanel" id="panel-score" role="tabpanel" data-tab="score"
           aria-labelledby="tab-score" hidden><div id="scores"></div></div>
+        <div class="tabpanel" id="panel-scorecard" role="tabpanel" data-tab="scorecard"
+          aria-labelledby="tab-scorecard" hidden><div id="scorecard"></div></div>
       </div>
     </div>
   </div>
@@ -1569,6 +1718,18 @@ function renderGuide() {
   });
   body.appendChild(s3);
 
+  // (c2) The scorecard — exactly what the per-unit grade weighs (buckets,
+  // event kinds, the on-role multiplier, the tie-break) and this match's own
+  // MVP/LVP verdict, so guide + deck alone answer who carried and why.
+  if (G.scorecard) {
+    const sc = gSection(G.scorecard.title);
+    sc.appendChild(gEl('p', 'guide-p', G.scorecard.what));
+    sc.appendChild(gEl('p', 'guide-p', G.scorecard.weights));
+    sc.appendChild(gEl('p', 'guide-p', G.scorecard.tie_break));
+    sc.appendChild(gEl('p', 'guide-p muted-p', G.scorecard.verdict));
+    body.appendChild(sc);
+  }
+
   // (d) How to review — the checklist, each item pointing at scrub turns.
   const s4 = gSection('How to review this match');
   G.checklist.forEach(c => {
@@ -1596,6 +1757,45 @@ function renderGuide() {
     s5.appendChild(gEl('p', 'guide-p', G.listening.rate));
     body.appendChild(s5);
   }
+}
+
+// The Scorecard tab (cycle-8 t8): units ranked by grade descending (the
+// server already ordered them with the canonical tie-break — the top row IS
+// the MVP), each row a team dot + unit + role, MVP/LVP chips (the winner-chip
+// vocabulary: status hue + text label), the grade, and the full per-purpose
+// breakdown with the unit's HOME purpose marked (bold ink + a ×N tag naming
+// the on-role multiplier). Every fact is computed server-side (M.scorecard,
+// via league.engine.grades.grade_units); this only lays it out — log-derived
+// strings ride textContent, never innerHTML, so the panel is XSS-safe.
+function drawScorecard() {
+  const SC = M.scorecard, box = $('scorecard');
+  if (!SC) return;
+  box.textContent = '';
+  const homeTag = '\\u00D7' + SC.on_role_multiplier + ' home';
+  SC.units.forEach(u => {
+    const row = gEl('div', 'sc-unit');
+    const head = gEl('div', 'sc-head');
+    const dot = gEl('span', 'dot');
+    dot.style.background = teamColor(u.team_id);
+    head.appendChild(dot);
+    head.appendChild(gEl('span', 'sc-name', u.unit_id));
+    head.appendChild(gEl('span', 'sc-role', u.role));
+    if (u.mvp) head.appendChild(gEl('span', 'chip sc-chip-mvp', 'MVP'));
+    if (u.lvp) head.appendChild(gEl('span', 'chip sc-chip-lvp', 'LVP'));
+    head.appendChild(gEl('span', 'sc-grade', String(u.grade)));
+    row.appendChild(head);
+    const bd = gEl('div', 'sc-breakdown');
+    SC.purposes.forEach(p => {
+      const home = u.home_purpose === p;
+      const cell = gEl('span', 'sc-purpose' + (home ? ' sc-home' : ''));
+      cell.appendChild(gEl('span', 'sc-lbl', p));
+      cell.appendChild(gEl('span', 'sc-val', String(u.breakdown[p])));
+      if (home) cell.appendChild(gEl('span', 'sc-x2', homeTag));
+      bd.appendChild(cell);
+    });
+    row.appendChild(bd);
+    box.appendChild(row);
+  });
 }
 
 function render(forward) {
@@ -1918,6 +2118,7 @@ if (hashTurn != null) {
   if (idx >= 0) frame = idx;
 }
 drawScores();
+drawScorecard();
 renderGuide();
 render(false);
 // Let the first paint land at rest, then arm the movement transitions.
