@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-07-08
+
+### Added
+
+- Per-unit role-purpose scorecards in both engine lanes (league/engine/grades.py, league/engine/continuous/grades.py): every seat graded with a per-purpose breakdown, off-role work discounted but never zero, MVP/LVP named with the canonical tie-break
+- league match score units section (both lanes) with MVP/LVP flags; text scorecard; the continuous score path now works at all (previously a raw KeyError)
+- Scorecard surfaces in both replay faces: a fifth deck tab on the grid face, a static section in the continuous idiom, and guide text whose numbers are interpolated from the engine constants
+- Continuous fog mode (config "fog": true): briefings filtered to the acting team union of per-role vision radii — a projection in the harness, never an engine mutation
+- Delivery contention: a delivery completing while an enemy stands on the site is denied with an explicit event and reason; same-team simultaneity is co-delivery by canonical order
+- Generative ambient WebAudio score in the HTML replay — seeded from the match, lydian pad bed + bell layer, OFF by default with an accessible transport toggle — plus the event-sound layer (user amendment): every notable event has a motif in the bed key, denials audibly land, teams sit in different registers
+- MP4 soundtrack: league/replay/audio.py synthesizes the same seeded piece as a pure-stdlib WAV muxed by the existing ffmpeg path; GIF stays silent by documented format truth
+- The baked seat contract: charness carries SEAT_CONTRACT/SEAT_DELTA for every driver kind at first contact; scripts/cseat_driver.py is transport-only
+- c-frontier-1 (The Fogged Frontier): 3-role rosters, a race decided by arithmetic, one shared delivery bank, fog-lever geometry — plus the c-frontier-live playtest: four live delivery denials, a knowing mutual standoff, 0-0, MVP scout / LVP parked defender, and the a-pass-parks-a-seat-forever finding that seeds cycle 9
+
+### Changed
+
+- The grid scout is eyes-only (parity with the continuous cycle-7 amendment); the grid determinism hash was regenerated as a documented deliberate event
+- Cycle-6 presentation artifacts regenerated through the current pipeline with provenance-recovered settings; every fact file byte-identical
+
 ## [0.11.2] - 2026-07-08
 
 ### Added
