@@ -310,6 +310,18 @@ def _load(store: Store, match_id: str) -> MatchLog:
             message=str(err),
             remediation="run 'league match list' to see matches",
         ) from err
+    except ValueError as err:
+        # A log is an on-disk input — hand-edited or corrupted, its parse
+        # failures (``MatchLog.from_jsonl``'s ValueErrors: empty log, bad
+        # log_version, invalid max_actions, ...) must land as the CLI's
+        # structured error, never the dispatcher's generic "unexpected: ..."
+        # wrapper (Qodo review, PR #33; mirrors _load_continuous below).
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"match {match_id!r} could not be read: {err}",
+            remediation="the log file may be corrupt or hand-edited; "
+            "run 'league match list' to see matches",
+        ) from err
 
 
 # -- continuous-lane replay routing (plan C7-t9, spec c12/c2) ----------------
@@ -368,9 +380,25 @@ def _reject_continuous_log(store: Store, match_id: str, verb: str) -> None:
     promises no Python traceback ever leaks. This uses the SAME lane-sniff
     ``score``/``replay`` already route on (``_sniff_continuous_log``) so
     detection is consistent everywhere, and fails with a clean, dedicated,
-    structured ``CliError`` naming the limitation instead."""
+    structured ``CliError`` naming the limitation instead.
+
+    Only the HEADER LINE is read from disk (Qodo review, PR #33): the lane
+    signal lives entirely in line 1, and ``show`` sits on the harness's hot
+    path (``match show --json`` is called repeatedly during live play) —
+    reading the whole log here just to sniff, then letting ``_load`` read it
+    all again, doubled the log I/O per call for no extra information. A read
+    hiccup simply falls through to ``_load``, whose error path already
+    reports a clean CliError for an unreadable/corrupt file.
+    """
     path = store.log_path(match_id)
-    if path.is_file() and _sniff_continuous_log(path.read_text(encoding="utf-8")):
+    if not path.is_file():
+        return  # _load's not-found path owns this report
+    try:
+        with path.open(encoding="utf-8") as fh:
+            header_line = fh.readline()
+    except (OSError, UnicodeDecodeError):
+        return  # _load's error path owns the unreadable/undecodable-file report
+    if _sniff_continuous_log(header_line):
         raise CliError(
             code=EXIT_USER_ERROR,
             message=f"match {match_id!r} is a continuous-lane log; 'match {verb}' "

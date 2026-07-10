@@ -250,6 +250,39 @@ def test_from_jsonl_tolerates_logs_without_max_actions() -> None:
     assert log.max_actions == {}
 
 
+def test_from_jsonl_rejects_malformed_max_actions_values() -> None:
+    """A log is an on-disk input (Qodo review, PR #33): a hand-edited or
+    corrupted ``max_actions`` value must be rejected at the parse boundary
+    with a clear ValueError naming the team — never smuggled through to
+    ``match act``'s int comparison as a latent TypeError. Contract: a JSON
+    object of team_id -> positive int; bool is explicitly a corruption even
+    though Python bools subclass int."""
+    good = MatchLog(initial_state=initial_state(), events=sample_events(), max_actions={"blue": 1})
+    payload = good.to_jsonl()
+
+    def corrupt(replacement: str) -> str:
+        return payload.replace('"max_actions":{"blue":1}', f'"max_actions":{replacement}')
+
+    for bad, expect in (
+        ('{"blue":"one"}', "team 'blue'"),  # string cap
+        ('{"blue":0}', "team 'blue'"),  # non-positive
+        ('{"blue":-2}', "team 'blue'"),  # negative
+        ('{"blue":true}', "team 'blue'"),  # bool is corruption, not a cap
+        ('{"blue":1.5}', "team 'blue'"),  # float
+        ('{"blue":null}', "team 'blue'"),  # null
+        ("[1,2]", "expected an object"),  # not a dict at all
+        ('"banana"', "expected an object"),
+    ):
+        corrupted = corrupt(bad)
+        assert corrupted != payload  # the replacement really landed
+        with pytest.raises(ValueError, match="max_actions") as excinfo:
+            MatchLog.from_jsonl(corrupted)
+        assert expect in str(excinfo.value)
+
+    # The well-formed original still round-trips.
+    assert MatchLog.from_jsonl(payload).max_actions == {"blue": 1}
+
+
 def test_unknown_event_kind_rejected() -> None:
     with pytest.raises(ValueError):
         Event(turn=0, seq=0, kind="tea_break", data={})

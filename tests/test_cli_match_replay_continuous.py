@@ -196,6 +196,57 @@ def test_show_and_probe_on_a_grid_log_are_unaffected(arena, capsys) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# The lane-sniff must not double the log I/O (Qodo review, PR #33): the lane
+# signal lives entirely in the header line, and `match show` sits on the
+# harness's hot path — _reject_continuous_log reads ONLY line 1 via readline,
+# never a full read_text, so a grid log is fully read exactly once (by _load)
+# and a refused continuous log is never fully read at all.
+# --------------------------------------------------------------------------- #
+
+
+def _count_log_read_texts(monkeypatch) -> list:
+    """Instrument Path.read_text to record every FULL read of a log.jsonl."""
+    import pathlib
+
+    calls: list = []
+    original = pathlib.Path.read_text
+
+    def counting_read_text(self, *args, **kwargs):
+        if self.name == "log.jsonl":
+            calls.append(self)
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(pathlib.Path, "read_text", counting_read_text)
+    return calls
+
+
+def test_show_refusing_a_continuous_log_never_fully_reads_it(arena, capsys, monkeypatch) -> None:
+    _write_log("c-io-sniff", _minimal_continuous_header("c-io-sniff"))
+    calls = _count_log_read_texts(monkeypatch)
+
+    rc = main(["match", "show", "c-io-sniff"])
+    assert rc == 1
+    assert "continuous" in capsys.readouterr().err
+    assert calls == []  # header-line sniff only — the log was never slurped
+
+
+def test_show_on_a_grid_log_fully_reads_it_exactly_once(arena, capsys, monkeypatch) -> None:
+    """The exact double-read the review flagged: sniff-then-load used to cost
+    two full reads per `match show` call; now the only full read is _load's."""
+    raw = (_PLAYTESTS / _GRID_LOG_REL).read_text(encoding="utf-8")
+    match_id = MatchLog.from_jsonl(raw).initial_state.match_id
+    _write_log(match_id, raw)
+    calls = _count_log_read_texts(monkeypatch)
+
+    assert main(["match", "show", match_id]) == 0
+    assert len(calls) == 1
+
+    calls.clear()
+    assert main(["match", "probe", match_id]) == 0
+    assert len(calls) == 1
+
+
+# --------------------------------------------------------------------------- #
 # The grid path must stay byte-identical — no regression from the new routing.
 # --------------------------------------------------------------------------- #
 

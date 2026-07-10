@@ -253,6 +253,46 @@ def test_match_act_leaves_an_uncapped_team_unaffected(arena, capsys) -> None:
     assert not [e for e in log.events if e.kind == "orders_capped"]
 
 
+def test_match_act_on_a_hand_corrupted_max_actions_header_is_a_clean_error(arena, capsys) -> None:
+    """A log is an on-disk input (Qodo review, PR #33): hand-edit the header's
+    max_actions cap to a string and `match act` must fail with the CLI's
+    structured error — never a raw TypeError from `len(actions) > cap`
+    surfacing as 'unexpected: ...'. The parse boundary
+    (MatchLog.from_jsonl's validation) plus _load's ValueError handling
+    together keep the structured-error contract."""
+    assert main(_register("solo") + ["--apply"]) == 0
+    assert main(_register("house") + ["--apply"]) == 0
+    capsys.readouterr()
+    assert main(_new_solo_match("m-cap-corrupt")) == 0
+    capsys.readouterr()
+
+    log_path = Store().log_path("m-cap-corrupt")
+    raw = log_path.read_text(encoding="utf-8")
+    corrupted = raw.replace('"max_actions":{"solo":1}', '"max_actions":{"solo":"banana"}')
+    assert corrupted != raw  # the hand-edit really landed
+    log_path.write_text(corrupted, encoding="utf-8")
+
+    rc = main(
+        [
+            "match",
+            "act",
+            "m-cap-corrupt",
+            "--team",
+            "solo",
+            "--action",
+            "solo-u1:hold",
+            "--apply",
+        ]
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert err.startswith("error:")
+    assert "hint:" in err
+    assert "max_actions" in err
+    assert "TypeError" not in err
+    assert "unexpected" not in err
+
+
 def _new_solo_match_with_cap(match_id: str, cap_spec: str) -> list[str]:
     return [
         "match",

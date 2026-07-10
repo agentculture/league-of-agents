@@ -220,6 +220,36 @@ def fold_events(initial: MatchState, events: Iterable[Event]) -> MatchState:
     return state
 
 
+def _validated_max_actions(raw: Any) -> dict[str, int]:
+    """Validate a parsed header's ``max_actions`` field (Qodo review, PR #33).
+
+    The CLI validates ``--max-actions`` on the way IN, but a log is an
+    on-disk input — hand-edited or corrupted, its cap values could be
+    anything, and ``match act`` compares the cap against an int
+    (``len(actions) > cap``): a non-int would surface as a raw ``TypeError``
+    instead of a structured error. Enforce the field's contract at the parse
+    boundary instead: a JSON object of ``team_id -> positive int``, rejected
+    loudly (``ValueError``, the same voice every other corrupt-header case
+    here uses) on anything else. ``bool`` is explicitly excluded even though
+    it subclasses ``int`` — ``true``/``false`` caps are always a corruption,
+    never a declared handicap. A log that predates the field (no
+    ``max_actions`` key) parses to ``{}`` before ever reaching this check.
+    """
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"invalid max_actions header field: expected an object of "
+            f"team_id -> positive int, got {raw!r}"
+        )
+    max_actions: dict[str, int] = {}
+    for team_id, cap in raw.items():
+        if isinstance(cap, bool) or not isinstance(cap, int) or cap < 1:
+            raise ValueError(
+                f"invalid max_actions for team {team_id!r}: expected positive int, got {cap!r}"
+            )
+        max_actions[str(team_id)] = cap
+    return max_actions
+
+
 @dataclass(frozen=True)
 class MatchLog:
     """An initial state plus everything that happened — the whole match.
@@ -269,7 +299,7 @@ class MatchLog:
         driver_kinds = dict(header.get("driver_kinds", {}))
         map_read = dict(header.get("map_read", {}))
         unit_comms = dict(header.get("unit_comms", {}))
-        max_actions = dict(header.get("max_actions", {}))
+        max_actions = _validated_max_actions(header.get("max_actions", {}))
         return cls(
             initial_state=initial,
             events=events,
