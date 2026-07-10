@@ -1113,6 +1113,44 @@ def test_tick_apply_resolves_bot_driven_units_and_advances(arena, capsys) -> Non
     assert sorted(set(data["resolved"])) == ["blue-u1", "blue-u2", "red-u1", "red-u2"]
 
 
+def test_tick_resolves_a_bot_file_driven_team(arena, capsys) -> None:
+    """The other half of the coded-strategy bot lane (bots/crusher.py, the
+    continuous reference strategy): 'bot-file:<name>' is reconstructed from
+    the log header's own driver label -- no separate config file needed --
+    and ticks a match to completion exactly like the plain 'bot' driver."""
+    config = json.dumps(
+        {
+            "match": {"scenario": "c-skirmish-1", "id": "cm-crusher"},
+            "teams": [
+                {
+                    "id": "blue",
+                    "driver": {"type": "bot-file", "strategy": "crusher"},
+                    "agents": [{"id": "b1", "role": "defender"}, {"id": "b2", "role": "harvester"}],
+                },
+                {
+                    "id": "red",
+                    "driver": {"type": "bot"},
+                    "agents": [{"id": "r1", "role": "defender"}, {"id": "r2", "role": "harvester"}],
+                },
+            ],
+        }
+    )
+    assert main(["cmatch", "new", "--config", config, "--apply"]) == 0
+    capsys.readouterr()
+
+    finished = False
+    data = None
+    for _ in range(20):
+        assert main(["cmatch", "tick", "cm-crusher", "--apply", "--json"]) == 0
+        data = json.loads(capsys.readouterr().out)
+        if data["finished"]:
+            finished = True
+            break
+    assert finished
+    assert data["status"] == "finished"
+    assert "blue-u1" in data["resolved"] or "blue-u2" in data["resolved"]
+
+
 def test_tick_repeated_calls_run_a_bot_vs_bot_match_to_completion(arena, capsys) -> None:
     """Repeated, independent 'tick --apply' calls (suspend/resume between
     every single one) drive a fully bot-driven match all the way to
