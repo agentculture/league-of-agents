@@ -67,10 +67,15 @@ the effect event, then ``action_completed`` **or** ``action_failed``, then a
 ``game_time`` because these touch disjoint fields.
 
 The on-disk format is JSONL: line 1 is a header
-``{"log_version", "initial_state", "driver_kinds"}``; every following line is one
-event, all canonical JSON. ``driver_kinds`` is the per-team declared-residency
-label (spec c10/h7) — harness metadata only, never folded, defaulting to ``{}``
-so a log written before it existed still parses.
+``{"log_version", "initial_state", "driver_kinds", "fog"}``; every following
+line is one event, all canonical JSON. ``driver_kinds`` is the per-team
+declared-residency label (spec c10/h7) — harness metadata only, never folded,
+defaulting to ``{}`` so a log written before it existed still parses. ``fog``
+(issue #35) records whether this match's briefings are fogged — again pure
+harness/CLI metadata (fog is a briefing-layer projection, never an engine
+rule), persisted so the stepwise ``cmatch`` loop can rebuild every later
+briefing with the same projection ``run_cmatch`` would have used; it defaults
+to ``False`` so a log written before it existed still parses.
 """
 
 from __future__ import annotations
@@ -328,12 +333,16 @@ class CMatchLog:
 
     ``driver_kinds`` is header metadata only (per-team declared residency, spec
     c10/h7): never folded, never part of ``cstate_hash``, defaulting to ``{}`` so
-    a log that predates it still parses.
+    a log that predates it still parses. ``fog`` (issue #35) is the same kind of
+    metadata for the briefing projection: recorded so ``cmatch show``/``tick``
+    fog every later briefing exactly as ``run_cmatch`` would, never folded,
+    defaulting to ``False`` so a pre-fog log still parses.
     """
 
     initial_state: CMatchState
     events: tuple[CEvent, ...]
     driver_kinds: dict[str, str] = field(default_factory=dict)
+    fog: bool = False
 
     def final_state(self) -> CMatchState:
         return fold_events(self.initial_state, self.events)
@@ -343,6 +352,7 @@ class CMatchLog:
             "log_version": LOG_VERSION,
             "initial_state": self.initial_state.to_dict(),
             "driver_kinds": dict(self.driver_kinds),
+            "fog": self.fog,
         }
         lines = [json.dumps(header, sort_keys=True, separators=(",", ":"), ensure_ascii=False)]
         lines.extend(
@@ -363,4 +373,5 @@ class CMatchLog:
         initial = CMatchState.from_dict(header["initial_state"])
         events = tuple(CEvent.from_dict(json.loads(line)) for line in lines[1:])
         driver_kinds = dict(header.get("driver_kinds", {}))
-        return cls(initial_state=initial, events=events, driver_kinds=driver_kinds)
+        fog = bool(header.get("fog", False))
+        return cls(initial_state=initial, events=events, driver_kinds=driver_kinds, fog=fog)

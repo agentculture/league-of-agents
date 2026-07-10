@@ -70,9 +70,15 @@ driving produce a log byte-identical to an equivalent single `run_cmatch` call
 given the same decisions in the same (canonical) order. See
 [`league explain cmatch`](../../league/explain/catalog.py) for the full verb
 reference and `tests/test_continuous_resolve.py`/`tests/test_cli_cmatch.py`
-for the parity proofs. Scope this cycle: fog (`config["fog"]`) is supported by
-`cmatch run` (a straight pass-through to `run_cmatch`) but not yet by the
-stepwise `new`/`show`/`act`/`tick` loop.
+for the parity proofs. The stepwise loop covers the full config surface
+(issues #35/#36/#37): fog (`config["fog"]` or `cmatch new --fog`) is recorded
+in the log header and applied to every `show`/`tick` briefing per the acting
+unit's own team, and the driver reply's social record (`cmatch act
+--message`/`--plan`, or a bot/bot-file reply's own `message`/`plan`) is
+recorded riding its decision — the same `DecisionReply` interleave convention
+`run_cmatch` writes — so the byte-parity proof holds with fog on and messages
+present (`tests/test_cli_cmatch.py::
+test_cli_stepwise_fog_and_messages_match_run_cmatch_byte_for_byte`).
 
 ## See also
 

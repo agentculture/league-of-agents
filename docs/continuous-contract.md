@@ -118,10 +118,15 @@ Field by field:
   and `tests/test_fog.py` for the boundary/scout-lever proofs.
 - **`messages`** — the running social record: messages other seats have attached
   to their orders so far, each `{from, text, game_time}`. A mind may attach a
-  message to its own order reply; the harness records it as a `message_sent`
-  OBSERVATION event and surfaces it in later briefings. Plans work the same way
-  (`plan_declared`). The `from` is always forced to the seat's own agent id —
-  never trusted from the reply.
+  message to its own order reply; the resolver records it as a `message_sent`
+  OBSERVATION event riding that decision (immediately after the decision's own
+  `decision_point`/`action_started` pair — the `DecisionReply` interleave
+  convention, issue #36) and it surfaces in later briefings. Plans work the
+  same way (`plan_declared`; recorded once per agent, first declaration wins).
+  The `from` is always forced to the seat's own agent id — never trusted from
+  the reply. The same record can be written externally with
+  `league cmatch act --message/--plan` — byte-identical, whichever path drives
+  the match.
 - **`clock_budget_note`** — a short human-readable note restating how to read the
   clock, durations, and the outlook as a time budget.
 
@@ -259,10 +264,13 @@ It holds by construction:
 - Wall-clock is read **only** in `league/charness.py` (`_monotonic`), and only to
   fill `seat_latency` observations — the out-of-game tempo axis. It is never fed
   back to the resolver.
-- The harness records `seat_latency` / `message_sent` / `plan_declared` as
-  OBSERVATION events (fold no-ops), appended after the resolver's transition
-  stream. Stripping them leaves the transitions — and the final `cstate_hash` —
-  byte-for-byte unchanged.
+- The harness records `seat_latency` as OBSERVATION events (fold no-ops)
+  appended after the resolver's transition stream; `message_sent` /
+  `plan_declared` are recorded by the resolver itself, riding the decision they
+  were attached to (the `DecisionReply` interleave convention, issue #36 —
+  shared with the stepwise `cmatch` CLI so both driving paths write identical
+  bytes). Stripping any of them leaves the transitions — and the final
+  `cstate_hash` — byte-for-byte unchanged.
 
 `tests/test_continuous_harness.py::test_same_log_emerges_whether_the_driver_is_fast_or_slow`
 proves it: the same match run under a fast fake clock and a slow fake clock

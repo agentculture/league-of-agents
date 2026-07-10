@@ -398,6 +398,40 @@ def test_bot_file_driver_loads_a_strategy_and_plays(tmp_path, monkeypatch):
     assert any("taking" in e.data["text"] for e in msgs)
 
 
+def test_messages_and_plans_ride_their_decision_not_the_tail(tmp_path, monkeypatch):
+    """The unified interleave convention (issue #36): ``run_cmatch`` records
+    ``message_sent``/``plan_declared`` at the decision they rode along with —
+    the resolver emits them immediately after that decision's own
+    ``decision_point``/``action_started`` pair — never tail-appended after
+    ``match_finished`` the way the pre-#36 harness did. ``seat_latency``
+    keeps the tail: the tempo axis has no in-stream analog for a stepwise
+    (``cmatch act``/``tick``) decision, and byte-parity between the two
+    driving paths is judged with it stripped."""
+    strat_dir = tmp_path / "cbots"
+    strat_dir.mkdir()
+    (strat_dir / "grabber.py").write_text(_CSTRATEGY, encoding="utf-8")
+    monkeypatch.setattr(charness, "_CBOTS_DIR", strat_dir)
+
+    cfg = {
+        "match": {"id": "cm-ride"},
+        "teams": [{"id": "blue", "driver": {"type": "bot-file", "strategy": "grabber"}}],
+    }
+    events = run_cmatch(cfg, initial_state=_coop_hold_state())["log"].events
+
+    finished_at = next(i for i, e in enumerate(events) if e.kind == "match_finished")
+    msg_idx = [i for i, e in enumerate(events) if e.kind == "message_sent"]
+    assert msg_idx, "the grabber strategy must have sent at least one message"
+    assert all(i < finished_at for i in msg_idx)
+    for i in msg_idx:
+        prev = events[i - 1]
+        assert prev.kind in ("decision_point", "action_started", "message_sent")
+        assert prev.data.get("unit_id") == events[i].data["unit_id"]
+
+    lat_idx = [i for i, e in enumerate(events) if e.kind == "seat_latency"]
+    assert lat_idx, "seat_latency instrumentation must still be recorded"
+    assert all(i > finished_at for i in lat_idx)
+
+
 def test_bot_file_strategy_never_receives_engine_objects(tmp_path, monkeypatch):
     """Parity with the grid bot-file lane: the strategy sees the briefing dict
     and team_id, nothing else — no CMatchState, no menu object, no context."""

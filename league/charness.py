@@ -51,10 +51,14 @@ by construction: wall-clock (:data:`_monotonic`) is read ONLY to fill
 ``seat_latency`` observations (the out-of-game tempo axis), never fed back to
 the resolver — and the resolver lives under the engine-wide AST import ban
 (``tests/test_engine_state.py``), so it *cannot* read a clock. This module
-records ``seat_latency`` / ``message_sent`` / ``plan_declared`` as OBSERVATION
-events (fold no-ops) appended after the resolver's transition stream, so
-stripping them leaves the transitions — and the final ``cstate_hash`` —
-untouched. That is the h7 proof shape.
+records ``seat_latency`` as OBSERVATION events (fold no-ops) appended after
+the resolver's transition stream; ``message_sent`` / ``plan_declared`` are
+recorded by the RESOLVER itself, riding the decision they were attached to
+(the issue-#36 interleave convention — see
+:class:`~league.engine.continuous.resolve.DecisionReply` — shared with the
+``cmatch`` CLI so stepwise driving writes identical bytes). All three are
+fold no-ops, so stripping them leaves the transitions — and the final
+``cstate_hash`` — untouched. That is the h7 proof shape.
 
 Continuous fog (plan C8-t5, spec c11/h2/c7/c4)
 -----------------------------------------------
@@ -142,7 +146,7 @@ from typing import Any, Callable, Mapping
 
 from league.engine.continuous.events import CEvent, CMatchLog
 from league.engine.continuous.legal import plan_action
-from league.engine.continuous.resolve import outcome_points, resolve_match
+from league.engine.continuous.resolve import DecisionReply, outcome_points, resolve_match
 from league.engine.continuous.roles import CRoleStats, build_role_table, stats_for
 from league.engine.continuous.space import Pos, dist_sq
 from league.engine.continuous.state import CMatchState
@@ -1002,11 +1006,14 @@ def _resolve_initial(config: Mapping[str, Any], initial_state: Any) -> CMatchSta
 # -- message/plan normalization (the social OBSERVATION record) --------------
 
 
-def _normalize_messages(reply: Mapping[str, Any]) -> list[str]:
+def normalize_messages(reply: Mapping[str, Any]) -> list[str]:
     """A driver may attach a message to its order as ``"message"`` (a string or
     ``{"text": ...}``) or ``"messages"`` (a list of either). Normalize to plain
-    text strings; the ``from`` is always forced to the seat's own agent id by
-    the caller, never trusted from the reply (spoof-proof, like the grid)."""
+    text strings; the ``from`` is always forced to the seat's own agent id
+    downstream (by the resolver's ``_record_social``), never trusted from the
+    reply (spoof-proof, like the grid). Public because ``cmatch tick`` applies
+    the identical normalization to a bot/bot-file reply (issue #37) — one
+    rule, both driving paths."""
     out: list[str] = []
     single = reply.get("message")
     if isinstance(single, str) and single.strip():
@@ -1043,9 +1050,12 @@ def run_cmatch(
     ``choosers`` optionally overrides the built driver for named teams (a test
     seam). Returns ``{"match_id", "status", "game_time", "winner",
     "outcome_points", "log"}`` where ``log`` is the full
-    :class:`~league.engine.continuous.events.CMatchLog` with the harness's
-    OBSERVATION events appended (fold no-ops, so ``log.final_state()`` is
-    exactly the resolver's final state).
+    :class:`~league.engine.continuous.events.CMatchLog`: the resolver's own
+    stream (message/plan observations riding their decisions, per
+    :class:`~league.engine.continuous.resolve.DecisionReply`) plus the
+    harness's ``seat_latency`` observations appended at the tail — all fold
+    no-ops, so ``log.final_state()`` is exactly the resolver's final state.
+    The log's ``fog`` header field records this match's briefing projection.
 
     ``config["fog"]`` (default ``False``) turns on the continuous fog mode —
     see the "continuous fog" section of the module docstring. It is read the
@@ -1078,12 +1088,11 @@ def run_cmatch(
 
     messages: list[dict[str, Any]] = []  # running social record, shown in later briefings
     observations: list[tuple[int, str, dict[str, Any]]] = []  # (game_time, kind, data)
-    plans_declared: set[str] = set()
 
     def chooser_for(team_id: str) -> CChooser:
         return override.get(team_id) or built[team_id]
 
-    def decide(unit_id: str, cstate: CMatchState, menu: Mapping[str, Any]) -> dict[str, Any] | None:
+    def decide(unit_id: str, cstate: CMatchState, menu: Mapping[str, Any]) -> DecisionReply | None:
         unit = _find_unit(cstate, unit_id)
         team_id = unit.team_id
         agent_id = unit.agent_id
@@ -1105,36 +1114,29 @@ def run_cmatch(
             (game_time, "seat_latency", _latency(team_id, agent_id, unit_id, started))
         )
 
-        for text in _normalize_messages(reply):
+        # The social record: normalized here, recorded by the RESOLVER as
+        # message_sent/plan_declared events riding this decision (the issue
+        # #36 interleave convention `DecisionReply` pins — shared with the
+        # `cmatch` CLI so both driving paths write identical bytes). The
+        # resolver also owns the from-is-the-seat's-own-agent rule and the
+        # once-per-agent plan dedup.
+        texts = normalize_messages(reply)
+        for text in texts:
             messages.append({"from": agent_id, "text": text, "game_time": game_time})
-            observations.append(
-                (
-                    game_time,
-                    "message_sent",
-                    {"team_id": team_id, "from": agent_id, "unit_id": unit_id, "text": text},
-                )
-            )
         plan = reply.get("plan")
-        if plan and agent_id not in plans_declared:
-            plans_declared.add(agent_id)
-            observations.append(
-                (
-                    game_time,
-                    "plan_declared",
-                    {"team_id": team_id, "from": agent_id, "text": str(plan)},
-                )
-            )
 
         action = reply.get("action")
-        if action is None:
-            return None
         # Legality gate (the legal<->resolver agreement, harness side): a live
         # mind's illegal action safely parks the seat, never raises through the
         # resolver — the continuous analog of the grid's reject-and-idle.
-        if plan_action(cstate, table, unit_id, dict(action)) is None:
+        if action is not None and plan_action(cstate, table, unit_id, dict(action)) is None:
             print(f"[charness] seat {agent_id} chose an illegal action; idling", file=sys.stderr)
-            return None
-        return dict(action)
+            action = None
+        return DecisionReply(
+            action=dict(action) if action is not None else None,
+            messages=tuple(texts),
+            plan=str(plan) if plan else None,
+        )
 
     result = resolve_match(state, table, decide, driver_kinds=driver_kinds)
 
@@ -1146,6 +1148,7 @@ def run_cmatch(
         initial_state=result.log.initial_state,
         events=tuple(events),
         driver_kinds=driver_kinds,
+        fog=fog,
     )
 
     final = result.final_state

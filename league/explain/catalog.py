@@ -412,12 +412,18 @@ directory continues correctly, no in-memory state required.
     league cmatch new --scenario c-skirmish-1 --team blue --team red \\
         --driver blue:bot --driver red:bot --apply --json
     league cmatch new --config match.json --apply         # or inline JSON
+    league cmatch new --scenario c-skirmish-1 --team blue --team red \\
+        --fog --apply                           # fog every briefing (recorded in
+                                                 # the log header; a --config's own
+                                                 # "fog": true does the same)
 
     league cmatch show <id> --json             # every currently-due unit's briefing
     league cmatch show <id> --unit blue-u1 --json  # scope to one due unit
 
     league cmatch act <id> --unit blue-u1 \\
         --action-json '{"kind": "move", "target_pos": {"x": 5000, "y": 4000}}' \\
+        --message 'moving to the crossing — cover me' \\
+        --plan 'defender races the post, harvester runs the economy' \\
         --apply --json
     league cmatch act <id> --unit blue-u1 --apply   # omit --action-json (or pass
                                                      # 'null') to park that unit
@@ -434,7 +440,12 @@ directory continues correctly, no in-memory state required.
 agnostic, the same registry the grid lane uses) or a single `--config` (a
 file path OR inline JSON, mirroring `league harness run`'s config shape:
 `{"match": {"scenario", "mode", "seed", "id"}, "teams": [{"id", "name",
-"driver", "agents"}], "fog": false}`).
+"driver", "agents"}], "fog": false}`). Fog (`--fog`, or the config's own
+`"fog": true`) is recorded in the match log's header at `new` time, and every
+later `show`/`tick` briefing is then fogged per the acting due unit's OWN
+team — the identical union-of-vision projection `run_cmatch` hands its
+drivers (`league.charness.build_briefing`; ground truth stays in the log,
+scoring/replay unaffected).
 
 `show` is the externally queryable "what is due right now": every unit that
 is alive, idle, and has not yet been asked this idle window, in canonical
@@ -453,6 +464,17 @@ externally-driven play produce a log BYTE-IDENTICAL to an equivalent single
 `tests/test_continuous_resolve.py`/`tests/test_cli_cmatch.py`) — answering out
 of order is refused rather than silently reordered.
 
+`act --message <text>` (repeatable) and `act --plan <text>` attach the driver
+reply's social record (`{"action", "message"?, "plan"?}` per
+`docs/continuous-contract.md`) to the decision: recorded as
+`message_sent`/`plan_declared` OBSERVATION events riding the decision's own
+`decision_point`/`action_started` pair — the same interleave convention (and
+the same bytes) `run_cmatch` writes. The sender is always the acting unit's
+own agent (never a flag — spoof-proof, like the harness); a plan is recorded
+once per agent, first declaration wins. Later briefings — `show`'s and the
+ones `tick` hands bot/bot-file drivers — surface the running message record
+exactly as an in-harness seat would have seen it.
+
 `tick` is the verb an external harness calls when it has **nothing to
 submit**: it resolves every currently-due unit belonging to a team whose
 driver label (recorded at `new`/`--config` time) is `bot` or
@@ -462,16 +484,21 @@ instead of leaving it pending. A `stateless`/`resident` (live-mind) team's due
 units are neither resolved nor parked by default: they stay due for an
 external `cmatch act` call, exactly mirroring `match tick`'s own grid-lane
 behavior (it force-resolves with whatever is staged; it never invokes a live
-mind itself either).
+mind itself either). Every bot-driven briefing `tick` builds carries the
+running message record (rebuilt from the log's own `message_sent` events plus
+this call's) and the match's fog projection — so a strategy that reads
+`briefing["messages"]` or a fogged board behaves identically whether
+`run_cmatch` or `cmatch tick` drives it — and any message/plan a bot's reply
+attaches is recorded exactly as `act --message`/`--plan` records one.
 
 `run` is the packaged one-shot — bot-vs-bot, live minds, or a mix, all in one
 call, exactly what `league.charness.run_cmatch` already did as a library call
 (`scripts/run_cmatch.py` used to be the only way to reach it from a shell; it
-is now a thin, deprecated wrapper around this verb). Unlike the stepwise
-loop, `run --config` supports `"fog": true` in full (it is a straight
-pass-through to `run_cmatch`, which already implements it) — the stepwise
-`new`/`show`/`act`/`tick` loop does not support fog yet and `new` refuses a
-fogged config with a clean error pointing back at `run`.
+is now a thin, deprecated wrapper around this verb). The stepwise loop and
+`run` support the same config surface — fog included — and produce
+byte-identical logs for the same decisions in the same order (minus `run`'s
+wall-clock `seat_latency` instrumentation, which a stepwise decision has no
+analog for).
 
 `match score`/`match replay` keep working on `cmatch`-produced logs
 completely unchanged (they already lane-sniff the header shape, PR #33) —

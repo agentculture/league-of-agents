@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-07-10
+
+### Added
+
+- cmatch stepwise fog support (issue #35): `cmatch new` accepts a fogged --config (the old refusal is gone) and a new `--fog` flag, recording fog as an additive `CMatchLog.fog` header field; `cmatch show` and `cmatch tick` then fog every briefing per the acting due unit's own team — the identical union-of-vision projection `run_cmatch` hands its drivers
+- cmatch act --message/--plan (issue #36): the external-driver social record — recorded as `message_sent`/`plan_declared` OBSERVATION events riding the decision's own `decision_point`/`action_started` pair via the new engine-level `DecisionReply` reply shape (`league.engine.continuous.resolve`), with the sender always forced to the acting unit's own agent and plans deduped once per agent
+- cmatch tick threads the running message record (rebuilt from the log's own `message_sent` events plus the current call's) and the header fog into every bot/bot-file briefing, and records any message/plan a bot reply attaches (issue #37) — a message-reading strategy now behaves identically whether `run_cmatch` or `cmatch tick` drives it
+- the stepwise-vs-one-shot parity proof is extended to cover fog + messages: a fogged match whose seats send AND read messages, driven via new/show/act/tick across independent CLI calls, replays byte-identical (minus wall-clock `seat_latency`) to one `run_cmatch` call (`test_cli_stepwise_fog_and_messages_match_run_cmatch_byte_for_byte`)
+
+### Changed
+
+- `run_cmatch` now records `message_sent`/`plan_declared` interleaved in the resolver stream, riding the decision they were attached to, instead of tail-appending them after `match_finished` (the `DecisionReply` convention shared with the cmatch CLI — what makes the two driving paths byte-identical); `seat_latency` stays tail-appended, and all three remain fold no-ops, so replay/scoring/committed logs are unaffected
+- `league.charness._normalize_messages` is now public as `normalize_messages` (one normalization rule for both driving paths)
+
 ## [0.16.0] - 2026-07-10
 
 ### Added
