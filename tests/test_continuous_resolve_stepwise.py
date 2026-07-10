@@ -27,6 +27,7 @@ from league.engine.continuous import (
 )
 from league.engine.continuous.events import CEvent, CMatchLog
 from league.engine.continuous.resolve import (
+    DecisionReply,
     IllegalContinuousAction,
     NeedsExternalDecision,
     advance_external,
@@ -324,3 +325,136 @@ def test_advance_external_is_idempotent_on_an_already_finished_match() -> None:
     new_log, finished = advance_external(clog, ROLE_TABLE, lambda *a: _fail(a[0]))
     assert finished is True
     assert new_log.events == clog.events  # nothing new to add
+
+
+# --------------------------------------------------------------------------- #
+# DecisionReply -- the social record rides the decision (issues #36/#37)
+# --------------------------------------------------------------------------- #
+
+
+def test_decision_reply_records_messages_and_plan_right_after_the_pair() -> None:
+    """The pinned interleave convention (issue #36): ``message_sent``/
+    ``plan_declared`` land immediately AFTER the decision's own
+    ``decision_point``/``action_started`` pair, emitted by the resolver
+    itself -- never tail-appended, never trusted for their ``from``."""
+    clog = _fresh_log(_race_state())
+
+    def decide_external(uid, state, menu):
+        if uid == "blue-defender":
+            return DecisionReply(
+                action=_pick(menu, "move"), messages=("on my way",), plan="rush the post"
+            )
+        raise NeedsExternalDecision(uid)
+
+    new_log, finished = advance_external(clog, ROLE_TABLE, decide_external)
+    assert finished is False
+    new_events = new_log.events[len(clog.events) :]
+    assert [e.kind for e in new_events] == [
+        "decision_point",
+        "action_started",
+        "message_sent",
+        "plan_declared",
+    ]
+    msg = new_events[2]
+    assert msg.data == {
+        "team_id": "blue",
+        "from": "blue-defender",
+        "unit_id": "blue-defender",
+        "text": "on my way",
+    }
+    plan = new_events[3]
+    assert plan.data == {"team_id": "blue", "from": "blue-defender", "text": "rush the post"}
+    # seq stays the log position -- the byte-layout invariant every stepwise
+    # append preserves.
+    assert [e.seq for e in new_log.events] == list(range(len(new_log.events)))
+
+
+def test_decision_reply_park_with_message_records_after_the_lone_decision_point() -> None:
+    clog = _fresh_log(_race_state())
+
+    def decide_external(uid, state, menu):
+        if uid == "blue-defender":
+            return DecisionReply(action=None, messages=("waiting here",))
+        raise NeedsExternalDecision(uid)
+
+    new_log, finished = advance_external(clog, ROLE_TABLE, decide_external)
+    assert finished is False
+    new_events = new_log.events[len(clog.events) :]
+    assert [e.kind for e in new_events] == ["decision_point", "message_sent"]
+    # asked-and-parked: no longer due, exactly like a plain None answer
+    assert due_decisions(new_log) == ["red-harv"]
+
+
+def test_plan_is_recorded_once_per_agent_across_separate_calls() -> None:
+    """The resolver owns the first-declaration-wins plan dedup (mirrors
+    ``run_cmatch``'s old harness-side rule), so it holds across separate
+    ``advance_external`` calls too -- the replay rebuilds the declared set."""
+
+    def state_builder():
+        return _state(
+            mode="cooperative",
+            teams=(_team("blue", "Blue", (_slot("d", "defender"),)),),
+            units=(_unit("d", "blue", "defender", from_units(2, 3)),),
+            control_points=(CControlPoint(id="cp", pos=from_units(3, 3)),),
+        )
+
+    plans = iter(["plan A", "plan B"])
+
+    def decider(uid, state, menu):
+        cp = next(c for c in state.control_points if c.id == "cp")
+        if cp.owner is None:
+            action = _pick(menu, "take_post") or _pick(menu, "move")
+        else:
+            action = None
+        return DecisionReply(action=action, plan=next(plans, None))
+
+    # Answer exactly ONE ask per advance_external call (stricter than
+    # _drive_canonically, which would let one call cascade through this
+    # single unit's whole match), so the second plan declaration genuinely
+    # arrives in a later, separate call over the persisted log.
+    clog = _fresh_log(state_builder())
+    calls = 0
+    finished = False
+    while not finished:
+        asked: list[str] = []
+
+        def decide_external(unit_id, state, menu):
+            if asked:
+                raise NeedsExternalDecision(unit_id)
+            asked.append(unit_id)
+            return decider(unit_id, state, menu)
+
+        clog, finished = advance_external(clog, ROLE_TABLE, decide_external)
+        calls += 1
+
+    assert calls > 1  # the second declaration arrived in a genuinely later call
+    declared = [e for e in clog.events if e.kind == "plan_declared"]
+    assert len(declared) == 1
+    assert declared[0].data["text"] == "plan A"
+
+
+def test_stepwise_parity_with_resolve_match_when_replies_carry_messages() -> None:
+    """The engine-level parity proof EXTENDED to the social record: the same
+    DecisionReply-returning decider, driven one decision per
+    ``advance_external`` call, produces the byte-identical event log --
+    ``message_sent``/``plan_declared`` included, at identical positions and
+    seqs -- as a single synchronous ``resolve_match`` run."""
+
+    def social_decider(uid, state, menu):
+        base = _race_decider(uid, state, menu)
+        return DecisionReply(
+            action=base,
+            messages=(f"{uid} says hi",),
+            plan=f"{uid} plan" if uid.startswith("blue") else None,
+        )
+
+    reference = resolve_match(_race_state(), ROLE_TABLE, social_decider)
+    assert any(e.kind == "message_sent" for e in reference.log.events)  # anti-vacuity
+    assert any(e.kind == "plan_declared" for e in reference.log.events)
+
+    clog = _fresh_log(_race_state())
+    clog, calls = _drive_canonically(clog, social_decider)
+
+    assert calls > 1
+    assert clog.events == reference.log.events
+    assert clog.final_state() == reference.final_state

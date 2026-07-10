@@ -141,7 +141,46 @@ CP_POINTS = 2
 _HOLD_PREFIX = "__hold__:"
 
 RoleTable = tuple[tuple[str, CRoleStats], ...]
-DecisionFn = Callable[[str, CMatchState, dict], Optional[dict]]
+
+
+@dataclass(frozen=True)
+class DecisionReply:
+    """A decision function's FULL answer at one decision point: the chosen
+    ``action`` (a menu-shaped dict, or ``None`` to park) plus the social
+    record that rode along with it — the engine-level shape of the pinned
+    driver reply ``{"action", "message"?, "plan"?}``
+    (``docs/continuous-contract.md``).
+
+    A plain action dict (or ``None``) is still accepted everywhere a
+    ``DecisionReply`` is — every pre-existing decision function keeps
+    working unchanged; the reply object is only needed when a decision
+    carries messages or a plan.
+
+    The interleave convention (issue #36, shared by ``run_cmatch`` and the
+    ``cmatch`` CLI so the two driving paths stay byte-identical): the
+    resolver records each ``messages`` entry as a ``message_sent`` event and
+    ``plan`` as a ``plan_declared`` event immediately AFTER the decision's
+    own ``decision_point``/``action_started`` pair (after the lone
+    ``decision_point`` when the decision parks). ``from`` is always the
+    acting unit's own agent id — never caller input — and a plan is recorded
+    once per agent (first declaration wins), both exactly the rules
+    ``run_cmatch`` has always enforced.
+    """
+
+    action: Optional[dict] = None
+    messages: tuple[str, ...] = ()
+    plan: Optional[str] = None
+
+
+DecisionFn = Callable[[str, CMatchState, dict], "Optional[dict] | DecisionReply"]
+
+
+def _unpack_reply(
+    choice: "Optional[dict] | DecisionReply",
+) -> tuple[Optional[dict], tuple[str, ...], Optional[str]]:
+    if isinstance(choice, DecisionReply):
+        return choice.action, tuple(choice.messages), choice.plan
+    return choice, (), None
 
 
 class IllegalContinuousAction(ValueError):
@@ -234,6 +273,7 @@ class _Resolver:
         self.events: list[CEvent] = []
         self.seq = 0
         self.owned_since: dict[str, int] = {}
+        self.plans_declared: set[str] = set()  # agent ids; first declaration wins
 
     # -- event plumbing ----------------------------------------------------- #
     def emit(self, game_time: int, kind: str, data: dict[str, Any]) -> None:
@@ -297,7 +337,12 @@ class _Resolver:
     # -- decisions ---------------------------------------------------------- #
     def _offer_decisions(self, unit_ids: list[str], game_time: int) -> None:
         """Give each idle unit (canonical order) a decision point and schedule
-        whatever its mind chooses. A ``None`` / ``idle`` choice parks the unit."""
+        whatever its mind chooses. A ``None`` / ``idle`` choice parks the unit.
+
+        A decision may answer with a :class:`DecisionReply` to attach the
+        social record: its messages/plan are recorded immediately after the
+        decision's own ``decision_point``/``action_started`` pair (the pinned
+        interleave convention — see :class:`DecisionReply`)."""
         ordered = sorted(unit_ids, key=lambda uid: (self._unit(uid).team_id, uid))
         for unit_id in ordered:
             unit = self._unit(unit_id)
@@ -305,10 +350,31 @@ class _Resolver:
                 continue
             self.emit(game_time, "decision_point", {"unit_id": unit_id, "game_time": game_time})
             menu = legal_actions_continuous(self.state, self.role_table, unit_id)
-            choice = self.decide(unit_id, self.state, menu)
-            if choice is None or choice.get("kind") in (None, "idle"):
-                continue
-            self._start_action(unit_id, choice, game_time)
+            action, messages, plan = _unpack_reply(self.decide(unit_id, self.state, menu))
+            if action is not None and action.get("kind") not in (None, "idle"):
+                self._start_action(unit_id, action, game_time)
+            self._record_social(unit, game_time, messages, plan)
+
+    def _record_social(
+        self, unit, game_time: int, messages: tuple[str, ...], plan: Optional[str]
+    ) -> None:
+        """Record a decision's social record as OBSERVATION events (fold
+        no-ops), riding the decision they were attached to. ``from`` is the
+        seat's own agent id, never caller input (spoof-proof, like the grid);
+        a plan is recorded once per agent — first declaration wins."""
+        for text in messages:
+            self.emit(
+                game_time,
+                "message_sent",
+                {"team_id": unit.team_id, "from": unit.agent_id, "unit_id": unit.id, "text": text},
+            )
+        if plan and unit.agent_id not in self.plans_declared:
+            self.plans_declared.add(unit.agent_id)
+            self.emit(
+                game_time,
+                "plan_declared",
+                {"team_id": unit.team_id, "from": unit.agent_id, "text": str(plan)},
+            )
 
     def _start_action(self, unit_id: str, action: dict, game_time: int) -> None:
         plan = plan_action(self.state, self.role_table, unit_id, action)
@@ -638,62 +704,89 @@ def due_decisions(clog: CMatchLog) -> list[str]:
     return due
 
 
-def _recorded_decisions(events: tuple[CEvent, ...]) -> dict[str, list[dict | None]]:
+def _recorded_decisions(events: tuple[CEvent, ...]) -> dict[str, list[DecisionReply]]:
     """Replay table: for every PAST ``decision_point``, exactly what it was
-    answered with -- an action dict (recomputed from the paired
-    ``action_started``'s own recorded ``kind``/``target_id``/``target_pos``,
-    never trusting anything beyond that -- duration is never stored here,
-    since the resolver always recomputes it fresh from role data) or ``None``
-    (it declined / parked). Keyed by unit id, one queue entry per past
-    decision point for that unit, oldest first -- a unit asked more than once
-    over the match gets one entry per ask, consumed in order by
-    :func:`advance_external`'s replay.
+    answered with -- a :class:`DecisionReply` whose ``action`` is recomputed
+    from the paired ``action_started``'s own recorded ``kind``/``target_id``/
+    ``target_pos`` (never trusting anything beyond that -- duration is never
+    stored here, since the resolver always recomputes it fresh from role
+    data) or ``None`` (it declined / parked), and whose ``messages``/``plan``
+    are the social record that rode along with that decision. Keyed by unit
+    id, one queue entry per past decision point for that unit, oldest first
+    -- a unit asked more than once over the match gets one entry per ask,
+    consumed in order by :func:`advance_external`'s replay.
 
     Relies on ``_offer_decisions``'s own emission order: a ``decision_point``
     is IMMEDIATELY followed by its own ``action_started`` when the decision
-    started one, and by nothing for that unit at all when it declined -- so
-    "is event[i+1] this same unit's action_started?" is a complete and
-    correct test, never a heuristic.
+    started one (and by nothing for that unit at all when it declined), then
+    by the decision's own contiguous ``message_sent``/``plan_declared`` run
+    (the :class:`DecisionReply` interleave convention) -- so scanning
+    adjacency is a complete and correct test, never a heuristic. A
+    ``message_sent`` naming a DIFFERENT unit stops the scan, so a log whose
+    observations were tail-appended by the pre-#36 harness simply replays
+    those decisions without their social record (such logs are always
+    finished -- ``run_cmatch`` runs to completion -- so nothing is ever
+    appended after them anyway).
     """
-    out: dict[str, list[dict | None]] = {}
+    out: dict[str, list[DecisionReply]] = {}
     for i, event in enumerate(events):
         if event.kind != "decision_point":
             continue
         unit_id = event.data["unit_id"]
-        nxt = events[i + 1] if i + 1 < len(events) else None
-        if nxt is not None and nxt.kind == "action_started" and nxt.data.get("unit_id") == unit_id:
-            action: dict[str, Any] = {"kind": nxt.data["kind"]}
-            if nxt.data.get("target_id") is not None:
-                action["target_id"] = nxt.data["target_id"]
-            if nxt.data.get("target_pos") is not None:
-                action["target_pos"] = nxt.data["target_pos"]
-            out.setdefault(unit_id, []).append(action)
-        else:
-            out.setdefault(unit_id, []).append(None)
+        j = i + 1
+        action: dict[str, Any] | None = None
+        if (
+            j < len(events)
+            and events[j].kind == "action_started"
+            and events[j].data.get("unit_id") == unit_id
+        ):
+            data = events[j].data
+            action = {"kind": data["kind"]}
+            if data.get("target_id") is not None:
+                action["target_id"] = data["target_id"]
+            if data.get("target_pos") is not None:
+                action["target_pos"] = data["target_pos"]
+            j += 1
+        texts: list[str] = []
+        plan: str | None = None
+        while j < len(events):
+            nxt = events[j]
+            if nxt.kind == "message_sent" and nxt.data.get("unit_id") == unit_id:
+                texts.append(nxt.data["text"])
+            elif nxt.kind == "plan_declared" and plan is None:
+                plan = nxt.data["text"]
+            else:
+                break
+            j += 1
+        out.setdefault(unit_id, []).append(
+            DecisionReply(action=action, messages=tuple(texts), plan=plan)
+        )
     return out
 
 
 def advance_external(
     clog: CMatchLog,
     role_table: RoleTable,
-    decide_external: Callable[[str, CMatchState, dict], Optional[dict]],
+    decide_external: DecisionFn,
 ) -> tuple[CMatchLog, bool]:
     """Replay ``clog`` and extend it by exactly as much as ``decide_external``
     can answer -- the write path behind ``cmatch act``/``cmatch tick``.
 
     Every decision point ``clog`` has ALREADY recorded an answer for is
-    replayed exactly as it happened (:func:`_recorded_decisions`); the first
-    genuinely NEW decision point is handed to ``decide_external(unit_id,
-    state, menu)``, which returns a chosen menu-shaped action dict, ``None``
-    (park), or raises :class:`NeedsExternalDecision` to stop without
-    answering. Whatever it returns, the resolver's OWN loop then continues
-    exactly as ``resolve_match`` would -- auto-advancing through any FURTHER
-    decision points ``decide_external`` can also answer (e.g. a ``tick``
-    resolving several bot-driven units and completions in a row) -- until
-    either a decision point neither the log nor ``decide_external`` can
-    answer is reached (:class:`NeedsExternalDecision` stops the replay there,
-    caught internally -- callers never see it) or the match naturally
-    finishes (empty timeline / time limit / missions all resolved -- the same
+    replayed exactly as it happened (:func:`_recorded_decisions`, social
+    record included); the first genuinely NEW decision point is handed to
+    ``decide_external(unit_id, state, menu)``, which returns a chosen
+    menu-shaped action dict, ``None`` (park), a :class:`DecisionReply` (an
+    action plus the messages/plan riding it), or raises
+    :class:`NeedsExternalDecision` to stop without answering. Whatever it
+    returns, the resolver's OWN loop then continues exactly as
+    ``resolve_match`` would -- auto-advancing through any FURTHER decision
+    points ``decide_external`` can also answer (e.g. a ``tick`` resolving
+    several bot-driven units and completions in a row) -- until either a
+    decision point neither the log nor ``decide_external`` can answer is
+    reached (:class:`NeedsExternalDecision` stops the replay there, caught
+    internally -- callers never see it) or the match naturally finishes
+    (empty timeline / time limit / missions all resolved -- the same
     conditions ``resolve_match`` itself applies).
 
     Returns ``(new_log, finished)``: ``new_log`` is ``clog`` with every event
@@ -701,19 +794,26 @@ def advance_external(
     advance at all); ``finished`` is True iff ``match_finished`` was emitted
     this call.
 
-    The one piece of bookkeeping this function owns beyond a plain replay:
-    when ``decide_external`` raises, ``_offer_decisions`` has ALREADY emitted
-    that unit's ``decision_point`` (it always emits it before asking) -- so
-    the freshly-replayed event stream ends with one dangling, unanswered
-    ``decision_point``. Persisting it would wrongly mark that unit
-    "already asked" (and therefore no longer :func:`due_decisions`) on the
-    next call, when it was never actually answered -- so it is trimmed off
-    before anything is returned.
+    Two pieces of bookkeeping beyond a plain replay:
+
+    * when ``decide_external`` raises, ``_offer_decisions`` has ALREADY
+      emitted that unit's ``decision_point`` (it always emits it before
+      asking) -- so the freshly-replayed event stream ends with one dangling,
+      unanswered ``decision_point``. Persisting it would wrongly mark that
+      unit "already asked" (and therefore no longer :func:`due_decisions`)
+      on the next call, when it was never actually answered -- so it is
+      trimmed off before anything is returned.
+    * ``seat_latency`` events are the one observation kind the resolver never
+      emits (wall-clock instrumentation, appended harness-side after
+      ``run_cmatch``'s resolution), so the replayed prefix is compared
+      against the log with them excluded. A stepwise-driven log never
+      contains any; a ``run_cmatch``-produced log that does is always
+      finished, so nothing is ever appended after one.
     """
     recorded = _recorded_decisions(clog.events)
     cursor: dict[str, int] = {}
 
-    def decide(unit_id: str, state: CMatchState, menu: dict) -> Optional[dict]:
+    def decide(unit_id: str, state: CMatchState, menu: dict) -> "Optional[dict] | DecisionReply":
         queue = recorded.get(unit_id)
         idx = cursor.get(unit_id, 0)
         if queue is not None and idx < len(queue):
@@ -730,10 +830,12 @@ def advance_external(
     produced = resolver.events
     if not finished and produced and produced[-1].kind == "decision_point":
         produced = produced[:-1]
-    new_events = tuple(produced[len(clog.events) :])
+    replayable = sum(1 for e in clog.events if e.kind != "seat_latency")
+    new_events = tuple(produced[replayable:])
     new_log = CMatchLog(
         initial_state=clog.initial_state,
         events=clog.events + new_events,
         driver_kinds=clog.driver_kinds,
+        fog=clog.fog,
     )
     return new_log, finished

@@ -718,6 +718,33 @@ def test_from_jsonl_tolerates_logs_without_driver_kinds() -> None:
     assert restored.final_state().status == "finished"
 
 
+def test_fog_header_defaults_false_and_round_trips() -> None:
+    """``fog`` is per-match header metadata (issue #35): recorded so the
+    stepwise ``cmatch`` loop can rebuild every later briefing with the same
+    projection, never folded, never part of the hash."""
+    bare = CMatchLog(initial_state=initial_state(), events=scripted_events())
+    assert bare.fog is False
+
+    fogged = CMatchLog(initial_state=initial_state(), events=scripted_events(), fog=True)
+    restored = CMatchLog.from_jsonl(fogged.to_jsonl())
+    assert restored == fogged
+    assert restored.fog is True
+    # Metadata never leaks into the fold or the hash.
+    assert cstate_hash(restored.final_state()) == cstate_hash(bare.final_state())
+
+
+def test_from_jsonl_tolerates_logs_without_fog() -> None:
+    log = CMatchLog(initial_state=initial_state(), events=scripted_events())
+    payload = log.to_jsonl()
+    lines = payload.splitlines()
+    header = json.loads(lines[0])
+    del header["fog"]  # mimic a log written before the fog header existed
+    lines[0] = json.dumps(header, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    restored = CMatchLog.from_jsonl("\n".join(lines) + "\n")
+    assert restored.fog is False
+    assert restored.final_state().status == "finished"
+
+
 def test_wrong_log_version_rejected() -> None:
     from league.engine.continuous import LOG_VERSION
 

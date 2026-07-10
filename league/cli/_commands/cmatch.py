@@ -33,12 +33,17 @@ engine-level primitive this module is a thin CLI skin over) and
 ``tests/test_continuous_resolve.py``/``tests/test_cli_cmatch.py`` for the
 parity proofs.
 
-Scope this cycle: fog (``config["fog"]``) is fully supported by ``run``
-(a straight pass-through to the already-fogged ``run_cmatch``) but NOT by the
-stepwise ``new``/``show``/``act``/``tick`` loop -- ``new`` refuses a fogged
-``--config`` with a clean, structured error naming ``run`` as the fogged
-alternative. A ``command``/``resident`` (live-mind) team is driven externally
-via ``act`` the same way a grid seat is; ``tick`` can only auto-resolve
+Fog (issue #35) and the social record (issues #36/#37) are stepwise-complete:
+``new`` records ``config["fog"]``/``--fog`` in the log header (additive
+``CMatchLog.fog`` metadata, so every later call rebuilds the same
+projection), ``show``/``tick`` fog every briefing per the acting unit's own
+team exactly as ``run_cmatch`` does, ``act --message``/``--plan`` attaches
+the driver-reply social record to a decision (recorded by the resolver,
+riding the decision's own ``decision_point``/``action_started`` pair -- the
+``DecisionReply`` interleave convention shared with ``run_cmatch``), and
+``tick`` threads the running message record into every bot-driven briefing.
+A ``command``/``resident`` (live-mind) team is driven externally via ``act``
+the same way a grid seat is; ``tick`` can only auto-resolve
 ``bot``/``bot-file`` teams (deterministic, in-process, no session to persist
 across CLI calls) -- see ``tick``'s own docstring.
 """
@@ -50,13 +55,24 @@ import json
 from pathlib import Path
 from typing import Any
 
-from league.charness import CHarnessError, build_briefing, make_cbot_chooser, make_cbot_file_chooser
+from league.charness import (
+    CHarnessError,
+    build_briefing,
+    make_cbot_chooser,
+    make_cbot_file_chooser,
+    normalize_messages,
+)
 from league.charness import run_cmatch as _run_cmatch
 from league.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
 from league.cli._output import emit_result
 from league.engine.continuous.events import CEvent, CMatchLog
 from league.engine.continuous.legal import legal_actions_continuous, plan_action
-from league.engine.continuous.resolve import NeedsExternalDecision, advance_external, due_decisions
+from league.engine.continuous.resolve import (
+    DecisionReply,
+    NeedsExternalDecision,
+    advance_external,
+    due_decisions,
+)
 from league.engine.continuous.scenario import get_cscenario, instantiate
 from league.engine.continuous.state import CAgentSlot, CMatchState
 from league.store import Store, validate_id
@@ -257,10 +273,10 @@ def _role_table_for(state: CMatchState):
         ) from err
 
 
-def _team_of(state: CMatchState, unit_id: str) -> str:
+def _unit_in(state: CMatchState, unit_id: str):
     for unit in state.units:
         if unit.id == unit_id:
-            return unit.team_id
+            return unit
     raise CliError(
         code=EXIT_USER_ERROR,
         message=f"unknown unit {unit_id!r} in this match",
@@ -268,13 +284,19 @@ def _team_of(state: CMatchState, unit_id: str) -> str:
     )
 
 
+def _team_of(state: CMatchState, unit_id: str) -> str:
+    return _unit_in(state, unit_id).team_id
+
+
 def _messages_from_log(clog: CMatchLog) -> list[dict[str, Any]]:
     """The running social record ``build_briefing`` expects: every
-    ``message_sent`` observation in the log, in the order it was recorded.
-    A cmatch-CLI-driven match never writes one this cycle (``act`` doesn't
-    accept ``--message`` yet -- a documented follow-up), but a log produced by
-    ``cmatch run``/``run_cmatch`` (bot or live minds) may carry plenty, and
-    ``show`` must surface them exactly as a live mind would have seen them."""
+    ``message_sent`` observation in the log, in the order it was recorded --
+    whether it was written by ``cmatch act --message``, a ``tick``-driven
+    bot's own reply, or a ``cmatch run``/``run_cmatch`` seat. ``show`` and
+    ``tick`` surface them exactly as ``run_cmatch``'s own running list would
+    have (same ``from``/``text``/``game_time``, same order), which is what
+    keeps the two driving paths' briefings -- and therefore their logs --
+    byte-identical."""
     return [
         {"from": e.data["from"], "text": e.data["text"], "game_time": e.game_time}
         for e in clog.events
@@ -342,15 +364,10 @@ def cmd_cmatch_new(args: argparse.Namespace) -> int:
     json_mode = bool(getattr(args, "json", False))
     store = Store()
 
+    fog = bool(getattr(args, "fog", False))
     if args.config:
         config = _parse_config_arg(args.config)
-        if config.get("fog"):
-            raise CliError(
-                code=EXIT_USER_ERROR,
-                message="cmatch new/show/act/tick don't support fog yet (issue #28 follow-up)",
-                remediation="use 'league cmatch run --config ... --apply', which delegates to "
-                "the fully-featured run_cmatch harness (fog included)",
-            )
+        fog = fog or bool(config.get("fog", False))
         match_cfg = config.get("match", {})
         scenario_id = match_cfg.get("scenario")
         if not scenario_id:
@@ -417,6 +434,7 @@ def cmd_cmatch_new(args: argparse.Namespace) -> int:
         "seed": seed,
         "teams": [t[0] for t in teams],
         "driver_kinds": driver_kinds,
+        "fog": fog,
         "time_limit": state.time_limit,
         "applied": bool(args.apply),
     }
@@ -425,6 +443,7 @@ def cmd_cmatch_new(args: argparse.Namespace) -> int:
             initial_state=state,
             events=(CEvent(game_time=0, seq=0, kind="match_started", data={}),),
             driver_kinds=driver_kinds,
+            fog=fog,
         )
         try:
             path = store.create_match(clog)
@@ -472,8 +491,11 @@ def cmd_cmatch_show(args: argparse.Namespace) -> int:
     decisions = []
     for uid in target_units:
         menu = legal_actions_continuous(state, role_table, uid)
+        # fog comes from the match's own header (issue #35) and is applied per
+        # the acting due unit's OWN team inside build_briefing — the exact
+        # projection run_cmatch would hand this seat's driver.
         briefing = build_briefing(
-            state, uid, menu, messages=messages, fog=False, role_table=role_table
+            state, uid, menu, messages=messages, fog=clog.fog, role_table=role_table
         )
         decisions.append({"unit_id": uid, "briefing": briefing})
 
@@ -482,6 +504,7 @@ def cmd_cmatch_show(args: argparse.Namespace) -> int:
         "game_time": state.clock,
         "status": state.status,
         "winner": state.winner,
+        "fog": clog.fog,
         "due": due,
         "decisions": decisions,
     }
@@ -538,6 +561,35 @@ def _action_from_args(args: argparse.Namespace) -> dict[str, Any] | None:
     return action
 
 
+def _social_from_args(args: argparse.Namespace) -> tuple[list[str], str | None]:
+    """``--message``/``--plan`` -- the driver reply's social record (issue
+    #36), normalized with the same strip-and-require-text rule
+    ``normalize_messages`` applies to a live reply. The sender is always the
+    acting unit's own agent (forced downstream by the resolver, never a
+    flag), mirroring ``run_cmatch``'s spoof-proof rule."""
+    texts: list[str] = []
+    for raw in getattr(args, "message", None) or ():
+        text = raw.strip()
+        if not text:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message="--message needs non-empty text",
+                remediation="e.g. --message 'taking the crossing — cover me'",
+            )
+        texts.append(text)
+    plan_raw = getattr(args, "plan", None)
+    plan: str | None = None
+    if plan_raw is not None:
+        plan = plan_raw.strip()
+        if not plan:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message="--plan needs non-empty text",
+                remediation="e.g. --plan 'defender races the post, harvester runs the economy'",
+            )
+    return texts, plan
+
+
 def cmd_cmatch_act(args: argparse.Namespace) -> int:
     json_mode = bool(getattr(args, "json", False))
     store = Store()
@@ -578,21 +630,27 @@ def cmd_cmatch_act(args: argparse.Namespace) -> int:
             remediation=f"see 'league cmatch show {args.match_id} --unit {args.unit} --json' "
             "for the legal menu",
         )
+    messages, plan = _social_from_args(args)
 
     payload: dict[str, Any] = {
         "match_id": args.match_id,
         "unit": args.unit,
         "action": action,
+        "messages": messages,
+        "plan": plan,
         "applied": bool(args.apply),
     }
     if args.apply:
         answered = False
 
-        def decide_external(unit_id: str, s: CMatchState, menu: dict) -> dict | None:
+        def decide_external(unit_id: str, s: CMatchState, menu: dict) -> DecisionReply:
             nonlocal answered
             if unit_id == args.unit and not answered:
                 answered = True
-                return action
+                # The resolver records the social record riding this decision
+                # (message_sent/plan_declared right after the decision_point/
+                # action_started pair) — the same bytes run_cmatch writes.
+                return DecisionReply(action=action, messages=tuple(messages), plan=plan)
             raise NeedsExternalDecision(unit_id)
 
         new_log, finished = advance_external(clog, role_table, decide_external)
@@ -694,18 +752,34 @@ def cmd_cmatch_tick(args: argparse.Namespace) -> int:
 
     resolved: list[str] = []
     parked: list[str] = []
+    # The running social record (issue #37), seeded from the log and extended
+    # live as this call's own decisions attach messages — so a bot briefing
+    # sees exactly what run_cmatch's accumulated `messages` list would show
+    # at the same decision point, whichever path drives the match.
+    running = _messages_from_log(clog)
 
-    def decide_external(unit_id: str, s: CMatchState, menu: dict) -> dict | None:
-        team_id = _team_of(s, unit_id)
-        chooser = choosers.get(team_id)
+    def decide_external(unit_id: str, s: CMatchState, menu: dict) -> DecisionReply | None:
+        unit = _unit_in(s, unit_id)
+        chooser = choosers.get(unit.team_id)
         if chooser is not None:
-            briefing = build_briefing(s, unit_id, menu, role_table=role_table)
-            reply = chooser(briefing, unit_id, team_id)
-            action = reply.get("action") if isinstance(reply, dict) else None
+            briefing = build_briefing(
+                s, unit_id, menu, messages=running, fog=clog.fog, role_table=role_table
+            )
+            reply = chooser(briefing, unit_id, unit.team_id)
+            reply = reply if isinstance(reply, dict) else {}
+            texts = normalize_messages(reply)
+            for text in texts:
+                running.append({"from": unit.agent_id, "text": text, "game_time": s.clock})
+            plan = reply.get("plan")
+            action = reply.get("action")
             if action is not None and plan_action(s, role_table, unit_id, dict(action)) is None:
                 action = None  # a bot's illegal pick safely parks (mirrors league.charness)
             resolved.append(unit_id)
-            return action
+            return DecisionReply(
+                action=dict(action) if action is not None else None,
+                messages=tuple(texts),
+                plan=str(plan) if plan else None,
+            )
         if args.timeout_park:
             parked.append(unit_id)
             return None
@@ -843,6 +917,12 @@ def register(sub: argparse._SubParsersAction) -> None:
         metavar="TEAM_ID:KIND",
         help="Driver label for a --team: bot|stateless|resident|bot-file:<name>; repeatable.",
     )
+    new.add_argument(
+        "--fog",
+        action="store_true",
+        help="Fog every briefing to the acting team's own vision (recorded in the log "
+        'header; a --config\'s own "fog": true does the same).',
+    )
     new.add_argument("--apply", action="store_true", help="Actually create (default: dry-run).")
     new.add_argument("--json", action="store_true", help="Emit structured JSON.")
     new.set_defaults(func=cmd_cmatch_new)
@@ -859,6 +939,19 @@ def register(sub: argparse._SubParsersAction) -> None:
     act.add_argument(
         "--action-json",
         help="A menu entry verbatim (JSON object), or omit/pass 'null' to park.",
+    )
+    act.add_argument(
+        "--message",
+        action="append",
+        metavar="TEXT",
+        help="Broadcast a message with this decision (repeatable); the sender is always "
+        "the acting unit's own agent, never a flag.",
+    )
+    act.add_argument(
+        "--plan",
+        metavar="TEXT",
+        help="Declare the team's plan with this decision (recorded once per agent; "
+        "later declarations are ignored, mirroring the harness).",
     )
     act.add_argument("--apply", action="store_true", help="Actually submit (default: dry-run).")
     act.add_argument("--json", action="store_true", help="Emit structured JSON.")
