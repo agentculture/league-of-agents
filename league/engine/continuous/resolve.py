@@ -543,3 +543,197 @@ def resolve_match(
     Deterministic: the same inputs yield the identical event sequence and hash.
     """
     return _Resolver(initial_state, role_table, decision_fn, driver_kinds).run()
+
+
+# -- external-driver stepwise resolution (issue #28) -------------------------
+#
+# The two functions below let an EXTERNAL caller (a CLI process, one decision
+# at a time, across separate invocations -- the ``cmatch`` noun group) drive a
+# match to the SAME log a single synchronous ``resolve_match`` call would
+# produce, given the same decisions in the same order:
+#
+# * :func:`due_decisions` -- read-only: which units are OWED a decision right
+#   now and have not yet been asked (log-derived, not merely "idle": a unit
+#   that was asked and declined stays idle forever afterwards but is no
+#   longer due -- see the function's own docstring).
+# * :func:`advance_external` -- the write path: REPLAY the log's own already-
+#   recorded decisions (extracted from its ``decision_point``/
+#   ``action_started`` pairs) through a FRESH ``_Resolver``, then hand the
+#   first genuinely new decision point to the caller's ``decide_external``
+#   callback. Because this replays through the EXACT SAME ``_Resolver`` code
+#   ``resolve_match`` itself uses, and the replayed prefix reproduces
+#   byte-for-byte what already happened, the events this call appends are
+#   exactly what ``resolve_match`` would have emitted next for the same
+#   decision -- that identity IS the external-driver parity proof
+#   (``tests/test_continuous_resolve.py``'s
+#   ``test_advance_external_matches_resolve_match_byte_for_byte`` and the CLI
+#   level proof in ``tests/test_cli_cmatch.py``).
+#
+# Cost is O(events-so-far) per call (a full replay from t=0) -- trivial at
+# this scenario's scale (tens to low hundreds of events per match); a later
+# cycle can add real incremental resume if match sizes grow enough to matter.
+# No wall-clock/random is introduced anywhere here -- both functions are pure
+# over their log/state arguments, so the package's own AST import ban
+# (``tests/test_engine_state.py``) stays satisfied trivially.
+
+
+class NeedsExternalDecision(Exception):
+    """Raised by a caller's ``decide_external`` callback (passed to
+    :func:`advance_external`) when it cannot answer a due unit's decision
+    point synchronously -- the signal that stepwise resolution must stop here
+    and wait for a future call. Never raised by this module itself; callers
+    of :func:`advance_external` never see it either -- it is caught there."""
+
+
+def _team_of(state: CMatchState, unit_id: str) -> str:
+    for unit in state.units:
+        if unit.id == unit_id:
+            return unit.team_id
+    raise ValueError(f"unknown unit {unit_id!r}")
+
+
+def due_decisions(clog: CMatchLog) -> list[str]:
+    """Units OWED a decision right now and NOT YET asked, in canonical
+    ``(team_id, unit_id)`` order -- the exact order
+    :meth:`_Resolver._offer_decisions` would ask them in, and (per
+    :func:`advance_external`'s contract) the order external answers must
+    arrive in for a caller's log to stay byte-identical to a single
+    ``resolve_match`` run.
+
+    A unit is due iff it is alive, idle (``action is None``), and has had no
+    ``decision_point`` recorded since it most recently went idle (match
+    start, or its own last ``action_completed``/``action_failed``). This is
+    NOT the same as "idle": once a unit IS asked and the answer is to park
+    (no ``action_started`` follows its ``decision_point``), it stays idle
+    forever in the log's own terms but is no longer due -- exactly mirroring
+    ``resolve_match``'s own behavior, where a parked unit is never offered a
+    fresh decision point until something else (an action completing or
+    failing) makes it idle again, and nothing does that for a unit with no
+    action to complete or fail.
+
+    Empty once the match has finished (or force-ended): the resolver never
+    offers a decision after ``match_finished``, even to a unit that happened
+    to go idle in the very completion that ended it (a mission-forced end can
+    idle a unit without ever emitting its ``decision_point`` -- see
+    ``_Resolver.run``'s ``break`` before ``_offer_decisions`` on
+    ``_missions_force_end``) -- this mirrors that exactly rather than
+    reporting a phantom due unit once play has stopped.
+    """
+    state = clog.final_state()
+    if state.status != "active":
+        return []
+    idle_since: dict[str, int] = {}
+    asked_since: dict[str, int] = {}
+    for i, event in enumerate(clog.events):
+        if event.kind in ("action_completed", "action_failed"):
+            idle_since[event.data["unit_id"]] = i
+        elif event.kind == "decision_point":
+            asked_since[event.data["unit_id"]] = i
+    due = [
+        u.id
+        for u in state.units
+        if u.alive and u.action is None and asked_since.get(u.id, -1) <= idle_since.get(u.id, -1)
+    ]
+    due.sort(key=lambda uid: (_team_of(state, uid), uid))
+    return due
+
+
+def _recorded_decisions(events: tuple[CEvent, ...]) -> dict[str, list[dict | None]]:
+    """Replay table: for every PAST ``decision_point``, exactly what it was
+    answered with -- an action dict (recomputed from the paired
+    ``action_started``'s own recorded ``kind``/``target_id``/``target_pos``,
+    never trusting anything beyond that -- duration is never stored here,
+    since the resolver always recomputes it fresh from role data) or ``None``
+    (it declined / parked). Keyed by unit id, one queue entry per past
+    decision point for that unit, oldest first -- a unit asked more than once
+    over the match gets one entry per ask, consumed in order by
+    :func:`advance_external`'s replay.
+
+    Relies on ``_offer_decisions``'s own emission order: a ``decision_point``
+    is IMMEDIATELY followed by its own ``action_started`` when the decision
+    started one, and by nothing for that unit at all when it declined -- so
+    "is event[i+1] this same unit's action_started?" is a complete and
+    correct test, never a heuristic.
+    """
+    out: dict[str, list[dict | None]] = {}
+    for i, event in enumerate(events):
+        if event.kind != "decision_point":
+            continue
+        unit_id = event.data["unit_id"]
+        nxt = events[i + 1] if i + 1 < len(events) else None
+        if nxt is not None and nxt.kind == "action_started" and nxt.data.get("unit_id") == unit_id:
+            action: dict[str, Any] = {"kind": nxt.data["kind"]}
+            if nxt.data.get("target_id") is not None:
+                action["target_id"] = nxt.data["target_id"]
+            if nxt.data.get("target_pos") is not None:
+                action["target_pos"] = nxt.data["target_pos"]
+            out.setdefault(unit_id, []).append(action)
+        else:
+            out.setdefault(unit_id, []).append(None)
+    return out
+
+
+def advance_external(
+    clog: CMatchLog,
+    role_table: RoleTable,
+    decide_external: Callable[[str, CMatchState, dict], Optional[dict]],
+) -> tuple[CMatchLog, bool]:
+    """Replay ``clog`` and extend it by exactly as much as ``decide_external``
+    can answer -- the write path behind ``cmatch act``/``cmatch tick``.
+
+    Every decision point ``clog`` has ALREADY recorded an answer for is
+    replayed exactly as it happened (:func:`_recorded_decisions`); the first
+    genuinely NEW decision point is handed to ``decide_external(unit_id,
+    state, menu)``, which returns a chosen menu-shaped action dict, ``None``
+    (park), or raises :class:`NeedsExternalDecision` to stop without
+    answering. Whatever it returns, the resolver's OWN loop then continues
+    exactly as ``resolve_match`` would -- auto-advancing through any FURTHER
+    decision points ``decide_external`` can also answer (e.g. a ``tick``
+    resolving several bot-driven units and completions in a row) -- until
+    either a decision point neither the log nor ``decide_external`` can
+    answer is reached (:class:`NeedsExternalDecision` stops the replay there,
+    caught internally -- callers never see it) or the match naturally
+    finishes (empty timeline / time limit / missions all resolved -- the same
+    conditions ``resolve_match`` itself applies).
+
+    Returns ``(new_log, finished)``: ``new_log`` is ``clog`` with every event
+    this call produced appended (identical to ``clog`` if it could not
+    advance at all); ``finished`` is True iff ``match_finished`` was emitted
+    this call.
+
+    The one piece of bookkeeping this function owns beyond a plain replay:
+    when ``decide_external`` raises, ``_offer_decisions`` has ALREADY emitted
+    that unit's ``decision_point`` (it always emits it before asking) -- so
+    the freshly-replayed event stream ends with one dangling, unanswered
+    ``decision_point``. Persisting it would wrongly mark that unit
+    "already asked" (and therefore no longer :func:`due_decisions`) on the
+    next call, when it was never actually answered -- so it is trimmed off
+    before anything is returned.
+    """
+    recorded = _recorded_decisions(clog.events)
+    cursor: dict[str, int] = {}
+
+    def decide(unit_id: str, state: CMatchState, menu: dict) -> Optional[dict]:
+        queue = recorded.get(unit_id)
+        idx = cursor.get(unit_id, 0)
+        if queue is not None and idx < len(queue):
+            cursor[unit_id] = idx + 1
+            return queue[idx]
+        return decide_external(unit_id, state, menu)
+
+    resolver = _Resolver(clog.initial_state, role_table, decide, dict(clog.driver_kinds))
+    try:
+        resolver.run()
+        finished = True
+    except NeedsExternalDecision:
+        finished = False
+    produced = resolver.events
+    if not finished and produced and produced[-1].kind == "decision_point":
+        produced = produced[:-1]
+    new_events = tuple(produced[len(clog.events) :])
+    new_log = CMatchLog(
+        initial_state=clog.initial_state,
+        events=clog.events + new_events,
+        driver_kinds=clog.driver_kinds,
+    )
+    return new_log, finished

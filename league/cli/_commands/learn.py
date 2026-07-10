@@ -49,8 +49,19 @@ The arena:
   league harness run                  Play a configured match with live drivers.
   league play list|show|start         One-command launch of a bundled mode.
 
-Write verbs (team register, match new/act/tick/rematch, harness run, play start)
-are dry-run by default; add --apply to commit.
+The continuous lane (real-time, per-unit decisions — docs/continuous-contract.md):
+  league cmatch new                   Create a continuous match (scenario+teams
+                                      or --config), persisted at clock 0.
+  league cmatch show <id>             What is due right now: every idle unit's
+                                      full briefing (--unit to scope to one).
+  league cmatch act <id> --unit <u>   Submit ONE unit's decision (an action or
+                                      null to park); advances only as needed.
+  league cmatch tick <id>             Auto-resolve bot-driven due units and/or
+                                      park the rest — call with nothing to submit.
+  league cmatch run --config <file>   The packaged one-shot bot-vs-bot/live run.
+
+Write verbs (team register, match new/act/tick/rematch, harness run, play start,
+cmatch new/act/tick/run) are dry-run by default; add --apply to commit.
 
 Machine-readable output
 -----------------------
@@ -99,6 +110,20 @@ def _as_json_payload() -> dict[str, object]:
             {"path": ["standings"], "summary": "Cross-match trends, per team and agent."},
             {"path": ["harness", "run"], "summary": "Play a configured match with live drivers."},
             {"path": ["play", "start"], "summary": "One-command launch of a bundled mode."},
+            {
+                "path": ["cmatch", "new"],
+                "summary": "Create a continuous match (dry-run by default).",
+            },
+            {
+                "path": ["cmatch", "show"],
+                "summary": "What is due right now: every idle unit's briefing.",
+            },
+            {"path": ["cmatch", "act"], "summary": "Submit one unit's decision."},
+            {
+                "path": ["cmatch", "tick"],
+                "summary": "Auto-resolve bot-driven due units and/or park.",
+            },
+            {"path": ["cmatch", "run"], "summary": "The packaged continuous one-shot run."},
         ],
         "exit_codes": {
             "0": "success",

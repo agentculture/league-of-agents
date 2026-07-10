@@ -46,6 +46,34 @@ completion times, and an initiative outlook. A key invariant is
 **substrate-independence** — an agent's thinking time never advances game time,
 so a slow model and a fast model face the same clock.
 
+## Driving it externally: `league cmatch` (issue #28)
+
+`league.charness.run_cmatch` is an in-process, one-shot library call — it owns
+the whole match and drives every seat synchronously in one Python process. The
+`cmatch` noun group (`league/cli/_commands/cmatch.py`) is the external-driver
+CLI parity for that: `cmatch new`/`show`/`act`/`tick` let a subprocess-only
+harness — no `import league` required — create a continuous match, ask "what
+is due right now" (every idle unit's full briefing), submit ONE unit's
+decision at a time, and let bot-driven due units auto-resolve, exactly the way
+`league match new/show/act/tick` already does for the grid lane. `cmatch run`
+is the packaged one-shot (what `scripts/run_cmatch.py` used to be the only way
+to reach; it is now a thin, deprecated wrapper). State is always a pure fold
+of the log, so suspending an external harness between any two `cmatch` calls
+and resuming from the same working directory continues correctly.
+
+The load-bearing engine primitive underneath is
+[`league.engine.continuous.resolve.advance_external`](../../league/engine/continuous/resolve.py):
+it REPLAYS a match's own already-recorded decisions through the exact same
+resolver `resolve_match` uses, then hands the first genuinely new decision
+point to the caller — which is what makes stepwise, one-decision-per-CLI-call
+driving produce a log byte-identical to an equivalent single `run_cmatch` call
+given the same decisions in the same (canonical) order. See
+[`league explain cmatch`](../../league/explain/catalog.py) for the full verb
+reference and `tests/test_continuous_resolve.py`/`tests/test_cli_cmatch.py`
+for the parity proofs. Scope this cycle: fog (`config["fog"]`) is supported by
+`cmatch run` (a straight pass-through to `run_cmatch`) but not yet by the
+stepwise `new`/`show`/`act`/`tick` loop.
+
 ## See also
 
 - [Deterministic engine](deterministic-engine.md) — the turn-based grid lane.

@@ -46,7 +46,10 @@ from league.engine.continuous.resolve import (
     CP_POINTS,
     DecisionFn,
     IllegalContinuousAction,
+    NeedsExternalDecision,
     ResolveResult,
+    advance_external,
+    due_decisions,
     outcome_points,
     resolve_match,
 )
@@ -174,7 +177,10 @@ __all__ = [
     "CP_POINTS",
     "DecisionFn",
     "IllegalContinuousAction",
+    "NeedsExternalDecision",
     "ResolveResult",
+    "advance_external",
+    "due_decisions",
     "outcome_points",
     "resolve_match",
     # continuous scenario registry (scenario.py)
