@@ -77,6 +77,11 @@ class TeamPreset:
     orchestrator mode's two declared fairness axes (spec c4/c6/h3/h5,
     ``league.harness`` module docstring) — ``None`` means "omit the key
     entirely," the same opt-in contract ``run_match`` itself uses.
+    ``max_actions`` is the mode/handicap fairness cap (issue #29): the
+    DECLARED profile a preset opts a side into, independent of whatever its
+    driver spec happens to set (e.g. a ``"solo": True`` command driver's own
+    client-side truncation) — ``None`` means uncapped, the same opt-in
+    contract as ``map_read``/``unit_comms``.
     """
 
     id: str
@@ -86,6 +91,7 @@ class TeamPreset:
     bot_tier: str | None = None
     map_read: str | None = None
     unit_comms: bool | None = None
+    max_actions: int | None = None
 
 
 @dataclass(frozen=True)
@@ -142,6 +148,12 @@ def _solo_vs_bot() -> Preset:
                     "timeout": _DEFAULT_TIMEOUT,
                 },
                 model="claude-sonnet-5",
+                # issue #29: the CLI/engine-level twin of this driver's own
+                # "solo": True client-side truncation — declares the SAME cap
+                # as a mode profile persisted in the match log header, so a
+                # raw `match act` against this preset's match is held to the
+                # handicap too, not only a harness run through this driver.
+                max_actions=1,
             ),
             _bot_file_side("house", "House Rusher (silver)", "rusher"),
         ),
@@ -338,6 +350,10 @@ def _team_dict(team: TeamPreset, unit_roles: tuple[str, ...]) -> dict[str, Any]:
     _validate_driver(team.driver, team_id=team.id)
     if team.bot_tier is not None:
         validate_id(team.bot_tier, what="bot tier")
+    if team.max_actions is not None and (
+        not isinstance(team.max_actions, int) or team.max_actions < 1
+    ):
+        raise ValueError(f"team {team.id!r}: max_actions must be a positive int")
     agents = [
         {
             "id": validate_id(f"{team.id}-{i + 1}", what="agent id"),
@@ -356,6 +372,8 @@ def _team_dict(team: TeamPreset, unit_roles: tuple[str, ...]) -> dict[str, Any]:
         out["map_read"] = team.map_read
     if team.unit_comms is not None:
         out["unit_comms"] = team.unit_comms
+    if team.max_actions is not None:
+        out["max_actions"] = team.max_actions
     return out
 
 

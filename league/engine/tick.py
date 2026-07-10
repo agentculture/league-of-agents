@@ -294,6 +294,14 @@ def resolve_turn(
                     "team_id": u.team_id,
                     "unit_id": u.id,
                     "reason": "this role cannot capture control points",
+                    # Passive/incidental (issue #31): this fires from mere
+                    # OCCUPANCY, not from a declared order — a capture-incapable
+                    # unit gets it every turn it stands alone on a point
+                    # regardless of what it declared (even a clean "hold"). The
+                    # ``passive`` marker lets readers (probe's realization_rate,
+                    # match show's last_turn_rejections) tell it apart from a
+                    # genuine declared-order mistake, which never sets this flag.
+                    "passive": True,
                 },
             )
         if len(occupants) != 1:

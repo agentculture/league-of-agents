@@ -181,6 +181,73 @@ def test_match_new_driver_flag_is_optional(arena, capsys) -> None:
     assert json.loads(capsys.readouterr().out)["driver_kinds"] == {}
 
 
+def test_match_new_records_bot_file_strategy_in_the_header(arena, capsys) -> None:
+    """Issue #30: --driver <team>:bot-file:<name> is a distinct, accepted
+    kind — the full string (kind + strategy) lands in the header, more
+    specific than the plain 'bot' residency label bot/bot-file both reduce
+    to when a harness config drives the same team."""
+    assert main(_register("house") + ["--apply"]) == 0
+    capsys.readouterr()
+
+    assert (
+        main(
+            [
+                "match",
+                "new",
+                "--scenario",
+                "skirmish-1",
+                "--mode",
+                "cooperative",
+                "--team",
+                "house",
+                "--driver",
+                "house:bot-file:rusher",
+                "--id",
+                "m-bot-file-driver",
+                "--apply",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    created = json.loads(capsys.readouterr().out)
+    assert created["driver_kinds"] == {"house": "bot-file:rusher"}
+
+    log = Store().load_match("m-bot-file-driver")
+    assert log.driver_kinds == {"house": "bot-file:rusher"}
+
+    assert main(["match", "show", "m-bot-file-driver", "--json"]) == 0
+    shown = json.loads(capsys.readouterr().out)
+    assert shown["driver_kinds"] == {"house": "bot-file:rusher"}
+
+
+def test_match_new_rejects_a_bot_file_driver_with_no_strategy_name(arena, capsys) -> None:
+    assert main(_register("house") + ["--apply"]) == 0
+    capsys.readouterr()
+
+    rc = main(
+        [
+            "match",
+            "new",
+            "--scenario",
+            "skirmish-1",
+            "--mode",
+            "cooperative",
+            "--team",
+            "house",
+            "--driver",
+            "house:bot-file:",
+            "--id",
+            "m-bot-file-empty",
+            "--apply",
+        ]
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert err.startswith("error:")
+    assert "hint:" in err
+
+
 def test_match_new_rejects_bad_driver_flags(arena, capsys) -> None:
     assert main(_register("blue") + ["--apply"]) == 0
     capsys.readouterr()

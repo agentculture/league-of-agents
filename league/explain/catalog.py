@@ -265,7 +265,28 @@ off-square delivers).
 team's minds were invoked — a declared fairness axis (spec c10/h7), not game
 state. It lives in the match log header and `match show --json`'s
 `driver_kinds`, never in engine state; omit it and the team's kind is simply
-unrecorded.
+unrecorded. `--driver <team-id>:bot-file:<strategy-name>` (issue #30) is a
+distinct, accepted kind: it records the FULL string (kind + strategy, e.g.
+`bot-file:rusher`) verbatim in the header — the same `bot-file:<name>`
+convention a team's agent `model` field already uses in harness configs —
+more specific than `league.harness.driver_kind()`'s own "bot" residency
+label, which only says HOW a team was invoked, not which strategy.
+
+`--max-actions <team-id>:<positive-int>` (repeatable, issue #29) declares the
+mode/handicap profile: a cap on how many unit actions a team may stage in one
+`match act` call (e.g. the solo preset's one-action-per-turn handicap). It
+lives in the match log header and `match show --json`'s `max_actions`, a team
+absent from the map is uncapped. `match act` enforces it where orders are
+staged — never silently truncating an over-cap submission, always a
+structured `CliError` — and, whenever an `--apply`'d attempt actually trips
+it, appends a durable `orders_capped` event straight to the log (bypassing
+the tick, the same way `seat_latency` does) so the refusal is verifiable from
+the record, not just the CLI's own exit code. `league.harness.run_match`
+threads a preset's/config's own declared `max_actions` into this flag, so a
+solo preset's cap is enforced whether the harness or a raw `match act` call
+stages the orders — the harness's own client-side truncation
+(`actions[:1] if solo else actions`) becomes redundant under this, never
+conflicting with it.
 
 `--map-read <team-id>:<full|fog>` and `--unit-comms <team-id>:<on|off>`
 (both repeatable) record orchestrator mode's two declared fairness axes
@@ -280,22 +301,35 @@ orchestrator mode's own default). Both live in the match log header and
 harness (`league/harness.py`) reads them off each team's config to decide
 what the master's briefing sees and which messages a seat's briefing relays.
 
-`show --json` also includes `last_turn_rejections`: every `action_rejected`
-event from the turn just resolved (`{team_id, unit_id, reason}`), so a caller
-can see *why* an order failed without scraping the whole log. The harness
-folds this into each agent's next briefing (spec c8/h5) — a seat that never
-learns the reason otherwise repeats the mistake for the whole match.
+`show --json` also includes `last_turn_rejections`: every genuine
+`action_rejected` event from the turn just resolved (`{team_id, unit_id,
+reason}`), so a caller can see *why* an order failed without scraping the
+whole log. The harness folds this into each agent's next briefing (spec
+c8/h5) — a seat that never learns the reason otherwise repeats the mistake
+for the whole match. A `passive` `action_rejected` (issue #31) — a
+capture-incapable unit merely standing on a contested/owned control point,
+fired from occupancy every turn regardless of whether the unit's own
+declared order succeeded — is excluded from this list: it was never a
+mistake to explain back.
+
+`show` and `probe` are grid-lane-only today (issue #28 item f): against a
+continuous-lane log they exit non-zero with a clean, structured `CliError`
+naming the limitation, using the same header lane-sniff `score`/`replay`
+already route on, rather than an opaque `KeyError: 'turn'`. Full
+continuous-lane support for these two verbs is tracked separately.
 
 `probe` (`league.engine.probe`, plan task t7) measures span of control from the
 log alone: how many subagents a team's mind actually fielded (`span` — a real,
 harness-recorded, per-seat call or a real declared action tied to that seat's
 OWN voice; a message merely NAMING a subagent counts for nothing), how well
 each subagent's orders landed (`realization_rate` — per seat, `1 -
-rejected/declared`), and whether guidance messages actually steered behavior
-(`guidance_linkage` — reusing cooperation v1's referent-matching idea: a
-commanding message counts only if a subsequent team action realizes something
-it named). `seat_latency` evidence, when the team has any, is authoritative
-over message content (a single whole-team driver call narrating several named
+rejected/declared`, counting only genuine declared-order rejections; a
+`passive` capture-ineligibility rejection, issue #31, never penalizes it), and
+whether guidance messages actually steered behavior (`guidance_linkage` —
+reusing cooperation v1's referent-matching idea: a commanding message counts
+only if a subsequent team action realizes something it named). `seat_latency`
+evidence, when the team has any, is authoritative over message content (a
+single whole-team driver call narrating several named
 personas is still span 0/1, never one seat per persona); absent it (pre
 seat_latency logs), the probe falls back to a stricter dual-evidence check —
 own-voice message AND a real declared action on that seat's own unit. The

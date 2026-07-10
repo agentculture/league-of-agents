@@ -29,7 +29,7 @@ from league.engine.continuous.grades import PURPOSES as CONTINUOUS_GRADE_PURPOSE
 from league.engine.continuous.grades import cgrade_units
 from league.engine.continuous.resolve import outcome_points as continuous_outcome_points
 from league.engine.continuous.scenario import CONTINUOUS_ID_PREFIX
-from league.engine.events import MatchLog
+from league.engine.events import Event, MatchLog
 from league.engine.grades import grade_units
 from league.engine.knowledge import KnowledgeFrame, knowledge_by_turn, latest_knowledge
 from league.engine.legal import legal_actions
@@ -85,6 +85,17 @@ def _safe_id(value: str, what: str) -> str:
 # match log header (league.engine.events.MatchLog.driver_kinds), not the state.
 _DRIVER_KINDS = ("bot", "stateless", "resident")
 
+# The coded-strategy bot lane (issue #30): harness configs already spell a
+# bot-file team's driver as {"type": "bot-file", "strategy": "<name>"}, and
+# the season-0 configs already label the SAME thing "bot-file:<name>" in a
+# team's agent ``model`` field (docs/playtests/season-0/*.config.json). A
+# raw `match new --driver <team>:bot-file:<name>` recognizes that existing
+# convention and records the FULL string (kind + strategy) in the header —
+# more specific than league.harness.driver_kind()'s own "bot" residency
+# label (which only says HOW invoked, not which strategy), because a direct
+# CLI call has no harness config to derive the strategy name from otherwise.
+_BOT_FILE_PREFIX = "bot-file:"
+
 
 def _driver_kinds_from_args(args: argparse.Namespace, team_ids: list[str]) -> dict[str, str]:
     driver_kinds: dict[str, str] = {}
@@ -94,7 +105,7 @@ def _driver_kinds_from_args(args: argparse.Namespace, team_ids: list[str]) -> di
             raise CliError(
                 code=EXIT_USER_ERROR,
                 message=f"bad --driver {spec!r}",
-                remediation="use --driver <team-id>:<bot|stateless|resident>",
+                remediation="use --driver <team-id>:<bot|stateless|resident|bot-file:name>",
             )
         if team_id not in team_ids:
             raise CliError(
@@ -102,11 +113,24 @@ def _driver_kinds_from_args(args: argparse.Namespace, team_ids: list[str]) -> di
                 message=f"--driver references team {team_id!r}, not one of --team",
                 remediation=f"teams here: {', '.join(team_ids) or 'none'}",
             )
+        if kind.startswith(_BOT_FILE_PREFIX):
+            strategy = kind[len(_BOT_FILE_PREFIX) :]
+            try:
+                validate_id(strategy, what="bot strategy name")
+            except ValueError as err:
+                raise CliError(
+                    code=EXIT_USER_ERROR,
+                    message=f"bad --driver {spec!r}: {err}",
+                    remediation="use --driver <team-id>:bot-file:<strategy-name> "
+                    "(bots/<strategy-name>.py)",
+                ) from err
+            driver_kinds[team_id] = kind  # the full "bot-file:<name>" string, verbatim
+            continue
         if kind not in _DRIVER_KINDS:
             raise CliError(
                 code=EXIT_USER_ERROR,
                 message=f"unknown driver kind {kind!r} for team {team_id!r}",
-                remediation=f"expected one of: {', '.join(_DRIVER_KINDS)}",
+                remediation=f"expected one of: {', '.join(_DRIVER_KINDS)}, or bot-file:<name>",
             )
         driver_kinds[team_id] = kind
     return driver_kinds
@@ -168,6 +192,58 @@ def _unit_comms_from_args(args: argparse.Namespace, team_ids: list[str]) -> dict
             )
         unit_comms[team_id] = kind == "on"
     return unit_comms
+
+
+# -- mode/handicap fairness: a per-team action cap enforced at the CLI/engine
+# -- boundary, not only the harness (issue #29) --------------------------
+#
+# The solo preset's "one action per turn" handicap used to be enforced ONLY in
+# league/harness.py's command-driver wrapper (``actions[:1] if solo else
+# actions``) — a raw ``match act`` call, bypassing the harness entirely,
+# could stage a full-roster order set for a "solo" team with nothing to stop
+# it. ``max_actions`` closes that gap the same way ``driver_kinds``/
+# ``map_read``/``unit_comms`` already do: a declared mode profile, persisted
+# in the match log header at ``match new`` time (never inferred from a
+# driver spec the CLI has no way to see), and enforced where orders are
+# staged (``cmd_match_act``, below) — never silently truncated, always a
+# structured ``CliError`` plus a durable ``orders_capped`` log event when an
+# ``--apply``'d attempt actually trips it. The harness's own truncation is
+# unchanged and becomes redundant, not conflicting: a driver that already
+# trims to the cap client-side never reaches the refusal path.
+
+
+def _max_actions_from_args(args: argparse.Namespace, team_ids: list[str]) -> dict[str, int]:
+    max_actions: dict[str, int] = {}
+    for spec in args.max_actions or ():
+        team_id, sep, count = spec.partition(":")
+        if not sep or not team_id or not count:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"bad --max-actions {spec!r}",
+                remediation="use --max-actions <team-id>:<positive-int>",
+            )
+        if team_id not in team_ids:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"--max-actions references team {team_id!r}, not one of --team",
+                remediation=f"teams here: {', '.join(team_ids) or 'none'}",
+            )
+        try:
+            n = int(count)
+        except ValueError as err:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"bad --max-actions {spec!r}: {err}",
+                remediation="use --max-actions <team-id>:<positive-int>",
+            ) from err
+        if n < 1:
+            raise CliError(
+                code=EXIT_USER_ERROR,
+                message=f"--max-actions {spec!r}: cap must be a positive int",
+                remediation="use --max-actions <team-id>:<positive-int>",
+            )
+        max_actions[team_id] = n
+    return max_actions
 
 
 # -- fog of war: one team's briefing-safe projection (plan t5, spec c5/h4) --
@@ -282,6 +358,29 @@ def _load_continuous(store: Store, match_id: str) -> CMatchLog:
         ) from err
 
 
+def _reject_continuous_log(store: Store, match_id: str, verb: str) -> None:
+    """``show``/``probe`` are grid-lane-only today (issue #28 item f — full
+    continuous-lane support for these verbs, e.g. new ``cmatch`` verbs, is a
+    separate PR). Without this check, ``_load``'s ``MatchLog.from_jsonl``
+    tried to read a continuous header's ``initial_state`` (``clock``/
+    ``width``, no ``turn``) as a grid ``MatchState`` and blew up with an
+    opaque ``unexpected: KeyError: 'turn'`` — the CLI's own error contract
+    promises no Python traceback ever leaks. This uses the SAME lane-sniff
+    ``score``/``replay`` already route on (``_sniff_continuous_log``) so
+    detection is consistent everywhere, and fails with a clean, dedicated,
+    structured ``CliError`` naming the limitation instead."""
+    path = store.log_path(match_id)
+    if path.is_file() and _sniff_continuous_log(path.read_text(encoding="utf-8")):
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=f"match {match_id!r} is a continuous-lane log; 'match {verb}' "
+            "doesn't support the continuous lane yet",
+            remediation="use 'league match replay' or 'league match score' (both "
+            "auto-detect the continuous lane); continuous-lane-native verbs are "
+            "tracked separately (issue #28)",
+        )
+
+
 def cmd_match_overview(args: argparse.Namespace) -> int:
     json_mode = bool(getattr(args, "json", False))
     data = {
@@ -352,6 +451,7 @@ def cmd_match_new(args: argparse.Namespace) -> int:
     driver_kinds = _driver_kinds_from_args(args, team_ids)
     map_read = _map_read_from_args(args, team_ids)
     unit_comms = _unit_comms_from_args(args, team_ids)
+    max_actions = _max_actions_from_args(args, team_ids)
     try:
         state = instantiate(
             scenario, match_id=match_id, seed=args.seed, mode=args.mode, teams=teams
@@ -373,6 +473,7 @@ def cmd_match_new(args: argparse.Namespace) -> int:
         "driver_kinds": driver_kinds,
         "map_read": map_read,
         "unit_comms": unit_comms,
+        "max_actions": max_actions,
         "turn_limit": state.turn_limit,
         "applied": bool(args.apply),
     }
@@ -386,6 +487,7 @@ def cmd_match_new(args: argparse.Namespace) -> int:
             driver_kinds=driver_kinds,
             map_read=map_read,
             unit_comms=unit_comms,
+            max_actions=max_actions,
         )
         try:
             path = store.create_match(log)
@@ -447,6 +549,7 @@ def cmd_match_list(args: argparse.Namespace) -> int:
 def cmd_match_show(args: argparse.Namespace) -> int:
     json_mode = bool(getattr(args, "json", False))
     store = Store()
+    _reject_continuous_log(store, args.match_id, "show")
     log = _load(store, args.match_id)
     state = log.final_state()
     pending = sorted(store.pending_orders(args.match_id))
@@ -477,7 +580,11 @@ def cmd_match_show(args: argparse.Namespace) -> int:
         # coordination playtest: 19 of 53 orders). ``event.turn`` on an
         # ``action_rejected`` is the turn it was rejected in; that equals
         # ``state.turn`` right after the fold, so this is exactly "last turn",
-        # never a history dump.
+        # never a history dump. ``passive`` rejections (issue #31) are excluded
+        # here too: a capture-incapable unit standing on a point fires one every
+        # turn from mere occupancy, regardless of whether its own declared order
+        # succeeded — surfacing it here would have the harness re-explain the
+        # same non-mistake to a seat that did nothing wrong, every turn.
         last_turn_rejections = [
             {
                 "team_id": event.data.get("team_id"),
@@ -486,6 +593,7 @@ def cmd_match_show(args: argparse.Namespace) -> int:
             }
             for event in log.events
             if event.kind == "action_rejected"
+            and not event.data.get("passive")
             and event.turn == state.turn
             and (team_id is None or event.data.get("team_id") == team_id)
         ]
@@ -497,6 +605,7 @@ def cmd_match_show(args: argparse.Namespace) -> int:
             "driver_kinds": log.driver_kinds,
             "map_read": log.map_read,
             "unit_comms": log.unit_comms,
+            "max_actions": log.max_actions,
         }
         if fog:
             # Additive and read-only: swaps only this response's "state" for
@@ -588,6 +697,30 @@ def _orders_from_args(args: argparse.Namespace) -> dict[str, Any]:
     return orders
 
 
+def _reject_excess_actions(
+    store: Store,
+    match_id: str,
+    log: MatchLog,
+    team_id: str,
+    turn: int,
+    declared: int,
+    allowed: int,
+) -> None:
+    """The durable, log-verifiable half of the mode/handicap enforcement
+    (issue #29): an ``orders_capped`` OBSERVATION event appended straight to
+    the store, bypassing ``resolve_turn`` entirely — a refused order set
+    never reaches staging or the tick, so there is nothing for the engine to
+    fold. Same bypass pattern as ``league.harness``'s own ``seat_latency``
+    events: harness/CLI-side instrumentation, not a declared move."""
+    event = Event(
+        turn=turn,
+        seq=len(log.events),
+        kind="orders_capped",
+        data={"team_id": team_id, "declared": declared, "allowed": allowed},
+    )
+    store.append_events(match_id, (event,))
+
+
 def _resolve(store: Store, match_id: str, log: MatchLog) -> tuple[MatchLog, dict[str, Any]]:
     state = log.final_state()
     scenario = get_scenario(state.scenario_id)
@@ -623,6 +756,30 @@ def cmd_match_act(args: argparse.Namespace) -> int:
             remediation=f"teams here: {', '.join(t.id for t in state.teams)}",
         )
     orders = _orders_from_args(args)
+    # Mode/handicap fairness (issue #29): a solo/handicapped team's declared
+    # action cap is enforced HERE, at the CLI/engine boundary where orders are
+    # staged — not only in the harness's command-driver wrapper, which a raw
+    # `match act` call bypasses entirely. Refuse loudly (never silently
+    # truncate) so a caller learns immediately, and record the refusal
+    # durably in the log whenever an --apply'd attempt actually trips it.
+    cap = log.max_actions.get(args.team)
+    declared_actions = orders.get("actions") or []
+    if cap is not None and len(declared_actions) > cap:
+        if args.apply:
+            _reject_excess_actions(
+                store, args.match_id, log, args.team, state.turn + 1, len(declared_actions), cap
+            )
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message=(
+                f"team {args.team!r} declared {len(declared_actions)} action(s) but this "
+                f"match caps it to {cap} (mode/handicap profile)"
+            ),
+            remediation=(
+                f"resubmit with at most {cap} action(s); see 'league match show "
+                f"{args.match_id} --json' for the recorded max_actions profile"
+            ),
+        )
     staged = set(store.pending_orders(args.match_id)) | {args.team}
     would_resolve = staged >= {t.id for t in state.teams}
     payload: dict[str, Any] = {
@@ -969,7 +1126,9 @@ def cmd_match_probe(args: argparse.Namespace) -> int:
     explain match probe`` for the evidence hierarchy and formula.
     """
     json_mode = bool(getattr(args, "json", False))
-    log = _load(Store(), args.match_id)
+    store = Store()
+    _reject_continuous_log(store, args.match_id, "probe")
+    log = _load(store, args.match_id)
     report = probe_match(log)
     if json_mode:
         emit_result(report, json_mode=True)
@@ -1459,8 +1618,10 @@ def register(sub: argparse._SubParsersAction) -> None:
         "--driver",
         action="append",
         metavar="TEAM:KIND",
-        help="Declared driver residency for a team — bot/stateless/resident "
-        "(fairness metadata only, recorded in the match log; repeatable).",
+        help="Declared driver residency for a team — bot/stateless/resident, or "
+        "bot-file:<strategy-name> to record which committed bots/<name>.py "
+        "strategy plays it (fairness metadata only, recorded in the match log; "
+        "repeatable).",
     )
     new.add_argument(
         "--map-read",
@@ -1479,6 +1640,16 @@ def register(sub: argparse._SubParsersAction) -> None:
         "'on' lets ground units message each other directly; 'off' (the "
         "mode's default) means master-mediated only — a recorded fairness "
         "axis (spec c6/h5; repeatable).",
+    )
+    new.add_argument(
+        "--max-actions",
+        action="append",
+        metavar="TEAM:N",
+        help="Mode/handicap profile (issue #29): cap how many unit actions a "
+        "team may stage in one 'match act' call — e.g. the solo preset's "
+        "one-action-per-turn handicap. Recorded in the match log header and "
+        "enforced by 'match act' with a structured error; a team absent from "
+        "this map is uncapped (repeatable).",
     )
     new.add_argument("--apply", action="store_true", help="Actually create (default: dry-run).")
     new.add_argument("--json", action="store_true", help="Emit structured JSON.")

@@ -17,7 +17,14 @@ and nothing it merely claims:
   (``test_claimed_delegation_without_any_evidence_scores_zero`` pins this).
 * **How well did each subagent's orders land?** (``realization_rate``) — per
   seat, ``1 - rejected/declared`` (silence scores zero, the same convention
-  ``league.engine.scoring``'s ``discipline`` already uses).
+  ``league.engine.scoring``'s ``discipline`` already uses). Only a genuine
+  declared-order rejection counts here (issue #31): a ``passive`` ``action_
+  rejected`` — a capture-incapable unit merely standing on a point, fired
+  from occupancy every turn regardless of what the unit itself declared —
+  is excluded from both the numerator and (via ``match show``'s
+  ``last_turn_rejections``) the harness's rejection-feedback loop, so a
+  scout parked on a contested point no longer drags its own clean orders'
+  realization_rate toward zero.
 * **Did guidance actually steer behavior?** (``guidance_linkage``) — reusing
   the referent-matching machinery from cooperation v1's ``message_utility``
   (:func:`league.engine.scoring._build_action_index`,
@@ -175,7 +182,17 @@ def _seat_orders(
 ) -> tuple[dict[str, dict[str, int]], dict[int, dict[str, Any]]]:
     """Per-seat declared/rejected counts, plus per-turn concurrency data the
     degradation curve buckets on — both read off the same unit->agent roster
-    lookup applied to ``action_declared``/``action_rejected`` events."""
+    lookup applied to ``action_declared``/``action_rejected`` events.
+
+    A ``passive`` ``action_rejected`` (issue #31: a capture-incapable unit
+    merely standing on a contested/owned point, fired from occupancy every
+    turn it recurs — ``league.engine.tick``'s section 7 — regardless of
+    whether the unit's own declared order that turn succeeded) is excluded
+    here entirely: it never counted as a real declared-order mistake, so it
+    must not inflate ``rejected`` in either the per-seat realization_rate or
+    the degradation curve's per-turn bucket. A genuine declared-order
+    rejection never carries this marker and still counts in full.
+    """
     seat_counts: dict[str, dict[str, int]] = {
         a: {"declared": 0, "rejected": 0} for a in active_seats
     }
@@ -184,6 +201,8 @@ def _seat_orders(
         if event.data.get("team_id") != team_id:
             continue
         if event.kind not in ("action_declared", "action_rejected"):
+            continue
+        if event.kind == "action_rejected" and event.data.get("passive"):
             continue
         unit_id = event.data.get("unit_id")
         agent_id = roster_team.get(str(unit_id))

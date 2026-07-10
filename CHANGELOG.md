@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-07-10
+
+### Added
+
+- `match new --max-actions <team-id>:<n>` declares a per-team mode/handicap action cap in the match log header (`max_actions`); `match act` enforces it where orders are staged, refusing an over-cap submission with a structured CliError and appending a durable `orders_capped` event when an `--apply`'d attempt actually trips it, instead of relying solely on `league.harness`'s own client-side truncation. The bundled `solo-vs-bot` preset now declares the cap (issue #29)
+- `match new --driver <team-id>:bot-file:<strategy-name>` accepts the coded-strategy bot lane's existing `bot-file:<name>` convention, recording the full driver string verbatim in the match log header (issue #30)
+
+### Fixed
+
+- `league.engine.probe`'s `realization_rate` (and `match show --json`'s `last_turn_rejections`) no longer counts a capture-incapable unit's passive, occupancy-driven `action_rejected` event (e.g. a scout merely standing on a contested control point) as a declared-order mistake — the engine now marks that event `passive` and both readers exclude it, while a genuine illegal order still counts in full (issue #31)
+- `match show` and `match probe` now exit with a clean, structured CliError naming the continuous-lane limitation instead of crashing with an opaque `unexpected: KeyError: 'turn'` when pointed at a continuous-lane log, using the same header lane-sniff `score`/`replay` already route on (issue #28, item f; the rest of #28 is a separate PR)
+
 ## [0.14.0] - 2026-07-08
 
 ### Added

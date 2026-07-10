@@ -112,6 +112,90 @@ def test_replay_missing_continuous_match_is_a_clean_cli_error(arena, capsys) -> 
 
 
 # --------------------------------------------------------------------------- #
+# `match show`/`match probe` on a continuous log (issue #28 item f): these two
+# verbs are grid-lane-only today — a continuous log used to crash them with an
+# opaque "unexpected: KeyError: 'turn'" (MatchState.from_dict expecting a grid
+# header). They must instead exit non-zero with a clean, structured CliError
+# naming the limitation, using the SAME lane-sniff score/replay already route
+# on. Full continuous-lane support (new cmatch verbs) is a separate PR.
+# --------------------------------------------------------------------------- #
+
+
+def _minimal_continuous_header(match_id: str) -> str:
+    """The smallest header shape ``_sniff_continuous_log`` recognizes as
+    continuous-lane (``clock`` present, ``turn`` absent) — no event lines
+    needed, since show/probe must refuse before ever trying to fully parse
+    the log as either lane's dataclasses."""
+    header = {
+        "log_version": 1,
+        "initial_state": {"match_id": match_id, "clock": 0, "width": 10},
+        "driver_kinds": {},
+    }
+    return json.dumps(header) + "\n"
+
+
+def test_show_on_a_continuous_log_is_a_clean_cli_error_not_a_traceback(arena, capsys) -> None:
+    _write_log("c-minimal", _minimal_continuous_header("c-minimal"))
+
+    rc = main(["match", "show", "c-minimal"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert err.startswith("error:")
+    assert "hint:" in err
+    assert "KeyError" not in err
+    assert "Traceback" not in err
+    assert "continuous" in err
+
+
+def test_show_on_a_continuous_log_is_a_clean_cli_error_in_json_mode(arena, capsys) -> None:
+    _write_log("c-minimal-json", _minimal_continuous_header("c-minimal-json"))
+
+    rc = main(["match", "show", "c-minimal-json", "--json"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    payload = json.loads(err)
+    assert payload["code"] == 1
+    assert "continuous" in payload["message"]
+
+
+def test_probe_on_a_continuous_log_is_a_clean_cli_error_not_a_traceback(arena, capsys) -> None:
+    _write_log("c-minimal-probe", _minimal_continuous_header("c-minimal-probe"))
+
+    rc = main(["match", "probe", "c-minimal-probe"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert err.startswith("error:")
+    assert "hint:" in err
+    assert "KeyError" not in err
+    assert "Traceback" not in err
+    assert "continuous" in err
+
+
+def test_show_on_a_real_continuous_log_via_the_race_fixture_is_still_clean(arena, capsys) -> None:
+    """Same check against a real, fully-formed continuous log (not just a bare
+    header) — the race fixture already used elsewhere in this file."""
+    log = _race_log()
+    _write_log(log.initial_state.match_id, log.to_jsonl())
+
+    rc = main(["match", "show", log.initial_state.match_id])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert err.startswith("error:")
+    assert "hint:" in err
+
+
+def test_show_and_probe_on_a_grid_log_are_unaffected(arena, capsys) -> None:
+    """The lane-sniff must not false-positive on a real grid log — show/probe
+    keep working exactly as before."""
+    raw = (_PLAYTESTS / _GRID_LOG_REL).read_text(encoding="utf-8")
+    match_id = MatchLog.from_jsonl(raw).initial_state.match_id
+    _write_log(match_id, raw)
+
+    assert main(["match", "show", match_id]) == 0
+    assert main(["match", "probe", match_id]) == 0
+
+
+# --------------------------------------------------------------------------- #
 # The grid path must stay byte-identical — no regression from the new routing.
 # --------------------------------------------------------------------------- #
 

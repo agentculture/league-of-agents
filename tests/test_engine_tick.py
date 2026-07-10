@@ -213,6 +213,11 @@ def test_scout_alone_on_a_point_gets_an_explicit_capture_rejection() -> None:
         "team_id": "blue",
         "unit_id": "blue-u1",
         "reason": "this role cannot capture control points",
+        # Passive (issue #31): incidental occupancy fallout, not a declared-
+        # order mistake — excluded from probe's realization_rate and from
+        # match show's last_turn_rejections (tests/test_engine_probe.py,
+        # tests/test_residency.py).
+        "passive": True,
     }
     # It recurs: the scout is still there, still ineligible, next turn too.
     state, events = resolve_turn(
@@ -221,6 +226,7 @@ def test_scout_alone_on_a_point_gets_an_explicit_capture_rejection() -> None:
     assert [e.data["reason"] for e in events if e.kind == "action_rejected"] == [
         "this role cannot capture control points"
     ]
+    assert [e.data["passive"] for e in events if e.kind == "action_rejected"] == [True]
 
 
 def test_scout_alongside_a_capable_teammate_is_not_rejected_redundantly() -> None:
