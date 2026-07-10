@@ -130,9 +130,10 @@ def cmd_play_show(args: argparse.Namespace) -> int:
             + (", fog on" if config.get("fog") else ""),
         ]
         for team in config["teams"]:
+            cap = f", max {team['max_actions']} action(s)/turn" if "max_actions" in team else ""
             lines.append(
                 f"  {team['id']} ({team['name']}): driver {driver_kind(team['driver'])} "
-                f"— {len(team['agents'])} seats"
+                f"— {len(team['agents'])} seats{cap}"
             )
         emit_result("\n".join(lines), json_mode=False)
     return 0

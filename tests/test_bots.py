@@ -388,6 +388,7 @@ def test_bot_file_driver_hands_strategy_only_the_public_json_dict(
             "driver_kinds",
             "map_read",
             "unit_comms",
+            "max_actions",
         ]
     )
     # ...and fully JSON-round-trippable — no non-serializable engine object

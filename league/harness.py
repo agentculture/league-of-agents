@@ -1428,6 +1428,13 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
             if "unit_comms" in team:
                 comms = "on" if team["unit_comms"] else "off"
                 new_argv += ["--unit-comms", f"{team['id']}:{comms}"]
+            # Mode/handicap fairness (issue #29): a DECLARED profile — same
+            # opt-in contract as map_read/unit_comms above — persisted as a
+            # match log header field so a raw `match act` against this same
+            # match is held to it too, not only this driver's own client-side
+            # truncation (e.g. the solo preset's "solo": True handicap).
+            if "max_actions" in team:
+                new_argv += ["--max-actions", f"{team['id']}:{team['max_actions']}"]
         created = _cli_json(new_argv + ["--apply"])
         match_id = created["match_id"]
 

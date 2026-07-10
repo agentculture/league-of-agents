@@ -9,6 +9,7 @@ named weights, degradation curve) is pinned on synthetic logs in
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import pathlib
 
@@ -16,6 +17,8 @@ import pytest
 
 from league.cli import main
 from league.engine.events import MatchLog
+from league.engine.scenario import get_scenario, instantiate
+from league.engine.tick import resolve_turn, start_match
 from league.harness import run_match
 from league.store import Store
 from tests.test_wave4 import BOT_TEAM_BLUE, BOT_TEAM_RED
@@ -99,3 +102,66 @@ def test_probe_overview_lists_the_verb(arena, capsys) -> None:
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert "probe" in payload["verbs"]
+
+
+# --------------------------------------------------------------------------- #
+# Passive capture-ineligibility does not leak into last_turn_rejections or
+# realization_rate through the real CLI surface (issue #31).
+# --------------------------------------------------------------------------- #
+
+
+def _skirmish1_roster(team: str, model: str = "colleague/qwen") -> tuple:
+    from league.engine.state import AgentSlot
+
+    return (
+        AgentSlot(id=f"{team}-scout", model=model, role="scout"),
+        AgentSlot(id=f"{team}-harvester", model=model, role="harvester"),
+        AgentSlot(id=f"{team}-defender", model=model, role="defender"),
+    )
+
+
+def _move_unit(state, unit_id: str, pos: tuple[int, int]):
+    units = tuple(dataclasses.replace(u, pos=pos) if u.id == unit_id else u for u in state.units)
+    return dataclasses.replace(state, units=units)
+
+
+def test_show_stays_clean_for_a_scout_standing_on_a_control_point(arena, capsys) -> None:
+    """The exact playtest shape (issue #31): blue's scout (can_capture=False
+    on skirmish-1) parks alone on cp-east and holds every turn — a genuinely
+    clean order — while the engine also fires a passive action_rejected from
+    occupancy every turn. 'match show --json's last_turn_rejections must not
+    surface it as a mistake."""
+    scenario = get_scenario("skirmish-1")
+    initial = instantiate(
+        scenario,
+        match_id="m-passive-cp",
+        seed=1,
+        mode="competitive",
+        teams=(
+            ("blue", "Blue Foundry", _skirmish1_roster("blue")),
+            ("red", "Red Relay", _skirmish1_roster("red")),
+        ),
+    )
+    state, all_events = start_match(initial)
+    state = _move_unit(state, "blue-u1", (9, 2))  # scout onto cp-east, alone
+
+    for _ in range(3):
+        state, turn_events = resolve_turn(
+            state, scenario, {"blue": {"actions": [{"unit_id": "blue-u1", "action": "hold"}]}}
+        )
+        all_events += turn_events
+
+    # This turn's own passive rejection is real — proves the fixture actually
+    # exercises the code path this test is pinning, not a vacuous pass.
+    assert any(
+        e.kind == "action_rejected" and e.data.get("passive") and e.turn == state.turn
+        for e in all_events
+    )
+
+    log = MatchLog(initial_state=initial, events=all_events)
+    Store().create_match(log)
+    capsys.readouterr()
+
+    assert main(["match", "show", "m-passive-cp", "--json"]) == 0
+    shown = json.loads(capsys.readouterr().out)
+    assert shown["last_turn_rejections"] == []

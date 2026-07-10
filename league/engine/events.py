@@ -13,8 +13,8 @@ Two design rules (spec c11/h4, c12/h5):
   are built from them.
 
 The on-disk format is JSONL: line 1 is a header ``{"log_version", "initial_state",
-"driver_kinds", "map_read", "unit_comms"}``, every following line one event, all
-canonical JSON. ``driver_kinds`` is a per-team ``{team_id:
+"driver_kinds", "map_read", "unit_comms", "max_actions"}``, every following
+line one event, all canonical JSON. ``driver_kinds`` is a per-team ``{team_id:
 "bot"|"stateless"|"resident"}`` map — the declared residency fairness axis
 (spec c10/h7): *how* a team's minds were invoked. ``map_read`` and
 ``unit_comms`` are orchestrator mode's declared fairness axes (plan t6, spec
@@ -23,10 +23,13 @@ orchestrator/master's map-read capability under fog, a DECLARED
 information-asymmetry rule of the mode, never a hidden privilege; ``unit_comms``
 is a per-team ``{team_id: bool}`` map — whether that team's ground units may
 message each other directly (``True``) or are master-mediated only (``False``,
-orchestrator mode's default). All three fields are pure metadata about the
-harness, never game state — none of them touch ``MatchState``/``state_hash`` or
-the fold, and each defaults to ``{}`` so logs written before it existed still
-parse.
+orchestrator mode's default). ``max_actions`` (issue #29) is a per-team
+``{team_id: int}`` map — the mode/handicap profile's declared cap on how many
+unit actions a team may stage in one ``match act`` call (e.g. the solo
+preset's one-action-per-turn handicap); a team absent from the map is
+uncapped. All four fields are pure metadata about the harness/mode, never
+game state — none of them touch ``MatchState``/``state_hash`` or the fold, and
+each defaults to ``{}`` so logs written before it existed still parse.
 
 ``seat_latency`` (plan task t1, spec c10/h9) is an OBSERVATION event, not a
 header field: per-seat/per-team wall-clock duration for one turn's driver
@@ -39,6 +42,16 @@ OBSERVATION kind, folding it is a no-op — MatchState/state_hash are exactly as
 if it were never written. The measurement itself (``time.perf_counter``)
 lives ONLY in ``league/harness.py``: ``league/engine`` never imports ``time``
 (the determinism import ban, enforced package-wide).
+
+``orders_capped`` (issue #29) is likewise an OBSERVATION event, not folded:
+``league.cli._commands.match.cmd_match_act`` appends it straight to the store
+(the same ``seat_latency``-style bypass of the tick, since a refused stage
+never reaches ``resolve_turn``) whenever a team's ``--apply``'d order set
+exceeds its declared ``max_actions`` cap — the durable, log-verifiable half of
+the enforcement, alongside the structured ``CliError`` the caller sees.
+``data`` carries ``team_id``, ``declared`` (how many actions were staged) and
+``allowed`` (the header's own cap) — enough to audit the refusal without
+re-deriving it from the header field alone.
 """
 
 from __future__ import annotations
@@ -73,6 +86,7 @@ OBSERVATION_KINDS = (
     "plan_declared",
     "turn_resolved",
     "seat_latency",
+    "orders_capped",
 )
 EVENT_KINDS = TRANSITION_KINDS + OBSERVATION_KINDS
 
@@ -206,13 +220,43 @@ def fold_events(initial: MatchState, events: Iterable[Event]) -> MatchState:
     return state
 
 
+def _validated_max_actions(raw: Any) -> dict[str, int]:
+    """Validate a parsed header's ``max_actions`` field (Qodo review, PR #33).
+
+    The CLI validates ``--max-actions`` on the way IN, but a log is an
+    on-disk input — hand-edited or corrupted, its cap values could be
+    anything, and ``match act`` compares the cap against an int
+    (``len(actions) > cap``): a non-int would surface as a raw ``TypeError``
+    instead of a structured error. Enforce the field's contract at the parse
+    boundary instead: a JSON object of ``team_id -> positive int``, rejected
+    loudly (``ValueError``, the same voice every other corrupt-header case
+    here uses) on anything else. ``bool`` is explicitly excluded even though
+    it subclasses ``int`` — ``true``/``false`` caps are always a corruption,
+    never a declared handicap. A log that predates the field (no
+    ``max_actions`` key) parses to ``{}`` before ever reaching this check.
+    """
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"invalid max_actions header field: expected an object of "
+            f"team_id -> positive int, got {raw!r}"
+        )
+    max_actions: dict[str, int] = {}
+    for team_id, cap in raw.items():
+        if isinstance(cap, bool) or not isinstance(cap, int) or cap < 1:
+            raise ValueError(
+                f"invalid max_actions for team {team_id!r}: expected positive int, got {cap!r}"
+            )
+        max_actions[str(team_id)] = cap
+    return max_actions
+
+
 @dataclass(frozen=True)
 class MatchLog:
     """An initial state plus everything that happened — the whole match.
 
-    ``driver_kinds``/``map_read``/``unit_comms`` are header metadata only (see
-    module docstring): per-team declared-fairness labels, never folded and
-    never part of ``state_hash``.
+    ``driver_kinds``/``map_read``/``unit_comms``/``max_actions`` are header
+    metadata only (see module docstring): per-team declared-fairness labels,
+    never folded and never part of ``state_hash``.
     """
 
     initial_state: MatchState
@@ -220,6 +264,7 @@ class MatchLog:
     driver_kinds: dict[str, str] = field(default_factory=dict)
     map_read: dict[str, str] = field(default_factory=dict)
     unit_comms: dict[str, bool] = field(default_factory=dict)
+    max_actions: dict[str, int] = field(default_factory=dict)
 
     def final_state(self) -> MatchState:
         return fold_events(self.initial_state, self.events)
@@ -231,6 +276,7 @@ class MatchLog:
             "driver_kinds": dict(self.driver_kinds),
             "map_read": dict(self.map_read),
             "unit_comms": dict(self.unit_comms),
+            "max_actions": dict(self.max_actions),
         }
         lines = [json.dumps(header, sort_keys=True, separators=(",", ":"), ensure_ascii=False)]
         lines.extend(
@@ -253,10 +299,12 @@ class MatchLog:
         driver_kinds = dict(header.get("driver_kinds", {}))
         map_read = dict(header.get("map_read", {}))
         unit_comms = dict(header.get("unit_comms", {}))
+        max_actions = _validated_max_actions(header.get("max_actions", {}))
         return cls(
             initial_state=initial,
             events=events,
             driver_kinds=driver_kinds,
             map_read=map_read,
             unit_comms=unit_comms,
+            max_actions=max_actions,
         )

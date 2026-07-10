@@ -83,6 +83,23 @@ def _reject(team: str, turn: int, unit: str) -> tuple[int, str, dict]:
     return (turn, "action_rejected", {"team_id": team, "unit_id": unit, "reason": "illegal"})
 
 
+def _passive_reject(team: str, turn: int, unit: str) -> tuple[int, str, dict]:
+    """A capture-incapable unit's incidental occupancy rejection (issue #31,
+    ``league.engine.tick`` section 7) — fires from mere standing, never from a
+    declared-order mistake, marked ``passive`` so probe/``match show`` can
+    tell it apart from a genuine rejection."""
+    return (
+        turn,
+        "action_rejected",
+        {
+            "team_id": team,
+            "unit_id": unit,
+            "reason": "this role cannot capture control points",
+            "passive": True,
+        },
+    )
+
+
 def _msg(team: str, turn: int, frm: str, text: str) -> tuple[int, str, dict]:
     return (turn, "message_sent", {"team_id": team, "from": frm, "text": text})
 
@@ -302,6 +319,75 @@ def test_per_seat_realization_and_degradation_curve_show_command_quality() -> No
     assert team["signals"]["realization_rate"] == round((1.0 + 1.0 + 0.0) / 3, 4)
     curve = team["components"]["degradation_curve"]
     assert curve == {"1": 1.0, "2": 1.0, "3": round(2 / 3, 4)}
+
+
+# --------------------------------------------------------------------------- #
+# 4b. Passive capture-ineligibility never penalizes realization_rate (#31).
+# --------------------------------------------------------------------------- #
+
+
+def test_passive_capture_ineligibility_does_not_penalize_realization_rate() -> None:
+    """A scout parked on a contested/owned point declares a clean 'hold' every
+    turn (never rejected on its own terms) but the engine also fires a
+    PASSIVE action_rejected each turn purely from occupancy — playtest: this
+    used to drag realization_rate to 0.42 despite zero genuine mistakes. The
+    passive events must not count toward the seat's rejected tally."""
+    initial = _state(
+        teams=(_team("blue", ["blue-scout"]),),
+        units=(_unit("blue", 1, "blue-scout"),),
+    )
+    triples = [
+        _latency("blue", 1, "blue-scout", "blue-u1"),
+        _declare("blue", 1, "blue-u1"),
+        _passive_reject("blue", 1, "blue-u1"),
+        _latency("blue", 2, "blue-scout", "blue-u1"),
+        _declare("blue", 2, "blue-u1"),
+        _passive_reject("blue", 2, "blue-u1"),
+        _latency("blue", 3, "blue-scout", "blue-u1"),
+        _declare("blue", 3, "blue-u1"),
+        _passive_reject("blue", 3, "blue-u1"),
+        (3, "turn_advanced", {"turn": 3}),
+    ]
+    report = probe_match(_log(initial, triples))
+    team = report["teams"]["blue"]
+    per_seat = team["components"]["realization_rate"]["per_seat"]
+    assert per_seat["blue-scout"] == {"declared": 3, "rejected": 0, "realization_rate": 1.0}
+    assert team["signals"]["realization_rate"] == 1.0
+    # The degradation curve is clean too — no phantom rejection inflates any
+    # concurrent-span bucket.
+    assert team["components"]["degradation_curve"] == {"1": 1.0}
+
+
+def test_a_genuine_illegal_order_still_counts_alongside_passive_rejections() -> None:
+    """Same shape as above, but turn 2's declared order is ALSO genuinely
+    illegal (e.g. an out-of-range move) — that one must still penalize
+    realization_rate even while the passive rejections around it don't."""
+    initial = _state(
+        teams=(_team("blue", ["blue-scout"]),),
+        units=(_unit("blue", 1, "blue-scout"),),
+    )
+    triples = [
+        _latency("blue", 1, "blue-scout", "blue-u1"),
+        _declare("blue", 1, "blue-u1"),
+        _passive_reject("blue", 1, "blue-u1"),
+        _latency("blue", 2, "blue-scout", "blue-u1"),
+        _declare("blue", 2, "blue-u1"),
+        _reject("blue", 2, "blue-u1"),  # a genuine mistake, not passive
+        _passive_reject("blue", 2, "blue-u1"),
+        _latency("blue", 3, "blue-scout", "blue-u1"),
+        _declare("blue", 3, "blue-u1"),
+        _passive_reject("blue", 3, "blue-u1"),
+        (3, "turn_advanced", {"turn": 3}),
+    ]
+    report = probe_match(_log(initial, triples))
+    team = report["teams"]["blue"]
+    per_seat = team["components"]["realization_rate"]["per_seat"]
+    assert per_seat["blue-scout"] == {
+        "declared": 3,
+        "rejected": 1,
+        "realization_rate": round(1 - 1 / 3, 4),
+    }
+    assert team["signals"]["realization_rate"] == round(1 - 1 / 3, 4)
 
 
 # --------------------------------------------------------------------------- #

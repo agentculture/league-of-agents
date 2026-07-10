@@ -204,6 +204,42 @@ def test_bot_tier_recorded_for_bot_file_sides() -> None:
                 assert tp.bot_tier == team["driver"]["strategy"]
 
 
+def test_solo_preset_declares_the_one_action_max_actions_cap() -> None:
+    """Issue #29: the solo preset's mode/handicap profile is a DECLARED
+    config field (``max_actions``), not just its driver's own "solo": True
+    client-side truncation — resolve() must carry it through so `league play`
+    threads it into `match new --max-actions`, and a raw `match act` against
+    that same match is held to the handicap too."""
+    config = resolve("solo-vs-bot")
+    solo = next(t for t in config["teams"] if t["id"] == "solo")
+    assert solo["driver"].get("solo") is True
+    assert solo["max_actions"] == 1
+
+
+def test_max_actions_is_omitted_when_a_side_declares_no_cap() -> None:
+    """Same opt-in contract as map_read/unit_comms: a side with no declared
+    cap simply has no key, never a null/zero placeholder."""
+    for name in preset_names():
+        for team in resolve(name)["teams"]:
+            if team["id"] != "solo":
+                assert "max_actions" not in team
+
+
+def test_max_actions_validates_as_a_positive_int() -> None:
+    bad = Preset(
+        name="probe-bad-max-actions",
+        description="probe only, not part of the bundled registry",
+        scenario_id="skirmish-1",
+        mode="cooperative",
+        seed=1,
+        teams=(
+            TeamPreset(id="a", name="A", driver={"type": "bot"}, model="bot:greedy", max_actions=0),
+        ),
+    )
+    with pytest.raises(ValueError, match="max_actions"):
+        resolve_preset(bad)
+
+
 def test_bot_tier_validates_structurally_not_against_the_filesystem() -> None:
     """House tiers beyond ``rusher`` are plan task t4's job — the registry
     must accept a tier name that has no bots/<name>.py on disk yet, and only
