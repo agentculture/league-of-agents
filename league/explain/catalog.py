@@ -45,11 +45,15 @@ AgentCulture mesh agent (`culture.yaml`, backend `colleague`).
 - `league standings|history` — cross-match trends, per team and per agent.
 - `league harness run` — play a configured match end to end with live drivers.
 - `league play list|show|start` — one-command launch of a bundled game mode.
+- `league cmatch new|show|act|tick|run` — the continuous (real-time) lane's own
+  external-driver play loop: a mind is asked for ONE unit's action at a
+  decision point, never a whole-team turn order. `match score`/`match replay`
+  already read `cmatch`-produced logs unchanged (lane auto-detected).
 
 Write verbs (`team register`, `match new/act/tick/rematch`, `harness run`,
-`play start`) are dry-run by default; add `--apply` to commit. Every read verb
-takes `--json` — except the interactive `league match tui`, which renders a
-terminal view only.
+`play start`, `cmatch new/act/tick/run`) are dry-run by default; add `--apply`
+to commit. Every read verb takes `--json` — except the interactive `league
+match tui`, which renders a terminal view only.
 
 ## Exit-code policy
 
@@ -385,6 +389,95 @@ store), so they can never disagree with the record.
   per team.
 """
 
+_CMATCH = """\
+# league cmatch
+
+The continuous lane's external-driver play loop (issue #28) — the sibling of
+`league match` for `league/engine/continuous/`. Where the grid asks a driver
+for a whole-team turn order, the continuous lane asks for exactly ONE unit's
+action at a decision point (the instant that unit goes idle) — see
+`docs/continuous-contract.md` for the full mind-facing contract. Matches live
+at the SAME `.league/matches/<id>/log.jsonl` path the grid uses (continuous
+headers carry `clock`/`width`, not `turn`/`grid_width` — `match score`/`match
+replay` already lane-sniff this automatically, unchanged by this noun group).
+
+Write verbs (`new`, `act`, `tick`, `run`) are **dry-run by default; `--apply`
+commits** — the same safe-by-default contract every other write verb in this
+repo follows. State is always a pure fold of the log: killing an external
+harness between any two `cmatch` calls and re-running from the same working
+directory continues correctly, no in-memory state required.
+
+## Usage
+
+    league cmatch new --scenario c-skirmish-1 --team blue --team red \\
+        --driver blue:bot --driver red:bot --apply --json
+    league cmatch new --config match.json --apply         # or inline JSON
+
+    league cmatch show <id> --json             # every currently-due unit's briefing
+    league cmatch show <id> --unit blue-u1 --json  # scope to one due unit
+
+    league cmatch act <id> --unit blue-u1 \\
+        --action-json '{"kind": "move", "target_pos": {"x": 5000, "y": 4000}}' \\
+        --apply --json
+    league cmatch act <id> --unit blue-u1 --apply   # omit --action-json (or pass
+                                                     # 'null') to park that unit
+
+    league cmatch tick <id> --apply --json          # auto-resolve bot-driven due
+                                                     # units, advance the timeline
+    league cmatch tick <id> --timeout-park --apply  # + park anything left over
+
+    league cmatch run --config match.json --apply --json   # the packaged one-shot
+                                                             # (was scripts/run_cmatch.py)
+
+`new`/`show`/`act`/`tick` accept either `--scenario`/`--team`/`--driver` flags
+(referencing rosters already registered with `league team register` — lane-
+agnostic, the same registry the grid lane uses) or a single `--config` (a
+file path OR inline JSON, mirroring `league harness run`'s config shape:
+`{"match": {"scenario", "mode", "seed", "id"}, "teams": [{"id", "name",
+"driver", "agents"}], "fog": false}`).
+
+`show` is the externally queryable "what is due right now": every unit that
+is alive, idle, and has not yet been asked this idle window, in canonical
+`(team_id, unit_id)` order, each with its FULL briefing (`game_time`, `you`,
+`menu` with per-action `duration`/`completion_time`, `outlook`, `board`,
+`messages` — the exact shape `league.charness.build_briefing` pins, see
+`docs/continuous-contract.md`).
+
+`act --unit <id> --action-json '<menu entry|null>'` submits ONE unit's
+decision. Multiple units can be due at once (e.g. every unit at match start);
+they must be answered in the order `show`'s `due` list reports them — the
+canonical order the resolver itself would ask them in — or `act` refuses with
+a clean error naming which unit is next. This is what makes stepwise,
+externally-driven play produce a log BYTE-IDENTICAL to an equivalent single
+`league.charness.run_cmatch` call given the same decisions (the parity proof,
+`tests/test_continuous_resolve.py`/`tests/test_cli_cmatch.py`) — answering out
+of order is refused rather than silently reordered.
+
+`tick` is the verb an external harness calls when it has **nothing to
+submit**: it resolves every currently-due unit belonging to a team whose
+driver label (recorded at `new`/`--config` time) is `bot` or
+`bot-file:<name>` — deterministic, in-process, no live session to persist
+across CLI calls — and, with `--timeout-park`, parks any OTHER due unit
+instead of leaving it pending. A `stateless`/`resident` (live-mind) team's due
+units are neither resolved nor parked by default: they stay due for an
+external `cmatch act` call, exactly mirroring `match tick`'s own grid-lane
+behavior (it force-resolves with whatever is staged; it never invokes a live
+mind itself either).
+
+`run` is the packaged one-shot — bot-vs-bot, live minds, or a mix, all in one
+call, exactly what `league.charness.run_cmatch` already did as a library call
+(`scripts/run_cmatch.py` used to be the only way to reach it from a shell; it
+is now a thin, deprecated wrapper around this verb). Unlike the stepwise
+loop, `run --config` supports `"fog": true` in full (it is a straight
+pass-through to `run_cmatch`, which already implements it) — the stepwise
+`new`/`show`/`act`/`tick` loop does not support fog yet and `new` refuses a
+fogged config with a clean error pointing back at `run`.
+
+`match score`/`match replay` keep working on `cmatch`-produced logs
+completely unchanged (they already lane-sniff the header shape, PR #33) —
+there is no separate `cmatch score`/`cmatch replay` verb.
+"""
+
 _HARNESS = """\
 # league harness
 
@@ -495,6 +588,13 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("match", "rematch"): _MATCH,
     ("standings",): _STANDINGS,
     ("history",): _STANDINGS,
+    ("cmatch",): _CMATCH,
+    ("cmatch", "overview"): _CMATCH,
+    ("cmatch", "new"): _CMATCH,
+    ("cmatch", "show"): _CMATCH,
+    ("cmatch", "act"): _CMATCH,
+    ("cmatch", "tick"): _CMATCH,
+    ("cmatch", "run"): _CMATCH,
     ("harness",): _HARNESS,
     ("harness", "overview"): _HARNESS,
     ("harness", "run"): _HARNESS,

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-07-10
+
+### Added
+
+- `cmatch` noun group (`league cmatch new|show|act|tick|run`): external-driver CLI parity for the continuous lane — create a match, ask what unit decisions are due right now (full briefing), submit one unit at a time, auto-resolve bot-driven units and/or park the rest, or run a config end to end in one call. `league.engine.continuous.resolve.advance_external`/`due_decisions` are the new engine-level primitives underneath: replaying a match log through the same resolver `resolve_match` uses, so stepwise external driving through `cmatch act`/`cmatch tick` produces logs byte-identical to an equivalent single `run_cmatch` call given the same decisions in the same order (issue #28)
+
+### Changed
+
+- `scripts/run_cmatch.py` is now a thin, deprecated wrapper around the published `league cmatch run` verb instead of the only way to reach `run_cmatch` from a shell
+
 ## [0.15.0] - 2026-07-10
 
 ### Added

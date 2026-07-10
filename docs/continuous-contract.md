@@ -15,6 +15,15 @@ each turn a driver receives the whole board and returns a whole-team order dict.
 The continuous lane replaces the turn with an event **timeline**, and the
 contract changes at its root.
 
+This document is the mind-facing contract itself (what a driver receives and
+returns); for how an EXTERNAL, subprocess-only harness reaches this contract
+through a shell rather than the in-process `run_cmatch` call, see the `league
+cmatch` noun group (`league explain cmatch`, `docs/features/continuous-lane.md`'s
+"Driving it externally" section, issue #28) — `cmatch show`/`cmatch act` are
+the CLI-level `build_briefing`/one-unit-decision primitives this document
+pins, and driving them one decision at a time in canonical order reproduces
+the identical log a single `run_cmatch` call would.
+
 ## Decision cadence — when a mind is asked
 
 A mind is asked for exactly **one** action at a **decision point**: the instant
