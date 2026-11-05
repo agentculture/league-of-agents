@@ -40,7 +40,7 @@ from league.harness import (
 )
 from league.store import Store
 
-_RULES_MARKER = "Rules, briefly:"
+_RULES_MARKER = "Rules (complete"
 _REASON = "target beyond this role's move range"
 
 SCENARIO = {

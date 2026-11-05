@@ -398,14 +398,43 @@ def make_bot_file_driver(spec: Mapping[str, Any]) -> Driver:
 
 # -- external agents as subprocesses ---------------------------------------
 
-_RULES = """Rules, briefly: turn-based, simultaneous orders. Each unit does ONE action per
-turn: move (Manhattan distance <= its role's move stat), gather (on a resource
-node square, fills to carry capacity), deliver (on the deliver-mission square,
-unloads into team resources), or hold (stay; builds control-point streaks).
-Sole occupancy of a control point for {capture} consecutive turns captures it;
-holding it {capture}+N turns completes a hold mission of amount N. The deliver
-mission completes when team resources reach its amount. Declared plans and
-team messages are free and are scored for cooperation quality."""
+_RULES = """Rules (complete — nothing else applies):
+- Turns and timing. Orders are simultaneous: every unit's order for a turn
+  resolves together, and submission order never matters. The state's "turn"
+  field counts turns ALREADY resolved, so the order you send now is for turn
+  state.turn + 1. The match ends after the scenario's turn_limit turns, or
+  earlier once every mission is resolved. Thinking time is not scored.
+- One action per unit per turn:
+  * move: to=[x, y] with Manhattan distance |dx|+|dy| from the unit's CURRENT
+    position <= its role's move stat, and on the grid. The legal_actions list
+    shows every legal move target; anything else is rejected.
+  * gather: only on a resource-node square, only for a role with
+    can_gather=true; fills the unit up to its carry capacity (limited by what
+    the node has left).
+  * deliver: only on the deliver-mission square while carrying; unloads all
+    cargo into the team's resources.
+  * hold: stay put.
+  A rejected order does nothing; the unit simply loses that turn.
+- Squares can be shared by any number of units. There is no combat, no
+  blocking and no damage: units never push, stop or remove each other.
+- Control points. ONLY units whose role has can_capture=true count on a
+  control point. A unit with can_capture=false (for example the scout) counts
+  for NOTHING there: it neither builds a streak nor contests or blocks the
+  other team's. Each turn exactly one team has capture-capable units on a
+  point, that team's streak on it grows by 1; if both teams do, or nobody
+  does, the streak resets to 0. A streak of {capture} captures the point.
+  Ownership stays with a team after its units leave, until the other team
+  captures it.
+- Hold mission of amount N: completes when its point is owned by a team that
+  keeps an unbroken capture-capable streak on it of {capture}+N turns (the
+  capture turns plus N more). Leaving or being contested resets the streak.
+- Deliver mission: completes when a team's resources reach its amount; if
+  both teams reach it on the same turn, both get it.
+- Score (competitive): mission rewards + 2 points per control point owned at
+  the end + delivered resources. Higher total wins; equal totals draw.
+- Team play. Each unit is controlled by its own agent. Teammates see your
+  messages and declared plan; the other team does not. Declared plans and
+  team messages are free and are scored for cooperation quality."""
 
 _PROMPT = """You are the {team_id} team commander in a League of Agents match.
 {rules}
@@ -911,6 +940,11 @@ class ClaudeCliSession:
     def __init__(self, spec: Mapping[str, Any], match_id: str, agent_id: str) -> None:
         self._command = str(spec.get("command", "claude"))
         self._model = spec.get("model")
+        # Extra CLI flags (e.g. --effort, --tools "") and a system prompt that
+        # REPLACES the CLI's own, so a claude seat and an HTTP seat can be
+        # handed the identical system prompt (fairness across transports).
+        self._args = [str(a) for a in spec.get("args", [])]
+        self._system_prompt = spec.get("system_prompt")
         self.session_id = _mint_session_id(match_id, agent_id)
         self._started = False
 
@@ -918,7 +952,9 @@ class ClaudeCliSession:
         argv = [self._command, "-p", flag, self.session_id]
         if self._model:
             argv += ["--model", str(self._model)]
-        return argv
+        if self._system_prompt:
+            argv += ["--system-prompt", str(self._system_prompt)]
+        return argv + self._args
 
     def _run(self, argv: list[str], prompt: str, timeout: float) -> subprocess.CompletedProcess:
         try:
@@ -985,9 +1021,15 @@ class ColleagueDirectSession:
             or os.environ.get("COLLEAGUE_BASE_URL", _DEFAULT_COLLEAGUE_BASE_URL)
         ).rstrip("/")
         self._temperature = float(spec.get("temperature", 0.6))
-        self._max_tokens = int(spec.get("max_tokens", 4096))
+        self._top_p = spec.get("top_p")
+        # "max_tokens": null in the spec means no cap: the field is omitted and
+        # the server's own context window is the only limit.
+        max_tokens = spec.get("max_tokens", 4096)
+        self._max_tokens = None if max_tokens is None else int(max_tokens)
         self._chat_template_kwargs = spec.get("chat_template_kwargs")
         self._history: list[dict[str, str]] = []
+        if spec.get("system_prompt"):
+            self._history.append({"role": "system", "content": str(spec["system_prompt"])})
         self.session_id = f"colleague-direct-{_mint_session_id(match_id, agent_id)}"
 
     def send(self, prompt: str, *, timeout: float) -> str:
@@ -995,9 +1037,12 @@ class ColleagueDirectSession:
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": list(self._history),
-            "max_tokens": self._max_tokens,
             "temperature": self._temperature,
         }
+        if self._max_tokens is not None:
+            payload["max_tokens"] = self._max_tokens
+        if self._top_p is not None:
+            payload["top_p"] = float(self._top_p)
         if self._chat_template_kwargs:
             payload["chat_template_kwargs"] = dict(self._chat_template_kwargs)
         try:
@@ -1090,9 +1135,18 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _events_since(match_id: str, since_turn: int, upto_turn: int) -> list[dict[str, Any]]:
+_TEAM_PRIVATE_EVENTS = frozenset({"message_sent", "plan_declared"})
+
+
+def _events_since(
+    match_id: str, since_turn: int, upto_turn: int, team_id: str | None = None
+) -> list[dict[str, Any]]:
     """Events a seat hasn't seen yet, read off the log via the public CLI
-    (``match replay --json``) — the harness never opens the log file itself."""
+    (``match replay --json``) — the harness never opens the log file itself.
+
+    With ``team_id``, the other team's messages and declared plans are
+    dropped: they are team-private, and a resident seat must not read the
+    opponent's coordination off the shared log."""
     if not match_id:
         return []
     events_by_turn = _cli_json(["match", "replay", match_id]).get("events_by_turn", {})
@@ -1101,6 +1155,9 @@ def _events_since(match_id: str, since_turn: int, upto_turn: int) -> list[dict[s
         for turn in sorted(events_by_turn, key=int)
         if since_turn < int(turn) <= upto_turn
         for event in events_by_turn[turn]
+        if team_id is None
+        or event.get("kind") not in _TEAM_PRIVATE_EVENTS
+        or (event.get("data") or {}).get("team_id") == team_id
     ]
 
 
@@ -1212,7 +1269,7 @@ def make_resident_driver(
             else:
                 since = last_seen.get(agent["id"], 0)
                 if str(since) not in new_events:
-                    new_events[str(since)] = _events_since(match_id, since, state["turn"])
+                    new_events[str(since)] = _events_since(match_id, since, state["turn"], team_id)
                 prompt = _RESIDENT_DELTA_PROMPT.format(
                     turn=turn,
                     unit_id=unit["id"],
