@@ -1027,6 +1027,9 @@ class ColleagueDirectSession:
         max_tokens = spec.get("max_tokens", 4096)
         self._max_tokens = None if max_tokens is None else int(max_tokens)
         self._chat_template_kwargs = spec.get("chat_template_kwargs")
+        self._reasoning_fallback = bool(spec.get("reasoning_fallback", True))
+        self.last_finish_reason: str | None = None
+        self.last_usage: Any = None
         self._history: list[dict[str, str]] = []
         if spec.get("system_prompt"):
             self._history.append({"role": "system", "content": str(spec["system_prompt"])})
@@ -1052,12 +1055,26 @@ class ColleagueDirectSession:
             # so the next attempt isn't preceded by a phantom user turn.
             self._history.pop()
             raise RuntimeError(f"colleague-direct session {self.session_id}: {err}") from err
-        message = data["choices"][0]["message"]
+        choice = data["choices"][0]
+        message = choice["message"]
         # The Qwen gotcha (spike, scripts/openai_driver.py): thinking models
-        # may return content=None with the answer in reasoning_content.
-        content = message.get("content") or message.get("reasoning_content") or ""
+        # may return content=None with the answer in reasoning_content. That
+        # fallback is opt-in now: with "reasoning_fallback": false, a reply
+        # that ran out of budget mid-thought stays empty (the seat idles and
+        # the failure is visible) instead of feeding the raw reasoning back
+        # into the transcript as if it were the answer.
+        content = message.get("content") or ""
+        if not content and self._reasoning_fallback:
+            content = message.get("reasoning_content") or ""
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.S).strip()
+        self.last_finish_reason = choice.get("finish_reason")
+        self.last_usage = data.get("usage")
         self._history.append({"role": "assistant", "content": content})
+        if not content:
+            raise RuntimeError(
+                f"colleague-direct session {self.session_id}: empty answer "
+                f"(finish_reason={self.last_finish_reason}, usage={self.last_usage})"
+            )
         return content
 
 
@@ -1307,7 +1324,14 @@ def make_resident_driver(
                     {"agent_id": agent["id"], "unit_id": unit["id"], "elapsed_ms": _elapsed_ms(t0)}
                 )
             if match_id:
-                store.append_session_record(match_id, agent["id"], {**record, "received": reply})
+                meta = {
+                    k: getattr(session, a)
+                    for k, a in (("finish_reason", "last_finish_reason"), ("usage", "last_usage"))
+                    if getattr(session, a, None) is not None
+                }
+                store.append_session_record(
+                    match_id, agent["id"], {**record, "received": reply, **meta}
+                )
             briefed.add(agent["id"])
             last_seen[agent["id"]] = state["turn"]
             if fog and current_knowledge is not None:

@@ -47,3 +47,27 @@ def test_colleague_session_no_cap_and_system_prompt(monkeypatch):
     assert "max_tokens" not in sent
     assert sent["top_p"] == 0.95
     assert sent["messages"][0] == {"role": "system", "content": "SYS"}
+
+
+def test_colleague_session_no_reasoning_fallback_raises_on_empty(monkeypatch):
+    monkeypatch.setattr(
+        harness,
+        "_http_post_json",
+        lambda url, payload, timeout: {
+            "choices": [
+                {
+                    "finish_reason": "length",
+                    "message": {"content": None, "reasoning_content": "thinking..."},
+                }
+            ],
+            "usage": {"completion_tokens": 32768},
+        },
+    )
+    s = harness.ColleagueDirectSession({"model": "m", "reasoning_fallback": False}, "match", "a1")
+    try:
+        s.send("hi", timeout=5)
+    except RuntimeError as err:
+        assert "finish_reason=length" in str(err)
+    else:
+        raise AssertionError("an empty answer must not pass as a reply")
+    assert s._history[-1] == {"role": "assistant", "content": ""}
