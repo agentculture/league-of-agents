@@ -633,7 +633,8 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
         description=(
             f"Seed-{seed} mirror-symmetric board: {width}x{height} grid, "
             f"{len(control_points)} control points, {len(resource_nodes)} resource "
-            f"nodes, 1 deliver + {2 * params.hold_mission_pairs} hold mission(s). "
+            f"nodes, {2 if params.home_delivery else 1} deliver + "
+            f"{2 * params.hold_mission_pairs} hold mission(s). "
             "180-degree rotational symmetry — team spawns and every objective "
             "mirror through the center, so both teams face an identical board."
             f"{roster_note}{home_note}{crown_note}{early_note}"
