@@ -311,9 +311,31 @@ def fold_knowledge(
     nodes = {f.id: f for f in prev.resource_nodes}
     cps = {f.id: f for f in prev.control_points}
     cells = set(prev.cells_seen)
+    events = tuple(events)
     _told_pass(units, nodes, cps, events, state_after, prev.team_id)
     _seen_pass(units, nodes, cps, cells, state_after, scenario, prev.team_id)
+    if scenario.cp_vision:
+        _loss_pass(cps, events, prev.team_id, state_after.turn)
     return _frame(prev.team_id, state_after.turn, units, nodes, cps, cells)
+
+
+def _loss_pass(
+    cps: dict[str, KnownControlPoint], events: Iterable[Event], team_id: str, turn: int
+) -> None:
+    """With control-point vision, a team learns the same turn that a point it
+    owned was captured: the point's own view of it is what just went dark."""
+    for event in events:
+        if event.kind != "control_point_captured" or event.data.get("team_id") == team_id:
+            continue
+        known = cps.get(event.data["cp_id"])
+        if known is not None and known.owner == team_id:
+            cps[known.id] = KnownControlPoint(
+                id=known.id,
+                pos=known.pos,
+                owner=event.data["team_id"],
+                turn=turn,
+                source=SOURCE_SEEN,
+            )
 
 
 def knowledge_by_turn(log: MatchLog, scenario: Scenario) -> dict[str, tuple[KnowledgeFrame, ...]]:

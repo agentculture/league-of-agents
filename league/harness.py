@@ -455,6 +455,16 @@ _FOG_RULES = """
   status. The other team cannot see your messages."""
 
 
+_CP_VISION_RULES = """
+- Control points watch. A control point your team owns also sees every cell
+  within Manhattan distance {radius} of it, for your team, from the turn your
+  team captures it until the turn the other team captures it. Arriving on a
+  point grants nothing; the view comes with the capture. While enemy units
+  build a capture streak on your point you see them there, and the turn the
+  point is captured your team learns it (its owner changes in your view) and
+  loses that point's view."""
+
+
 _CROWN_RULES = """
 - The Crown. It sits on the center cell {pos}{shared}. The first team to have
   capture-capable units on it, with no capture-capable enemy there, for
@@ -540,6 +550,9 @@ def _rules_text(scenario: Mapping[str, Any], fog: bool) -> str:
             turns=early["turns"],
             start=early["from_turn"],
         )
+    if fog and scenario.get("cp_vision"):
+        text += _FOG_RULES + _CP_VISION_RULES.format(radius=scenario["cp_vision"])
+        return text
     return text + _FOG_RULES if fog else text
 
 

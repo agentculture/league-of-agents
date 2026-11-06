@@ -68,6 +68,8 @@ def _scenario_dict(s: Scenario) -> dict[str, object]:
             "value": s.crown.value,
             "hold_turns": s.crown.hold_turns,
         }
+    if s.cp_vision:
+        out["cp_vision"] = s.cp_vision
     if s.early_end is not None:
         out["early_end"] = {
             "ratio_pct": s.early_end.ratio_pct,

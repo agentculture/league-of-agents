@@ -131,6 +131,10 @@ class Scenario:
     # scenario and on generated boards that don't ask for one.
     crown: Crown | None = None
     early_end: EarlyEnd | None = None
+    # Control-point vision (2026-11-06): a control point a team owns sees
+    # every cell within this Manhattan radius for that team, from the turn it
+    # is captured until the turn another team captures it. 0 = off.
+    cp_vision: int = 0
 
     def stats_for(self, role: str) -> RoleStats:
         for name, stats in self.role_stats:

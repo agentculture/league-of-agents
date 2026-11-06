@@ -121,6 +121,7 @@ DELIVER_AMOUNT_MIN, DELIVER_AMOUNT_MAX = 1, 80
 CROWN_VALUE_MIN, CROWN_VALUE_MAX = 1, 40
 CROWN_TURNS_MIN, CROWN_TURNS_MAX = 1, 20
 THIEVES_MIN, THIEVES_MAX = 0, 2
+CP_VISION_MIN, CP_VISION_MAX = 0, 4
 EARLY_PCT_MIN, EARLY_PCT_MAX = 1, 100
 EARLY_TURNS_MIN, EARLY_TURNS_MAX = 1, 10
 _EARLY_TURNS, _EARLY_FROM = 3, 20
@@ -198,6 +199,8 @@ class GenParams:
     # Home delivery: 0 = one shared deliver mission on the center; 1 = each
     # team delivers at its own spawn corner, for its own deliver mission.
     home_delivery: int = 0
+    # Control-point vision radius (0 = off): an owned point watches its area.
+    cp_vision: int = 0
     early_end_pct: int = 0
     early_end_turns: int = _EARLY_TURNS
     early_end_from: int = _EARLY_FROM
@@ -306,6 +309,10 @@ def validate_params(params: GenParams) -> GenParams:
         f"thieves {params.thieves} out of range [{THIEVES_MIN}, {THIEVES_MAX}]",
     )
     _require(
+        CP_VISION_MIN <= params.cp_vision <= CP_VISION_MAX,
+        f"cp_vision {params.cp_vision} out of range [{CP_VISION_MIN}, {CP_VISION_MAX}]",
+    )
+    _require(
         params.home_delivery in (0, 1),
         f"home_delivery {params.home_delivery} must be 0 (shared, center) or 1 (home corners)",
     )
@@ -340,15 +347,16 @@ def validate_params(params: GenParams) -> GenParams:
 
 # Further optional trailing segments, each emitted only when not default and
 # always in this order: s<node_stock> d<deliver_amount> x<crown_value> z<crown_turns>
-# f<thieves> h<home_delivery> q<early_end_pct> j<early_end_turns> v<early_end_from>.
+# f<thieves> h<home_delivery> o<cp_vision> q<early_end_pct> j<early_end_turns> v<early_end_from>.
 _TOKEN_RE = re.compile(
     r"^w(\d+)y(\d+)t(\d+)c(\d+)r(\d+)m(\d+)k(\d+)"
-    r"(?:e(\d+))?(?:s(\d+))?(?:d(\d+))?(?:x(\d+))?(?:z(\d+))?(?:f(\d+))?(?:h(\d+))?"
+    r"(?:e(\d+))?(?:s(\d+))?(?:d(\d+))?(?:x(\d+))?(?:z(\d+))?(?:f(\d+))?(?:h(\d+))?(?:o(\d+))?"
     r"(?:q(\d+))?(?:j(\d+))?(?:v(\d+))?$"
 )
 _ID_RE = re.compile(
     r"^gen-(\d+)-(w\d+y\d+t\d+c\d+r\d+m\d+k\d+"
-    r"(?:e\d+)?(?:s\d+)?(?:d\d+)?(?:x\d+)?(?:z\d+)?(?:f\d+)?(?:h\d+)?(?:q\d+)?(?:j\d+)?(?:v\d+)?)$"
+    r"(?:e\d+)?(?:s\d+)?(?:d\d+)?(?:x\d+)?(?:z\d+)?(?:f\d+)?(?:h\d+)?(?:o\d+)?"
+    r"(?:q\d+)?(?:j\d+)?(?:v\d+)?)$"
 )
 
 
@@ -378,6 +386,8 @@ def params_token(params: GenParams) -> str:
         token += f"f{params.thieves}"
     if params.home_delivery:
         token += f"h{params.home_delivery}"
+    if params.cp_vision:
+        token += f"o{params.cp_vision}"
     if params.early_end_pct:
         token += f"q{params.early_end_pct}"
     if params.early_end_turns != _EARLY_TURNS:
@@ -433,9 +443,10 @@ def parse_generated_id(candidate: str) -> tuple[int, GenParams] | None:
         crown_turns=int(groups[11]) if groups[11] is not None else _CROWN_TURNS,
         thieves=int(groups[12]) if groups[12] is not None else 0,
         home_delivery=int(groups[13]) if groups[13] is not None else 0,
-        early_end_pct=int(groups[14]) if groups[14] is not None else 0,
-        early_end_turns=int(groups[15]) if groups[15] is not None else _EARLY_TURNS,
-        early_end_from=int(groups[16]) if groups[16] is not None else _EARLY_FROM,
+        cp_vision=int(groups[14]) if groups[14] is not None else 0,
+        early_end_pct=int(groups[15]) if groups[15] is not None else 0,
+        early_end_turns=int(groups[16]) if groups[16] is not None else _EARLY_TURNS,
+        early_end_from=int(groups[17]) if groups[17] is not None else _EARLY_FROM,
     )
     return int(match.group(1)), params
 
@@ -614,6 +625,12 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
         if params.home_delivery
         else ""
     )
+    cp_note = (
+        f" An owned control point watches every cell within {params.cp_vision} of it "
+        "for its owner, from capture until it is captured back."
+        if params.cp_vision
+        else ""
+    )
     early_end = None
     early_note = ""
     if params.early_end_pct:
@@ -637,7 +654,7 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
             f"{2 * params.hold_mission_pairs} hold mission(s). "
             "180-degree rotational symmetry — team spawns and every objective "
             "mirror through the center, so both teams face an identical board."
-            f"{roster_note}{home_note}{crown_note}{early_note}"
+            f"{roster_note}{home_note}{cp_note}{crown_note}{early_note}"
         ),
         grid_width=width,
         grid_height=height,
@@ -652,4 +669,5 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
         resource_nodes=tuple(resource_nodes),
         crown=crown,
         early_end=early_end,
+        cp_vision=params.cp_vision,
     )
