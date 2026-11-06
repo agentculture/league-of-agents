@@ -238,7 +238,14 @@ def make_bot_driver(scenario: dict[str, Any]) -> Driver:
     ) -> dict[str, Any]:
         t0 = time.perf_counter()
         my_units = [u for u in state["units"] if u["team_id"] == team_id and u["alive"]]
-        deliver = next((m for m in state["missions"] if m["kind"] == "deliver"), None)
+        deliver = next(
+            (
+                m
+                for m in state["missions"]
+                if m["kind"] == "deliver" and m.get("team_id") in (None, team_id)
+            ),
+            None,
+        )
         nodes = [n for n in state["resource_nodes"] if n["remaining"] > 0]
         cps = state["control_points"]
         actions: list[dict[str, Any]] = []
@@ -439,17 +446,113 @@ _RULES = """Rules (complete — nothing else applies):
 _FOG_RULES = """
 - Fog of war is ON. Each unit sees every cell within Manhattan distance of its
   role's vision stat; your team sees the union of its units' views. You always
-  know your own units. Enemy units, resource nodes, control points and
-  missions are known only once seen (a sighting is remembered, but may be
-  stale) or once a teammate's message names them by their exact id (for
-  example "rn-1a" or "red-u2"); a description like "the western node" teaches
-  nothing. The other team cannot see your messages."""
+  know your own units. Enemy units, resource nodes and control points are
+  known only once seen (a sighting is remembered, but may be stale) or once a
+  teammate's message names them by their exact id (for example "rn-1a" or
+  "red-u2"); a description like "the western node" teaches nothing. A mission
+  is listed once your team has seen its cell or knows the control point or
+  resource node it sits on, and a listed mission always shows its current
+  status. The other team cannot see your messages."""
+
+
+_CP_VISION_RULES = """
+- Control points watch. A control point your team owns also sees every cell
+  within Manhattan distance {radius} of it, for your team, from the turn your
+  team captures it until the turn the other team captures it. Arriving on a
+  point grants nothing; the view comes with the capture. While enemy units
+  build a capture streak on your point you see them there, and the turn the
+  point is captured your team learns it (its owner changes in your view) and
+  loses that point's view."""
+
+
+_CROWN_RULES = """
+- The Crown. It sits on the center cell {pos}{shared}. The first team to have
+  capture-capable units on it, with no capture-capable enemy there, for
+  {turns} consecutive turns takes it, once and for good, for {value} points.
+  Like a control point, both teams present resets the streak to 0, and a
+  can_capture=false unit counts for nothing.{delivering} It is scored exactly
+  as stated here; whether it is worth the units and turns it ties up is your
+  call."""
+
+_HOME_DELIVERY_RULES = """
+- Home delivery. Each team has its own deliver mission on its own spawn
+  corner (the mission carries that team's team_id). A unit can deliver only
+  on its own team's delivery square, and only that team can complete its
+  deliver mission; both teams can complete their own."""
+
+
+_THIEF_RULES = """
+- The thief. A role with can_steal=true has one more action:
+  * steal: {{"unit_id": "<thief>", "action": "steal", "target": "<enemy unit id>"}}
+    ("target" is optional). It resolves AFTER every unit has moved, gathered
+    and delivered this turn, on the cell where the thief stands, and takes
+    exactly 1 cargo from an enemy unit carrying cargo on that cell (harvesters
+    included; without a target, the first such unit by id). It fails if an
+    enemy defender stands on that cell at that moment, if the thief is
+    already full (thief carry 1), or if no enemy unit with cargo is there (one
+    that moved away or delivered this turn is gone). Stolen cargo is carried
+    like gathered cargo and counts only once delivered. A thief cannot gather
+    or capture. Moving cargo this way is the only interaction between units;
+    otherwise the rule above stands."""
+
+
+_EARLY_END_RULES = """
+- Early end. Besides turn {limit}, the match ends (and the leader wins) when
+  the leader's lead can no longer be overcome, or when the lead is at least
+  {pct}% of "max_swing" for {turns} turns in a row, counting from turn {start}.
+  max_swing is the most the gap could still close by: everything the trailing
+  team could still win in the turns left (each open mission, each control
+  point it does not own, the Crown, every resource still on the board or in
+  cargo, counting only what a unit could still reach in time) plus every
+  control point the leader could still lose. The state's "standing" block
+  shows points, leader, lead, max_swing and the leader's current run
+  ("lead_hold") every turn, so both teams see exactly where this stands."""
+
+
+def _has_thief(scenario: Mapping[str, Any]) -> bool:
+    return any(r.get("can_steal") for r in scenario.get("roles", {}).values())
+
+
+def _verbs(scenario: Mapping[str, Any]) -> str:
+    """The action-verb hint in the reply format: steal appears only on a board
+    that fields a thief, so thief-free prompts are unchanged."""
+    return "move|gather|deliver|steal|hold" if _has_thief(scenario) else "move|gather|deliver|hold"
 
 
 def _rules_text(scenario: Mapping[str, Any], fog: bool) -> str:
-    """The rules block for a seat: the complete rules, plus the fog paragraph
-    only when the match is fogged."""
+    """The rules block for a seat: the complete rules, plus the crown, thief
+    and fog paragraphs only when they apply."""
     text = _RULES.format(capture=scenario["capture_hold_turns"])
+    crown = scenario.get("crown")
+    if crown:
+        shared = any(
+            m.get("kind") == "deliver" and list(m.get("pos", ())) == list(crown["pos"])
+            for m in scenario.get("missions", [])
+        )
+        text += _CROWN_RULES.format(
+            pos=list(crown["pos"]),
+            turns=crown["hold_turns"],
+            value=crown["value"],
+            shared=" (the same cell as the deliver mission)" if shared else "",
+            delivering=(
+                " Enemy units delivering resources stand on this same cell." if shared else ""
+            ),
+        )
+    if any(m.get("side") is not None for m in scenario.get("missions", [])):
+        text += _HOME_DELIVERY_RULES
+    if _has_thief(scenario):
+        text += _THIEF_RULES.format()
+    early = scenario.get("early_end")
+    if early:
+        text += _EARLY_END_RULES.format(
+            limit=scenario.get("turn_limit"),
+            pct=early["ratio_pct"],
+            turns=early["turns"],
+            start=early["from_turn"],
+        )
+    if fog and scenario.get("cp_vision"):
+        text += _FOG_RULES + _CP_VISION_RULES.format(radius=scenario["cp_vision"])
+        return text
     return text + _FOG_RULES if fog else text
 
 
@@ -464,7 +567,7 @@ Current match state (JSON):
 You command team {team_id}. Reply with ONLY one JSON object, no prose:
 {{"plan": "<optional standing plan>",
   "messages": [{{"from": "<agent-id>", "text": "..."}}],
-  "actions": [{{"unit_id": "...", "action": "move|gather|deliver|hold",
+  "actions": [{{"unit_id": "...", "action": "{verbs}",
                "to": [x, y]}}]}}
 """
 
@@ -488,7 +591,7 @@ Messages your teammates already sent this turn:
 
 Coordinate through messages; you cannot command other units. Reply with ONLY
 one JSON object, no prose:
-{{"action": {{"unit_id": "{unit_id}", "action": "move|gather|deliver|hold",
+{{"action": {{"unit_id": "{unit_id}", "action": "{verbs}",
              "to": [x, y]}},
   "messages": [{{"from": "{agent_id}", "text": "..."}}],
   "plan": "<optional; only if proposing/refreshing the team plan>"}}
@@ -567,10 +670,13 @@ def _format_legal_actions(legal_actions: Mapping[str, Any], unit_ids: list[str])
         legal = legal_actions.get(unit_id)
         if legal is None:
             continue
+        steal = ""
+        if legal.get("can_steal"):
+            steal = f"; steal: {'yes' if legal.get('steal') else 'no (full)'}"
         lines.append(
             f"- {unit_id}: move to {_format_move_targets(legal.get('move', []))}; "
             f"gather: {'yes' if legal.get('gather') else 'no'}; "
-            f"deliver: {'yes' if legal.get('deliver') else 'no'}; hold: yes"
+            f"deliver: {'yes' if legal.get('deliver') else 'no'}{steal}; hold: yes"
         )
     if not lines:
         return ""
@@ -730,6 +836,7 @@ def make_command_driver(
             ),
             legal_actions=_format_legal_actions(context.get("legal_actions", {}), my_unit_ids),
             state=json.dumps(briefing_state, sort_keys=True),
+            verbs=_verbs(scenario),
         )
         sink = _latency_sink(context)
         t0 = time.perf_counter()
@@ -896,6 +1003,7 @@ def make_per_seat_driver(
                 legal_actions=_format_legal_actions(legal_actions, [unit["id"]]),
                 state=json.dumps(state, sort_keys=True),
                 team_messages=json.dumps(visible_messages, sort_keys=True) or "[]",
+                verbs=_verbs(scenario),
             )
             t0 = time.perf_counter()
             try:
@@ -1129,8 +1237,9 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
 
     Under fog, ``state["units"]`` mixes two shapes: this team's own units, in
     full, and a fog-of-war-known enemy unit (``KnowledgeFrame``'s
-    ``KnownUnit.to_dict()``), which carries no ``carrying`` field at all —
-    genuinely unknown, not zero — hence ``.get`` here, never ``[...]``.
+    ``KnownUnit.to_dict()``), whose ``carrying`` is its cargo as last seen and
+    is absent for a told-only unit — genuinely unknown, not zero — hence
+    ``.get`` here, never ``[...]``.
     """
     return {
         "turn": state.get("turn"),
@@ -1159,6 +1268,7 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
                 "pos": m.get("pos"),
                 "amount": m.get("amount"),
                 "status": m.get("status"),
+                **({"team_id": m["team_id"]} if m.get("team_id") else {}),
             }
             for m in state.get("missions", [])
         ],
@@ -1166,6 +1276,8 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
             {"id": n["id"], "pos": n["pos"], "remaining": n["remaining"]}
             for n in state.get("resource_nodes", [])
         ],
+        **({"crown": state["crown"]} if state.get("crown") is not None else {}),
+        **({"standing": state["standing"]} if state.get("standing") is not None else {}),
     }
 
 
@@ -1244,6 +1356,7 @@ def make_resident_driver(
             rules=rules,
             extra=f"\n{seat_extra}\n",
             scenario=json.dumps(scenario_for_prompt, sort_keys=True),
+            verbs=_verbs(scenario),
             **fields,
         )
 

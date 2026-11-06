@@ -48,8 +48,12 @@ def visible_cells(
     unit = _unit_by_id(state, unit_id)
     if not unit.alive:
         return frozenset()
-    radius = scenario.stats_for(unit.role).vision
-    ux, uy = unit.pos
+    return _ball(state, unit.pos, scenario.stats_for(unit.role).vision)
+
+
+def _ball(state: MatchState, pos: tuple[int, int], radius: int) -> frozenset[tuple[int, int]]:
+    """Every in-grid cell within Manhattan ``radius`` of ``pos``."""
+    ux, uy = pos
     cells: set[tuple[int, int]] = set()
     for dx in range(-radius, radius + 1):
         span = radius - abs(dx)
@@ -66,13 +70,19 @@ def visible_cells(
 def team_visible_cells(
     state: MatchState, scenario: Scenario, team_id: str
 ) -> frozenset[tuple[int, int]]:
-    """The team's combined vision: the union over its living units."""
+    """The team's combined vision: the union over its living units, plus —
+    on a board with ``cp_vision`` — the area around each control point it
+    owns (gained on capture, lost when another team captures the point)."""
     if all(team.id != team_id for team in state.teams):
         raise ValueError(f"unknown team {team_id!r} in match {state.match_id!r}")
     cells: set[tuple[int, int]] = set()
     for unit in state.units:
         if unit.team_id == team_id and unit.alive:
             cells |= visible_cells(state, scenario, unit.id)
+    if scenario.cp_vision:
+        for cp in state.control_points:
+            if cp.owner == team_id:
+                cells |= _ball(state, cp.pos, scenario.cp_vision)
     return frozenset(cells)
 
 

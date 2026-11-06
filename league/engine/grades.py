@@ -32,6 +32,9 @@ recon   unit_moved                     :data:`MOVE_POINTS`
 coord.  message_sent                   :data:`MESSAGE_POINTS`
 ======  =============================  =================================
 
+``resource_stolen`` (the thief's take) feeds economy the same way, by its
+``amount``.
+
 Every contribution is attributed to the acting unit (``unit_id`` on the event
 directly for movement/gather/deliver; ``message_sent``'s ``from`` is an
 AGENT id per ``league/harness.py``, resolved to its unit via the initial
@@ -84,6 +87,7 @@ ROLE_HOME_PURPOSE: dict[str, str] = {
     "harvester": "economy",  # implementer: hauls and delivers the payload
     "defender": "control",  # implementer: captures and holds objectives
     "scout": "recon",  # quick reconnaissance pass — the team's eyes
+    "thief": "economy",  # raider: takes enemy cargo and delivers it home
     "explorer": "recon",  # reconnaissance / code-reading: ranges far, sees far
     "planner": "coordination",  # architect / tech-lead: coordinates via plan+messages
 }
@@ -184,6 +188,8 @@ def grade_units(log: MatchLog) -> dict[str, Any]:
         elif kind == "resource_gathered":
             credit(data["unit_id"], "economy", int(data["amount"]))
         elif kind == "resource_delivered":
+            credit(data["unit_id"], "economy", int(data["amount"]))
+        elif kind == "resource_stolen":
             credit(data["unit_id"], "economy", int(data["amount"]))
         elif kind == "control_point_captured":
             for unit_id in occupants(data["cp_id"], data["team_id"]):

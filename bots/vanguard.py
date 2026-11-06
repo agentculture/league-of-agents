@@ -91,7 +91,10 @@ def decide(show_json: dict[str, Any], team_id: str) -> dict[str, Any]:
     control_points = state.get("control_points", [])
     missions = state.get("missions", [])
     resource_nodes = [n for n in state.get("resource_nodes", []) if n.get("remaining", 0) > 0]
-    deliver_mission = next((m for m in missions if m.get("kind") == "deliver"), None)
+    deliver_mission = next(
+        (m for m in missions if m.get("kind") == "deliver" and m.get("team_id") in (None, team_id)),
+        None,
+    )
     deliver_pos = list(deliver_mission["pos"]) if deliver_mission is not None else None
 
     my_units = sorted(

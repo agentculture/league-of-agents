@@ -71,9 +71,13 @@ TRANSITION_KINDS = (
     "unit_moved",
     "resource_gathered",
     "resource_delivered",
+    "resource_stolen",
     "control_point_captured",
     "control_point_held",
     "unit_defeated",
+    "crown_held",
+    "crown_taken",
+    "lead_held",
     "mission_completed",
     "turn_advanced",
     "match_finished",
@@ -87,6 +91,7 @@ OBSERVATION_KINDS = (
     "turn_resolved",
     "seat_latency",
     "orders_capped",
+    "match_decided",
 )
 EVENT_KINDS = TRANSITION_KINDS + OBSERVATION_KINDS
 
@@ -168,6 +173,13 @@ def apply_event(state: MatchState, event: Event) -> MatchState:
             units=_replace_one(state.units, unit.id, carrying=unit.carrying - amount),
             teams=_replace_one(state.teams, team.id, resources=team.resources + amount),
         )
+    if kind == "resource_stolen":
+        thief = _find(state.units, data["unit_id"])
+        victim = _find(state.units, data["victim_id"])
+        amount = data["amount"]
+        units = _replace_one(state.units, thief.id, carrying=thief.carrying + amount)
+        units = _replace_one(units, victim.id, carrying=victim.carrying - amount)
+        return dataclasses.replace(state, units=units)
     if kind == "control_point_captured":
         return dataclasses.replace(
             state,
@@ -187,6 +199,25 @@ def apply_event(state: MatchState, event: Event) -> MatchState:
     if kind == "unit_defeated":
         return dataclasses.replace(
             state, units=_replace_one(state.units, data["unit_id"], alive=False)
+        )
+    if kind == "crown_held":
+        if state.crown is None:
+            raise ValueError("crown_held on a board without a crown")
+        team_id, turns = data["team_id"], data["turns"]
+        hold = ((team_id, turns),) if team_id and turns > 0 else ()
+        return dataclasses.replace(state, crown=dataclasses.replace(state.crown, hold=hold))
+    if kind == "lead_held":
+        team_id, turns = data["team_id"], data["turns"]
+        hold = ((team_id, turns),) if team_id and turns > 0 else ()
+        return dataclasses.replace(state, lead_hold=hold)
+    if kind == "crown_taken":
+        if state.crown is None:
+            raise ValueError("crown_taken on a board without a crown")
+        return dataclasses.replace(
+            state,
+            crown=dataclasses.replace(
+                state.crown, taken_by=data["team_id"], taken_turn=event.turn, hold=()
+            ),
         )
     if kind == "mission_completed":
         # A dead-heat is a dual award (spec decision c15): the tick emits one

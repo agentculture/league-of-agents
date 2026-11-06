@@ -71,3 +71,19 @@ def test_colleague_session_no_reasoning_fallback_raises_on_empty(monkeypatch):
     else:
         raise AssertionError("an empty answer must not pass as a reply")
     assert s._history[-1] == {"role": "assistant", "content": ""}
+
+
+def test_rules_text_adds_crown_and_fog_paragraphs_only_when_present():
+    base = {"capture_hold_turns": 2}
+    plain = harness._rules_text(base, False)
+    assert "The Crown" not in plain and "Fog of war is ON" not in plain
+    both = harness._rules_text(
+        {**base, "crown": {"pos": [6, 5], "value": 4, "hold_turns": 5}}, True
+    )
+    assert "for 4 points" in both and "5 consecutive turns" in both and "Fog of war is ON" in both
+
+
+def test_compact_state_carries_the_crown():
+    state = {"turn": 3, "teams": [], "units": [], "crown": {"pos": [6, 5], "value": 4}}
+    assert harness._compact_state(state)["crown"]["value"] == 4
+    assert "crown" not in harness._compact_state({**state, "crown": None})
