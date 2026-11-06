@@ -90,7 +90,7 @@ def max_swing(state: MatchState, scenario: Scenario, leader: str, trailer: str) 
                 state, scenario, trailer, cp.pos, cap + mission.amount, current, remaining
             ):
                 gain += mission.reward
-        elif mission.kind == "deliver":
+        elif mission.kind == "deliver" and mission.serves(trailer):
             if trailer_team.resources + available >= mission.amount:
                 gain += mission.reward
     crown = state.crown

@@ -48,7 +48,14 @@ def _scenario_dict(s: Scenario) -> dict[str, object]:
         },
         "control_points": [{"id": c.id, "pos": list(c.pos)} for c in s.control_points],
         "missions": [
-            {"id": m.id, "kind": m.kind, "pos": list(m.pos), "amount": m.amount, "reward": m.reward}
+            {
+                "id": m.id,
+                "kind": m.kind,
+                "pos": list(m.pos),
+                "amount": m.amount,
+                "reward": m.reward,
+                **({"side": m.side} if m.side is not None else {}),
+            }
             for m in s.missions
         ],
         "resource_nodes": [

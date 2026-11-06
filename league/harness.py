@@ -238,7 +238,14 @@ def make_bot_driver(scenario: dict[str, Any]) -> Driver:
     ) -> dict[str, Any]:
         t0 = time.perf_counter()
         my_units = [u for u in state["units"] if u["team_id"] == team_id and u["alive"]]
-        deliver = next((m for m in state["missions"] if m["kind"] == "deliver"), None)
+        deliver = next(
+            (
+                m
+                for m in state["missions"]
+                if m["kind"] == "deliver" and m.get("team_id") in (None, team_id)
+            ),
+            None,
+        )
         nodes = [n for n in state["resource_nodes"] if n["remaining"] > 0]
         cps = state["control_points"]
         actions: list[dict[str, Any]] = []
@@ -449,14 +456,19 @@ _FOG_RULES = """
 
 
 _CROWN_RULES = """
-- The Crown. It sits on the center cell {pos} (the same cell as the deliver
-  mission). The first team to have capture-capable units on it, with no
-  capture-capable enemy there, for {turns} consecutive turns takes it, once
-  and for good, for {value} points. Like a control point, both teams present
-  resets the streak to 0, and a can_capture=false unit counts for nothing.
-  Enemy units delivering resources stand on this same cell. It is scored
-  exactly as stated here; whether it is worth the units and turns it ties up
-  is your call."""
+- The Crown. It sits on the center cell {pos}{shared}. The first team to have
+  capture-capable units on it, with no capture-capable enemy there, for
+  {turns} consecutive turns takes it, once and for good, for {value} points.
+  Like a control point, both teams present resets the streak to 0, and a
+  can_capture=false unit counts for nothing.{delivering} It is scored exactly
+  as stated here; whether it is worth the units and turns it ties up is your
+  call."""
+
+_HOME_DELIVERY_RULES = """
+- Home delivery. Each team has its own deliver mission on its own spawn
+  corner (the mission carries that team's team_id). A unit can deliver only
+  on its own team's delivery square, and only that team can complete its
+  deliver mission; both teams can complete their own."""
 
 
 _THIEF_RULES = """
@@ -503,9 +515,21 @@ def _rules_text(scenario: Mapping[str, Any], fog: bool) -> str:
     text = _RULES.format(capture=scenario["capture_hold_turns"])
     crown = scenario.get("crown")
     if crown:
-        text += _CROWN_RULES.format(
-            pos=list(crown["pos"]), turns=crown["hold_turns"], value=crown["value"]
+        shared = any(
+            m.get("kind") == "deliver" and list(m.get("pos", ())) == list(crown["pos"])
+            for m in scenario.get("missions", [])
         )
+        text += _CROWN_RULES.format(
+            pos=list(crown["pos"]),
+            turns=crown["hold_turns"],
+            value=crown["value"],
+            shared=" (the same cell as the deliver mission)" if shared else "",
+            delivering=(
+                " Enemy units delivering resources stand on this same cell." if shared else ""
+            ),
+        )
+    if any(m.get("side") is not None for m in scenario.get("missions", [])):
+        text += _HOME_DELIVERY_RULES
     if _has_thief(scenario):
         text += _THIEF_RULES.format()
     early = scenario.get("early_end")
@@ -1231,6 +1255,7 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
                 "pos": m.get("pos"),
                 "amount": m.get("amount"),
                 "status": m.get("status"),
+                **({"team_id": m["team_id"]} if m.get("team_id") else {}),
             }
             for m in state.get("missions", [])
         ],

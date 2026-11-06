@@ -176,6 +176,12 @@ class Mission:
     status: str = "open"
     completed_by: tuple[str, ...] = field(default=())
     completed_turn: int | None = None
+    # Home delivery (2026-11-06): a deliver mission owned by one team. The
+    # scenario names the owner by side index (``side``); ``instantiate`` fills
+    # in that side's ``team_id``. Both are None for a shared mission and are
+    # omitted from the canonical JSON then, so existing hashes are unchanged.
+    side: int | None = None
+    team_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.kind not in MISSION_KINDS:
@@ -186,7 +192,7 @@ class Mission:
             )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out = {
             "id": self.id,
             "kind": self.kind,
             "pos": list(self.pos),
@@ -196,6 +202,15 @@ class Mission:
             "completed_by": list(self.completed_by),
             "completed_turn": self.completed_turn,
         }
+        if self.side is not None:
+            out["side"] = self.side
+        if self.team_id is not None:
+            out["team_id"] = self.team_id
+        return out
+
+    def serves(self, team_id: str) -> bool:
+        """Whether ``team_id`` may deliver to / complete this mission."""
+        return self.team_id is None or self.team_id == team_id
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Mission":
@@ -208,6 +223,8 @@ class Mission:
             status=d["status"],
             completed_by=_completed_by(d["completed_by"]),
             completed_turn=d["completed_turn"],
+            side=d.get("side"),
+            team_id=d.get("team_id"),
         )
 
 

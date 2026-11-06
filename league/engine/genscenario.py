@@ -195,6 +195,9 @@ class GenParams:
     # Early end: 0 = off; N = end when the lead is >= N% of the most the gap
     # could still close by, for early_end_turns turns in a row from turn
     # early_end_from (an out-of-reach lead always ends it when this is on).
+    # Home delivery: 0 = one shared deliver mission on the center; 1 = each
+    # team delivers at its own spawn corner, for its own deliver mission.
+    home_delivery: int = 0
     early_end_pct: int = 0
     early_end_turns: int = _EARLY_TURNS
     early_end_from: int = _EARLY_FROM
@@ -303,6 +306,10 @@ def validate_params(params: GenParams) -> GenParams:
         f"thieves {params.thieves} out of range [{THIEVES_MIN}, {THIEVES_MAX}]",
     )
     _require(
+        params.home_delivery in (0, 1),
+        f"home_delivery {params.home_delivery} must be 0 (shared, center) or 1 (home corners)",
+    )
+    _require(
         params.early_end_pct == 0 or EARLY_PCT_MIN <= params.early_end_pct <= EARLY_PCT_MAX,
         f"early_end_pct {params.early_end_pct} must be 0 (off) or in "
         f"[{EARLY_PCT_MIN}, {EARLY_PCT_MAX}]",
@@ -333,15 +340,15 @@ def validate_params(params: GenParams) -> GenParams:
 
 # Further optional trailing segments, each emitted only when not default and
 # always in this order: s<node_stock> d<deliver_amount> x<crown_value> z<crown_turns>
-# f<thieves> q<early_end_pct> j<early_end_turns> v<early_end_from>.
+# f<thieves> h<home_delivery> q<early_end_pct> j<early_end_turns> v<early_end_from>.
 _TOKEN_RE = re.compile(
     r"^w(\d+)y(\d+)t(\d+)c(\d+)r(\d+)m(\d+)k(\d+)"
-    r"(?:e(\d+))?(?:s(\d+))?(?:d(\d+))?(?:x(\d+))?(?:z(\d+))?(?:f(\d+))?"
+    r"(?:e(\d+))?(?:s(\d+))?(?:d(\d+))?(?:x(\d+))?(?:z(\d+))?(?:f(\d+))?(?:h(\d+))?"
     r"(?:q(\d+))?(?:j(\d+))?(?:v(\d+))?$"
 )
 _ID_RE = re.compile(
     r"^gen-(\d+)-(w\d+y\d+t\d+c\d+r\d+m\d+k\d+"
-    r"(?:e\d+)?(?:s\d+)?(?:d\d+)?(?:x\d+)?(?:z\d+)?(?:f\d+)?(?:q\d+)?(?:j\d+)?(?:v\d+)?)$"
+    r"(?:e\d+)?(?:s\d+)?(?:d\d+)?(?:x\d+)?(?:z\d+)?(?:f\d+)?(?:h\d+)?(?:q\d+)?(?:j\d+)?(?:v\d+)?)$"
 )
 
 
@@ -369,6 +376,8 @@ def params_token(params: GenParams) -> str:
         token += f"z{params.crown_turns}"
     if params.thieves:
         token += f"f{params.thieves}"
+    if params.home_delivery:
+        token += f"h{params.home_delivery}"
     if params.early_end_pct:
         token += f"q{params.early_end_pct}"
     if params.early_end_turns != _EARLY_TURNS:
@@ -423,9 +432,10 @@ def parse_generated_id(candidate: str) -> tuple[int, GenParams] | None:
         crown_value=int(groups[10]) if groups[10] is not None else 0,
         crown_turns=int(groups[11]) if groups[11] is not None else _CROWN_TURNS,
         thieves=int(groups[12]) if groups[12] is not None else 0,
-        early_end_pct=int(groups[13]) if groups[13] is not None else 0,
-        early_end_turns=int(groups[14]) if groups[14] is not None else _EARLY_TURNS,
-        early_end_from=int(groups[15]) if groups[15] is not None else _EARLY_FROM,
+        home_delivery=int(groups[13]) if groups[13] is not None else 0,
+        early_end_pct=int(groups[14]) if groups[14] is not None else 0,
+        early_end_turns=int(groups[15]) if groups[15] is not None else _EARLY_TURNS,
+        early_end_from=int(groups[16]) if groups[16] is not None else _EARLY_FROM,
     )
     return int(match.group(1)), params
 
@@ -536,15 +546,30 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
 
     # The single shared, equidistant objective sits on the rotation-fixed
     # center; every hold objective is a mirrored pair on a control-point pair.
-    missions: list[Mission] = [
-        Mission(
-            id="ms-deliver",
-            kind="deliver",
-            pos=center,
-            amount=params.deliver_amount,
-            reward=_DELIVER_REWARD,
-        )
-    ]
+    # With home_delivery, each side instead owns a deliver mission on its own
+    # spawn corner (a mirrored pair, so still fair).
+    if params.home_delivery:
+        missions: list[Mission] = [
+            Mission(
+                id=f"ms-deliver-{tag}",
+                kind="deliver",
+                pos=spawn[0],
+                amount=params.deliver_amount,
+                reward=_DELIVER_REWARD,
+                side=side,
+            )
+            for side, (tag, spawn) in enumerate((("a", spawn0), ("b", spawn1)))
+        ]
+    else:
+        missions = [
+            Mission(
+                id="ms-deliver",
+                kind="deliver",
+                pos=center,
+                amount=params.deliver_amount,
+                reward=_DELIVER_REWARD,
+            )
+        ]
     for index in range(params.hold_mission_pairs):
         near, far = cp_pairs[index]
         missions.append(
@@ -577,13 +602,18 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
     crown = None
     crown_note = ""
     if params.crown_value:
-        # The Crown shares the rotation-fixed center with the deliver mission:
-        # equidistant from both teams, and crossed by every delivery.
+        # The Crown sits on the rotation-fixed center, equidistant from both
+        # teams (shared with the deliver mission unless home_delivery is on).
         crown = Crown(pos=center, value=params.crown_value, hold_turns=params.crown_turns)
         crown_note = (
             f" The Crown sits on the center cell: {params.crown_value} points to the "
             f"first team to hold it alone for {params.crown_turns} consecutive turns."
         )
+    home_note = (
+        " Each team delivers at its own spawn corner, for its own deliver mission."
+        if params.home_delivery
+        else ""
+    )
     early_end = None
     early_note = ""
     if params.early_end_pct:
@@ -606,7 +636,7 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
             f"nodes, 1 deliver + {2 * params.hold_mission_pairs} hold mission(s). "
             "180-degree rotational symmetry — team spawns and every objective "
             "mirror through the center, so both teams face an identical board."
-            f"{roster_note}{crown_note}{early_note}"
+            f"{roster_note}{home_note}{crown_note}{early_note}"
         ),
         grid_width=width,
         grid_height=height,

@@ -46,6 +46,7 @@ fixture).
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -490,7 +491,10 @@ def instantiate(
         teams=tuple(team_states),
         units=tuple(units),
         control_points=scenario.control_points,
-        missions=scenario.missions,
+        missions=tuple(
+            m if m.side is None else dataclasses.replace(m, team_id=teams[m.side][0])
+            for m in scenario.missions
+        ),
         resource_nodes=scenario.resource_nodes,
         crown=scenario.crown,
     )

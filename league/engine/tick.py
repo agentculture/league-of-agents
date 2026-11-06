@@ -227,9 +227,20 @@ def resolve_turn(
             gathers.append(unit.id)
             continue
         if verb == "deliver":
-            target = next((m for m in state.missions if m.kind == "deliver"), None)
+            target = next(
+                (m for m in state.missions if m.kind == "deliver" and m.serves(team_id)), None
+            )
             if target is None or unit.pos != target.pos:
-                reject(team_id, action, "not standing on the delivery square")
+                home = target is not None and target.team_id is not None
+                reject(
+                    team_id,
+                    action,
+                    (
+                        "not standing on your team's delivery square"
+                        if home
+                        else "not standing on the delivery square"
+                    ),
+                )
                 continue
             if unit.carrying <= 0:
                 reject(team_id, action, "nothing to deliver")
@@ -413,7 +424,10 @@ def resolve_turn(
             # Dual award (spec decision c15): every team at or over the amount
             # this turn completes the mission for the full reward. Canonical id
             # order sequences the events; it never selects a winner.
-            for team_id in sorted(t for t, total in totals.items() if total >= mission.amount):
+            qualified = (
+                t for t, total in totals.items() if total >= mission.amount and mission.serves(t)
+            )
+            for team_id in sorted(qualified):
                 emit("mission_completed", {"mission_id": mission.id, "team_id": team_id})
         elif mission.kind == "hold":
             cp = next((c for c in mid.control_points if c.pos == mission.pos), None)
