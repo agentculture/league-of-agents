@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-11-06
+
+### Added
+
+- The Crown: an optional public objective on the center cell of a generated board (`GenParams.crown_value`, `crown_turns`; id segments `x`/`z`). The first team to hold it alone with capture-capable units for `crown_turns` consecutive turns takes it once, for good, for `crown_value` points; a contest resets the streak. New `crown_held`/`crown_taken` events, crown rules paragraph, scoring and outcome keys
+- Economy knobs on generated boards: `node_stock` (resources per node, id segment `s`) and `deliver_amount` (id segment `d`)
+- The thief role (`GenParams.thieves`, 0..2, id segment `f`): move 3, carry 1, vision 3, cannot gather or capture; `steal` takes exactly 1 cargo from an enemy unit carrying cargo on its cell (harvesters included), after moves/gathers/deliveries, unless an enemy defender stands there. New `resource_stolen` event, legal actions, grades, rules paragraph, verb hint
+- Fog: a seen enemy unit's cargo (`carrying`) is part of the sighting
+
+### Fixed
+
+- Fog view listed a mission only when it sat on a known control point or resource node, so the center deliver mission was never listed; missions are now revealed on a seen cell, a known CP/node, or the announced Crown cell, and read from live state so a completed mission shows completed
+
 ## [0.18.0] - 2026-11-06
 
 ### Added
