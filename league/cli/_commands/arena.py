@@ -41,6 +41,7 @@ def _scenario_dict(s: Scenario) -> dict[str, object]:
                 "vision": st.vision,
                 "can_gather": st.can_gather,
                 "can_capture": st.can_capture,
+                **({"can_steal": True} if st.can_steal else {}),
                 "analog": st.analog,
             }
             for name, st in s.role_stats

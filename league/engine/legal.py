@@ -92,7 +92,7 @@ def legal_actions(state: MatchState, scenario: Scenario, unit_id: str) -> dict[s
     target = next((m for m in state.missions if m.kind == "deliver"), None)
     deliver = target is not None and unit.pos == target.pos and unit.carrying > 0
 
-    return {
+    out = {
         "move": moves,
         "gather": bool(gather),
         "deliver": bool(deliver),
@@ -100,3 +100,11 @@ def legal_actions(state: MatchState, scenario: Scenario, unit_id: str) -> dict[s
         "can_gather": bool(stats.can_gather),
         "can_capture": bool(stats.can_capture),
     }
+    if stats.can_steal:
+        # A steal resolves on end-of-turn positions (after everyone moves), so
+        # whether it lands cannot be known here; it is legal whenever the
+        # thief has room to carry. Only thief-capable roles get these keys,
+        # so thief-free boards keep their exact legal-actions shape.
+        out["steal"] = unit.carrying < stats.carry
+        out["can_steal"] = True
+    return out

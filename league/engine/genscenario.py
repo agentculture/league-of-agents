@@ -120,6 +120,7 @@ NODE_STOCK_MIN, NODE_STOCK_MAX = 1, 40
 DELIVER_AMOUNT_MIN, DELIVER_AMOUNT_MAX = 1, 80
 CROWN_VALUE_MIN, CROWN_VALUE_MAX = 1, 40
 CROWN_TURNS_MIN, CROWN_TURNS_MAX = 1, 20
+THIEVES_MIN, THIEVES_MAX = 0, 2
 _CROWN_TURNS = 5
 
 # Fixed, non-seeded role vocabulary + economy (a risk-r3 decision, see the
@@ -143,6 +144,21 @@ _ROLE_STATS: tuple[tuple[str, RoleStats], ...] = (
     ),
     ("harvester", RoleStats(move=2, carry=3, vision=2)),
     ("defender", RoleStats(move=2, carry=1, vision=2)),
+)
+
+# The thief (2026-11-06), fielded only when GenParams.thieves > 0 so every
+# thief-free board keeps its exact role table. Fast and light: it cannot
+# gather or capture; it takes one unit of cargo from an enemy unit on its cell
+# (blocked by an enemy defender there) and delivers like anyone else.
+_THIEF_STATS = RoleStats(
+    move=3,
+    carry=1,
+    vision=3,
+    can_gather=False,
+    can_capture=False,
+    can_steal=True,
+    analog="the raider — steals one unit of cargo from an enemy unit on its cell "
+    "unless an enemy defender is there; cannot gather or capture",
 )
 
 _DELIVER_AMOUNT, _DELIVER_REWARD = 6, 10
@@ -172,17 +188,23 @@ class GenParams:
     deliver_amount: int = 6  # resources the deliver mission needs
     crown_value: int = 0  # 0 = no crown; N = "The Crown" on the center, worth N once taken
     crown_turns: int = _CROWN_TURNS  # consecutive sole-occupancy turns to take the crown
+    thieves: int = 0  # thieves per team (0 = no thief role on the board)
 
 
 DEFAULT_PARAMS = GenParams()
 
 
-def _unit_roles(executor_scale: int) -> tuple[str, ...]:
+def _unit_roles(executor_scale: int, thieves: int = 0) -> tuple[str, ...]:
     """The roster's role vocabulary, in spawn-slot order: one scout (the eyes
     of the team, never duplicated) followed by ``executor_scale`` harvesters
     then ``executor_scale`` defenders. ``executor_scale=1`` reproduces the
     original three-role roster exactly, in the original order."""
-    return ("scout",) + ("harvester",) * executor_scale + ("defender",) * executor_scale
+    return (
+        ("scout",)
+        + ("harvester",) * executor_scale
+        + ("defender",) * executor_scale
+        + ("thief",) * thieves
+    )
 
 
 def _spawn_cluster(n: int) -> tuple[tuple[int, int], ...]:
@@ -267,6 +289,10 @@ def validate_params(params: GenParams) -> GenParams:
         CROWN_TURNS_MIN <= params.crown_turns <= CROWN_TURNS_MAX,
         f"crown_turns {params.crown_turns} out of range [{CROWN_TURNS_MIN}, {CROWN_TURNS_MAX}]",
     )
+    _require(
+        THIEVES_MIN <= params.thieves <= THIEVES_MAX,
+        f"thieves {params.thieves} out of range [{THIEVES_MIN}, {THIEVES_MAX}]",
+    )
     return params
 
 
@@ -283,13 +309,15 @@ def validate_params(params: GenParams) -> GenParams:
 # version segment (parse_generated_id defaults a missing segment to 1).
 
 # Further optional trailing segments, each emitted only when not default and
-# always in this order: s<node_stock> d<deliver_amount> x<crown_value> z<crown_turns>.
+# always in this order: s<node_stock> d<deliver_amount> x<crown_value> z<crown_turns>
+# f<thieves>.
 _TOKEN_RE = re.compile(
     r"^w(\d+)y(\d+)t(\d+)c(\d+)r(\d+)m(\d+)k(\d+)"
-    r"(?:e(\d+))?(?:s(\d+))?(?:d(\d+))?(?:x(\d+))?(?:z(\d+))?$"
+    r"(?:e(\d+))?(?:s(\d+))?(?:d(\d+))?(?:x(\d+))?(?:z(\d+))?(?:f(\d+))?$"
 )
 _ID_RE = re.compile(
-    r"^gen-(\d+)-(w\d+y\d+t\d+c\d+r\d+m\d+k\d+(?:e\d+)?(?:s\d+)?(?:d\d+)?(?:x\d+)?(?:z\d+)?)$"
+    r"^gen-(\d+)-(w\d+y\d+t\d+c\d+r\d+m\d+k\d+"
+    r"(?:e\d+)?(?:s\d+)?(?:d\d+)?(?:x\d+)?(?:z\d+)?(?:f\d+)?)$"
 )
 
 
@@ -315,6 +343,8 @@ def params_token(params: GenParams) -> str:
         token += f"x{params.crown_value}"
     if params.crown_turns != _CROWN_TURNS:
         token += f"z{params.crown_turns}"
+    if params.thieves:
+        token += f"f{params.thieves}"
     return token
 
 
@@ -362,6 +392,7 @@ def parse_generated_id(candidate: str) -> tuple[int, GenParams] | None:
         deliver_amount=int(groups[9]) if groups[9] is not None else _DELIVER_AMOUNT,
         crown_value=int(groups[10]) if groups[10] is not None else 0,
         crown_turns=int(groups[11]) if groups[11] is not None else _CROWN_TURNS,
+        thieves=int(groups[12]) if groups[12] is not None else 0,
     )
     return int(match.group(1)), params
 
@@ -430,7 +461,7 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
     # identical scenarios draw identically, distinct ones diverge.
     stream = _SeedStream(sid)
 
-    unit_roles = _unit_roles(params.executor_scale)
+    unit_roles = _unit_roles(params.executor_scale, params.thieves)
     spawn0 = _spawn_cluster(len(unit_roles))
     _require(
         all(0 <= x < width and 0 <= y < height for x, y in spawn0),
@@ -504,8 +535,10 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
 
     roster_note = (
         f" Roster: 1 scout + {params.executor_scale} harvester(s) + "
-        f"{params.executor_scale} defender(s) per team ({len(unit_roles)} units)."
-        if params.executor_scale != 1
+        f"{params.executor_scale} defender(s)"
+        + (f" + {params.thieves} thief(s)" if params.thieves else "")
+        + f" per team ({len(unit_roles)} units)."
+        if params.executor_scale != 1 or params.thieves
         else ""
     )
     crown = None
@@ -535,7 +568,7 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
         modes=MODES,
         capture_hold_turns=params.capture_hold_turns,
         unit_roles=unit_roles,
-        role_stats=_ROLE_STATS,
+        role_stats=_ROLE_STATS + ((("thief", _THIEF_STATS),) if params.thieves else ()),
         spawns=(spawn0, spawn1),
         control_points=tuple(control_points),
         missions=tuple(missions),

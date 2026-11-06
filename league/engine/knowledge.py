@@ -77,12 +77,16 @@ class KnownUnit:
     alive: bool | None
     turn: int
     source: str
+    # Cargo as last seen (2026-11-06, for the thief): what a unit carries is
+    # visible like its position. ``None`` when told-only; omitted from
+    # ``to_dict`` then, so told facts keep their exact shape.
+    carrying: int | None = None
 
     def __post_init__(self) -> None:
         _check_source(self.source)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out = {
             "id": self.id,
             "team_id": self.team_id,
             "role": self.role,
@@ -91,6 +95,9 @@ class KnownUnit:
             "turn": self.turn,
             "source": self.source,
         }
+        if self.carrying is not None:
+            out["carrying"] = self.carrying
+        return out
 
 
 @dataclass(frozen=True)
@@ -246,6 +253,7 @@ def _seen_pass(
             alive=unit.alive,
             turn=turn,
             source=SOURCE_SEEN,
+            carrying=unit.carrying,
         )
     for node in view.resource_nodes:
         nodes[node.id] = KnownNode(

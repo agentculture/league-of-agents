@@ -459,15 +459,42 @@ _CROWN_RULES = """
   is your call."""
 
 
+_THIEF_RULES = """
+- The thief. A role with can_steal=true has one more action:
+  * steal: {{"unit_id": "<thief>", "action": "steal", "target": "<enemy unit id>"}}
+    ("target" is optional). It resolves AFTER every unit has moved, gathered
+    and delivered this turn, on the cell where the thief stands, and takes
+    exactly 1 cargo from an enemy unit carrying cargo on that cell (harvesters
+    included; without a target, the first such unit by id). It fails if an
+    enemy defender stands on that cell at that moment, if the thief is
+    already full (thief carry 1), or if no enemy unit with cargo is there (one
+    that moved away or delivered this turn is gone). Stolen cargo is carried
+    like gathered cargo and counts only once delivered. A thief cannot gather
+    or capture. Moving cargo this way is the only interaction between units;
+    otherwise the rule above stands."""
+
+
+def _has_thief(scenario: Mapping[str, Any]) -> bool:
+    return any(r.get("can_steal") for r in scenario.get("roles", {}).values())
+
+
+def _verbs(scenario: Mapping[str, Any]) -> str:
+    """The action-verb hint in the reply format: steal appears only on a board
+    that fields a thief, so thief-free prompts are unchanged."""
+    return "move|gather|deliver|steal|hold" if _has_thief(scenario) else "move|gather|deliver|hold"
+
+
 def _rules_text(scenario: Mapping[str, Any], fog: bool) -> str:
-    """The rules block for a seat: the complete rules, plus the crown and fog
-    paragraphs only when they apply."""
+    """The rules block for a seat: the complete rules, plus the crown, thief
+    and fog paragraphs only when they apply."""
     text = _RULES.format(capture=scenario["capture_hold_turns"])
     crown = scenario.get("crown")
     if crown:
         text += _CROWN_RULES.format(
             pos=list(crown["pos"]), turns=crown["hold_turns"], value=crown["value"]
         )
+    if _has_thief(scenario):
+        text += _THIEF_RULES.format()
     return text + _FOG_RULES if fog else text
 
 
@@ -482,7 +509,7 @@ Current match state (JSON):
 You command team {team_id}. Reply with ONLY one JSON object, no prose:
 {{"plan": "<optional standing plan>",
   "messages": [{{"from": "<agent-id>", "text": "..."}}],
-  "actions": [{{"unit_id": "...", "action": "move|gather|deliver|hold",
+  "actions": [{{"unit_id": "...", "action": "{verbs}",
                "to": [x, y]}}]}}
 """
 
@@ -506,7 +533,7 @@ Messages your teammates already sent this turn:
 
 Coordinate through messages; you cannot command other units. Reply with ONLY
 one JSON object, no prose:
-{{"action": {{"unit_id": "{unit_id}", "action": "move|gather|deliver|hold",
+{{"action": {{"unit_id": "{unit_id}", "action": "{verbs}",
              "to": [x, y]}},
   "messages": [{{"from": "{agent_id}", "text": "..."}}],
   "plan": "<optional; only if proposing/refreshing the team plan>"}}
@@ -585,10 +612,13 @@ def _format_legal_actions(legal_actions: Mapping[str, Any], unit_ids: list[str])
         legal = legal_actions.get(unit_id)
         if legal is None:
             continue
+        steal = ""
+        if legal.get("can_steal"):
+            steal = f"; steal: {'yes' if legal.get('steal') else 'no (full)'}"
         lines.append(
             f"- {unit_id}: move to {_format_move_targets(legal.get('move', []))}; "
             f"gather: {'yes' if legal.get('gather') else 'no'}; "
-            f"deliver: {'yes' if legal.get('deliver') else 'no'}; hold: yes"
+            f"deliver: {'yes' if legal.get('deliver') else 'no'}{steal}; hold: yes"
         )
     if not lines:
         return ""
@@ -748,6 +778,7 @@ def make_command_driver(
             ),
             legal_actions=_format_legal_actions(context.get("legal_actions", {}), my_unit_ids),
             state=json.dumps(briefing_state, sort_keys=True),
+            verbs=_verbs(scenario),
         )
         sink = _latency_sink(context)
         t0 = time.perf_counter()
@@ -914,6 +945,7 @@ def make_per_seat_driver(
                 legal_actions=_format_legal_actions(legal_actions, [unit["id"]]),
                 state=json.dumps(state, sort_keys=True),
                 team_messages=json.dumps(visible_messages, sort_keys=True) or "[]",
+                verbs=_verbs(scenario),
             )
             t0 = time.perf_counter()
             try:
@@ -1147,8 +1179,9 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
 
     Under fog, ``state["units"]`` mixes two shapes: this team's own units, in
     full, and a fog-of-war-known enemy unit (``KnowledgeFrame``'s
-    ``KnownUnit.to_dict()``), which carries no ``carrying`` field at all —
-    genuinely unknown, not zero — hence ``.get`` here, never ``[...]``.
+    ``KnownUnit.to_dict()``), whose ``carrying`` is its cargo as last seen and
+    is absent for a told-only unit — genuinely unknown, not zero — hence
+    ``.get`` here, never ``[...]``.
     """
     return {
         "turn": state.get("turn"),
@@ -1263,6 +1296,7 @@ def make_resident_driver(
             rules=rules,
             extra=f"\n{seat_extra}\n",
             scenario=json.dumps(scenario_for_prompt, sort_keys=True),
+            verbs=_verbs(scenario),
             **fields,
         )
 

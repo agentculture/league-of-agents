@@ -71,6 +71,7 @@ TRANSITION_KINDS = (
     "unit_moved",
     "resource_gathered",
     "resource_delivered",
+    "resource_stolen",
     "control_point_captured",
     "control_point_held",
     "unit_defeated",
@@ -170,6 +171,13 @@ def apply_event(state: MatchState, event: Event) -> MatchState:
             units=_replace_one(state.units, unit.id, carrying=unit.carrying - amount),
             teams=_replace_one(state.teams, team.id, resources=team.resources + amount),
         )
+    if kind == "resource_stolen":
+        thief = _find(state.units, data["unit_id"])
+        victim = _find(state.units, data["victim_id"])
+        amount = data["amount"]
+        units = _replace_one(state.units, thief.id, carrying=thief.carrying + amount)
+        units = _replace_one(units, victim.id, carrying=victim.carrying - amount)
+        return dataclasses.replace(state, units=units)
     if kind == "control_point_captured":
         return dataclasses.replace(
             state,

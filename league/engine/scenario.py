@@ -89,6 +89,9 @@ class RoleStats:
     vision: int
     can_gather: bool = True
     can_capture: bool = True
+    # The thief (2026-11-06): may take one unit of cargo from an enemy unit on
+    # its cell. Defaults to False so every pre-existing role is unchanged.
+    can_steal: bool = False
     analog: str = ""
 
 

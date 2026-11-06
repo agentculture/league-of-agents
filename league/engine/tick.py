@@ -29,6 +29,13 @@ v0 resolution rules (documented here, exercised in tests):
   point), so the "rejection" for this capability is an explicit
   ``action_rejected`` event emitted whenever a capture-incapable unit is the
   sole thing standing between its team and a streak — not a silent skip.
+* ``steal`` (a role with ``can_steal``, the thief): resolves AFTER moves,
+  gathers and deliveries, on everyone's end-of-turn position. It takes exactly
+  1 cargo from an enemy unit carrying cargo on the thief's cell (``target``
+  names it; without one, the first such unit in id order), unless a defender
+  of another team than the thief's stands on that cell. The thief must be
+  empty (carry 1). A unit that moved away or delivered this turn is no longer
+  there to rob. Several thieves on one cell resolve in canonical order.
 * Messages and a per-team plan are free, observational, and on the record —
   coordination is played *through* the engine so cooperation can be scored.
 * Control points: sole occupancy builds a streak (``hold``). A non-owner's
@@ -104,7 +111,7 @@ def resolve_turn(
 
         {"plan": str | None,
          "messages": [{"from": agent_id, "text": str}, ...],
-         "actions": [{"unit_id": str, "action": "move|gather|deliver|hold", ...}]}
+         "actions": [{"unit_id": str, "action": "move|gather|deliver|steal|hold", ...}]}
 
     Returns the new state and the events that produced it.
     """
@@ -162,6 +169,7 @@ def resolve_turn(
     moves: list[tuple[str, tuple[int, int]]] = []  # (unit_id, to)
     gathers: list[str] = []
     delivers: list[str] = []
+    steals: list[tuple[str, str | None]] = []  # (thief_id, named target or None)
     for team_id, action in declared:
         # Trim pure-formatting noise (LLM drivers emit " hold" etc.); wrong
         # verbs and ids still reject loudly below.
@@ -221,6 +229,17 @@ def resolve_turn(
                 continue
             delivers.append(unit.id)
             continue
+        if verb == "steal":
+            role_stats = scenario.stats_for(unit.role)
+            if not role_stats.can_steal:
+                reject(team_id, action, "this role cannot steal")
+                continue
+            if unit.carrying >= role_stats.carry:
+                reject(team_id, action, "already carrying to capacity")
+                continue
+            target = action.get("target")
+            steals.append((unit.id, str(target).strip() if target else None))
+            continue
         reject(team_id, action, f"unknown action {verb!r}")
 
     # 4. Moves land simultaneously.
@@ -249,6 +268,45 @@ def resolve_turn(
             "resource_delivered",
             {"unit_id": unit_id, "team_id": unit.team_id, "amount": unit.carrying},
         )
+
+    # 6b. Steals, on end-of-turn positions and post-delivery cargo.
+    if steals:
+        mid = fold_events(state, tuple(events))
+        carrying = {u.id: u.carrying for u in mid.units}
+        for thief_id, target_id in steals:
+            thief = units[thief_id]
+            cell = positions[thief_id]
+            enemies_here = [
+                u
+                for u in mid.units
+                if u.alive and u.team_id != thief.team_id and positions[u.id] == cell
+            ]
+            stolen = {"unit_id": thief_id, "action": "steal"}
+            if any(u.role == "defender" for u in enemies_here):
+                reject(thief.team_id, stolen, "an enemy defender guards this cell")
+                continue
+            loaded = [u for u in sorted(enemies_here, key=lambda u: u.id) if carrying[u.id] > 0]
+            if target_id is not None:
+                loaded = [u for u in loaded if u.id == target_id]
+            if not loaded:
+                reason = (
+                    f"{target_id} is not an enemy unit carrying cargo on this cell"
+                    if target_id is not None
+                    else "no enemy unit carrying cargo on this cell"
+                )
+                reject(thief.team_id, stolen, reason)
+                continue
+            victim = loaded[0]
+            carrying[victim.id] -= 1
+            emit(
+                "resource_stolen",
+                {
+                    "unit_id": thief_id,
+                    "victim_id": victim.id,
+                    "team_id": thief.team_id,
+                    "amount": 1,
+                },
+            )
 
     # Fold what happened so far; occupancy and totals below read the mid-state.
     mid = fold_events(state, tuple(events))
@@ -383,4 +441,6 @@ def _action_facts(action: Mapping[str, Any]) -> dict[str, Any]:
     facts = {"action": action.get("action")}
     if "to" in action:
         facts["to"] = list(action["to"])
+    if action.get("target"):
+        facts["target"] = str(action["target"])
     return facts
