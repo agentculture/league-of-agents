@@ -439,11 +439,13 @@ _RULES = """Rules (complete — nothing else applies):
 _FOG_RULES = """
 - Fog of war is ON. Each unit sees every cell within Manhattan distance of its
   role's vision stat; your team sees the union of its units' views. You always
-  know your own units. Enemy units, resource nodes, control points and
-  missions are known only once seen (a sighting is remembered, but may be
-  stale) or once a teammate's message names them by their exact id (for
-  example "rn-1a" or "red-u2"); a description like "the western node" teaches
-  nothing. The other team cannot see your messages."""
+  know your own units. Enemy units, resource nodes and control points are
+  known only once seen (a sighting is remembered, but may be stale) or once a
+  teammate's message names them by their exact id (for example "rn-1a" or
+  "red-u2"); a description like "the western node" teaches nothing. A mission
+  is listed once your team has seen its cell or knows the control point or
+  resource node it sits on, and a listed mission always shows its current
+  status. The other team cannot see your messages."""
 
 
 _CROWN_RULES = """

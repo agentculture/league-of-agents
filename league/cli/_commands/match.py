@@ -273,8 +273,18 @@ def _fogged_state(
             known = known_units.get(unit.id)
             if known is not None:
                 units.append(known.to_dict())
-    known_positions = {n.pos for n in frame.resource_nodes} | {c.pos for c in frame.control_points}
-    missions = [m.to_dict() for m in scenario.missions if m.pos in known_positions]
+    # A mission is revealed once the team has seen its cell, knows the
+    # control point / resource node it sits on, or it sits on the Crown's
+    # cell (announced in the rules). It is listed from the live ``state``, so
+    # a completed mission reads as completed, never as a stale "open".
+    known_positions = (
+        {n.pos for n in frame.resource_nodes}
+        | {c.pos for c in frame.control_points}
+        | set(frame.cells_seen)
+    )
+    if state.crown is not None:
+        known_positions.add(state.crown.pos)
+    missions = [m.to_dict() for m in state.missions if m.pos in known_positions]
     return {
         "match_id": state.match_id,
         "scenario_id": state.scenario_id,
