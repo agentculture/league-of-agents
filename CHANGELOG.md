@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-11-06
+
+### Added
+
+- Resident seats: a shared `system_prompt` for both transports (`claude -p --system-prompt`, and a system message for the OpenAI-compatible transport), extra `args`, optional `top_p`, and `max_tokens: null` to omit the cap
+- `reasoning_fallback` (default true) for the OpenAI-compatible resident transport; false makes an empty answer a seat error instead of passing reasoning off as the answer
+- Session records carry `finish_reason` and `usage` per seat turn
+- A fog-of-war paragraph in the seat rules when fog is on (vision radius, last-seen sightings, id-only telling)
+
+### Changed
+
+- The seat rules are rewritten as a complete rule set (turns and timing, every action, no combat, the control-point rule including can_capture=false, hold and deliver missions, score, team play)
+
+### Fixed
+
+- Resident deltas no longer show a seat the other team's `message_sent` and `plan_declared` events
+
 ## [0.17.0] - 2026-07-10
 
 ### Added
