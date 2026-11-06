@@ -74,6 +74,8 @@ TRANSITION_KINDS = (
     "control_point_captured",
     "control_point_held",
     "unit_defeated",
+    "crown_held",
+    "crown_taken",
     "mission_completed",
     "turn_advanced",
     "match_finished",
@@ -187,6 +189,21 @@ def apply_event(state: MatchState, event: Event) -> MatchState:
     if kind == "unit_defeated":
         return dataclasses.replace(
             state, units=_replace_one(state.units, data["unit_id"], alive=False)
+        )
+    if kind == "crown_held":
+        if state.crown is None:
+            raise ValueError("crown_held on a board without a crown")
+        team_id, turns = data["team_id"], data["turns"]
+        hold = ((team_id, turns),) if team_id and turns > 0 else ()
+        return dataclasses.replace(state, crown=dataclasses.replace(state.crown, hold=hold))
+    if kind == "crown_taken":
+        if state.crown is None:
+            raise ValueError("crown_taken on a board without a crown")
+        return dataclasses.replace(
+            state,
+            crown=dataclasses.replace(
+                state.crown, taken_by=data["team_id"], taken_turn=event.turn, hold=()
+            ),
         )
     if kind == "mission_completed":
         # A dead-heat is a dual award (spec decision c15): the tick emits one

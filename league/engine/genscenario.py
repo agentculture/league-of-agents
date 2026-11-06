@@ -107,7 +107,7 @@ import re
 from dataclasses import dataclass
 
 from league.engine.scenario import RoleStats, Scenario
-from league.engine.state import ControlPoint, Mission, ResourceNode
+from league.engine.state import ControlPoint, Crown, Mission, ResourceNode
 
 # -- the pinned parameter space (see the module docstring) ------------------
 
@@ -116,6 +116,11 @@ TURN_LIMIT_MIN, TURN_LIMIT_MAX = 8, 200
 PAIR_MIN, PAIR_MAX = 1, 8
 CAPTURE_MIN, CAPTURE_MAX = 1, 4
 EXECUTOR_SCALE_MIN, EXECUTOR_SCALE_MAX = 1, 4
+NODE_STOCK_MIN, NODE_STOCK_MAX = 1, 40
+DELIVER_AMOUNT_MIN, DELIVER_AMOUNT_MAX = 1, 80
+CROWN_VALUE_MIN, CROWN_VALUE_MAX = 1, 40
+CROWN_TURNS_MIN, CROWN_TURNS_MAX = 1, 20
+_CROWN_TURNS = 5
 
 # Fixed, non-seeded role vocabulary + economy (a risk-r3 decision, see the
 # docstring): kept canonical so the whole CLI/harness/bot/scoring stack plays
@@ -160,6 +165,13 @@ class GenParams:
     hold_mission_pairs: int = 1
     capture_hold_turns: int = 2
     executor_scale: int = 1
+    # Economy and turning-point knobs (2026-11-06). Defaults reproduce the
+    # pre-existing economy exactly and add no crown, so every older id still
+    # names the same board.
+    node_stock: int = 12  # resources per node (scarcity)
+    deliver_amount: int = 6  # resources the deliver mission needs
+    crown_value: int = 0  # 0 = no crown; N = "The Crown" on the center, worth N once taken
+    crown_turns: int = _CROWN_TURNS  # consecutive sole-occupancy turns to take the crown
 
 
 DEFAULT_PARAMS = GenParams()
@@ -237,6 +249,24 @@ def validate_params(params: GenParams) -> GenParams:
         f"executor_scale {params.executor_scale} out of "
         f"range [{EXECUTOR_SCALE_MIN}, {EXECUTOR_SCALE_MAX}]",
     )
+    _require(
+        NODE_STOCK_MIN <= params.node_stock <= NODE_STOCK_MAX,
+        f"node_stock {params.node_stock} out of range [{NODE_STOCK_MIN}, {NODE_STOCK_MAX}]",
+    )
+    _require(
+        DELIVER_AMOUNT_MIN <= params.deliver_amount <= DELIVER_AMOUNT_MAX,
+        f"deliver_amount {params.deliver_amount} out of "
+        f"range [{DELIVER_AMOUNT_MIN}, {DELIVER_AMOUNT_MAX}]",
+    )
+    _require(
+        params.crown_value == 0 or CROWN_VALUE_MIN <= params.crown_value <= CROWN_VALUE_MAX,
+        f"crown_value {params.crown_value} must be 0 (no crown) or in "
+        f"[{CROWN_VALUE_MIN}, {CROWN_VALUE_MAX}]",
+    )
+    _require(
+        CROWN_TURNS_MIN <= params.crown_turns <= CROWN_TURNS_MAX,
+        f"crown_turns {params.crown_turns} out of range [{CROWN_TURNS_MIN}, {CROWN_TURNS_MAX}]",
+    )
     return params
 
 
@@ -252,8 +282,15 @@ def validate_params(params: GenParams) -> GenParams:
 # byte-for-byte unchanged: backward compatibility by construction, not a
 # version segment (parse_generated_id defaults a missing segment to 1).
 
-_TOKEN_RE = re.compile(r"^w(\d+)y(\d+)t(\d+)c(\d+)r(\d+)m(\d+)k(\d+)(?:e(\d+))?$")
-_ID_RE = re.compile(r"^gen-(\d+)-(w\d+y\d+t\d+c\d+r\d+m\d+k\d+(?:e\d+)?)$")
+# Further optional trailing segments, each emitted only when not default and
+# always in this order: s<node_stock> d<deliver_amount> x<crown_value> z<crown_turns>.
+_TOKEN_RE = re.compile(
+    r"^w(\d+)y(\d+)t(\d+)c(\d+)r(\d+)m(\d+)k(\d+)"
+    r"(?:e(\d+))?(?:s(\d+))?(?:d(\d+))?(?:x(\d+))?(?:z(\d+))?$"
+)
+_ID_RE = re.compile(
+    r"^gen-(\d+)-(w\d+y\d+t\d+c\d+r\d+m\d+k\d+(?:e\d+)?(?:s\d+)?(?:d\d+)?(?:x\d+)?(?:z\d+)?)$"
+)
 
 
 def params_token(params: GenParams) -> str:
@@ -270,6 +307,14 @@ def params_token(params: GenParams) -> str:
     )
     if params.executor_scale != 1:
         token += f"e{params.executor_scale}"
+    if params.node_stock != _NODE_STOCK:
+        token += f"s{params.node_stock}"
+    if params.deliver_amount != _DELIVER_AMOUNT:
+        token += f"d{params.deliver_amount}"
+    if params.crown_value:
+        token += f"x{params.crown_value}"
+    if params.crown_turns != _CROWN_TURNS:
+        token += f"z{params.crown_turns}"
     return token
 
 
@@ -313,6 +358,10 @@ def parse_generated_id(candidate: str) -> tuple[int, GenParams] | None:
         hold_mission_pairs=fields[5],
         capture_hold_turns=fields[6],
         executor_scale=executor_scale,
+        node_stock=int(groups[8]) if groups[8] is not None else _NODE_STOCK,
+        deliver_amount=int(groups[9]) if groups[9] is not None else _DELIVER_AMOUNT,
+        crown_value=int(groups[10]) if groups[10] is not None else 0,
+        crown_turns=int(groups[11]) if groups[11] is not None else _CROWN_TURNS,
     )
     return int(match.group(1)), params
 
@@ -416,8 +465,10 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
 
     resource_nodes: list[ResourceNode] = []
     for index, (near, far) in enumerate(rn_pairs, start=1):
-        resource_nodes.append(ResourceNode(id=f"rn-{index}a", pos=near, remaining=_NODE_STOCK))
-        resource_nodes.append(ResourceNode(id=f"rn-{index}b", pos=far, remaining=_NODE_STOCK))
+        resource_nodes.append(
+            ResourceNode(id=f"rn-{index}a", pos=near, remaining=params.node_stock)
+        )
+        resource_nodes.append(ResourceNode(id=f"rn-{index}b", pos=far, remaining=params.node_stock))
 
     # The single shared, equidistant objective sits on the rotation-fixed
     # center; every hold objective is a mirrored pair on a control-point pair.
@@ -426,7 +477,7 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
             id="ms-deliver",
             kind="deliver",
             pos=center,
-            amount=_DELIVER_AMOUNT,
+            amount=params.deliver_amount,
             reward=_DELIVER_REWARD,
         )
     ]
@@ -457,6 +508,16 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
         if params.executor_scale != 1
         else ""
     )
+    crown = None
+    crown_note = ""
+    if params.crown_value:
+        # The Crown shares the rotation-fixed center with the deliver mission:
+        # equidistant from both teams, and crossed by every delivery.
+        crown = Crown(pos=center, value=params.crown_value, hold_turns=params.crown_turns)
+        crown_note = (
+            f" The Crown sits on the center cell: {params.crown_value} points to the "
+            f"first team to hold it alone for {params.crown_turns} consecutive turns."
+        )
     return Scenario(
         id=sid,
         name=f"Generated {width}x{height} — seed {seed}",
@@ -465,7 +526,8 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
             f"{len(control_points)} control points, {len(resource_nodes)} resource "
             f"nodes, 1 deliver + {2 * params.hold_mission_pairs} hold mission(s). "
             "180-degree rotational symmetry — team spawns and every objective "
-            f"mirror through the center, so both teams face an identical board.{roster_note}"
+            "mirror through the center, so both teams face an identical board."
+            f"{roster_note}{crown_note}"
         ),
         grid_width=width,
         grid_height=height,
@@ -478,4 +540,5 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
         control_points=tuple(control_points),
         missions=tuple(missions),
         resource_nodes=tuple(resource_nodes),
+        crown=crown,
     )

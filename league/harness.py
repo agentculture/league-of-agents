@@ -446,10 +446,26 @@ _FOG_RULES = """
   nothing. The other team cannot see your messages."""
 
 
+_CROWN_RULES = """
+- The Crown. It sits on the center cell {pos} (the same cell as the deliver
+  mission). The first team to have capture-capable units on it, with no
+  capture-capable enemy there, for {turns} consecutive turns takes it, once
+  and for good, for {value} points. Like a control point, both teams present
+  resets the streak to 0, and a can_capture=false unit counts for nothing.
+  Enemy units delivering resources stand on this same cell. It is scored
+  exactly as stated here; whether it is worth the units and turns it ties up
+  is your call."""
+
+
 def _rules_text(scenario: Mapping[str, Any], fog: bool) -> str:
-    """The rules block for a seat: the complete rules, plus the fog paragraph
-    only when the match is fogged."""
+    """The rules block for a seat: the complete rules, plus the crown and fog
+    paragraphs only when they apply."""
     text = _RULES.format(capture=scenario["capture_hold_turns"])
+    crown = scenario.get("crown")
+    if crown:
+        text += _CROWN_RULES.format(
+            pos=list(crown["pos"]), turns=crown["hold_turns"], value=crown["value"]
+        )
     return text + _FOG_RULES if fog else text
 
 
@@ -1166,6 +1182,7 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
             {"id": n["id"], "pos": n["pos"], "remaining": n["remaining"]}
             for n in state.get("resource_nodes", [])
         ],
+        **({"crown": state["crown"]} if state.get("crown") is not None else {}),
     }
 
 

@@ -52,6 +52,7 @@ from typing import Sequence
 from league.engine.state import (
     AgentSlot,
     ControlPoint,
+    Crown,
     MatchState,
     Mission,
     ResourceNode,
@@ -107,6 +108,9 @@ class Scenario:
     control_points: tuple[ControlPoint, ...]
     missions: tuple[Mission, ...]
     resource_nodes: tuple[ResourceNode, ...]
+    # Optional center objective (see state.Crown); None on every hand-built
+    # scenario and on generated boards that don't ask for one.
+    crown: Crown | None = None
 
     def stats_for(self, role: str) -> RoleStats:
         for name, stats in self.role_stats:
@@ -469,4 +473,5 @@ def instantiate(
         control_points=scenario.control_points,
         missions=scenario.missions,
         resource_nodes=scenario.resource_nodes,
+        crown=scenario.crown,
     )

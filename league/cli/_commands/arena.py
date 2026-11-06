@@ -26,7 +26,7 @@ def _role_caps(st) -> str:
 
 
 def _scenario_dict(s: Scenario) -> dict[str, object]:
-    return {
+    out: dict[str, object] = {
         "id": s.id,
         "name": s.name,
         "description": s.description,
@@ -54,6 +54,13 @@ def _scenario_dict(s: Scenario) -> dict[str, object]:
             {"id": r.id, "pos": list(r.pos), "remaining": r.remaining} for r in s.resource_nodes
         ],
     }
+    if s.crown is not None:
+        out["crown"] = {
+            "pos": list(s.crown.pos),
+            "value": s.crown.value,
+            "hold_turns": s.crown.hold_turns,
+        }
+    return out
 
 
 def cmd_arena_overview(args: argparse.Namespace) -> int:

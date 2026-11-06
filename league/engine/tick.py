@@ -88,6 +88,8 @@ def outcome_points(state: MatchState) -> dict[str, int]:
             points[cp.owner] += CP_POINTS
     for team in state.teams:
         points[team.id] += team.resources
+    if state.crown is not None and state.crown.taken_by in points:
+        points[state.crown.taken_by] += state.crown.value
     return points
 
 
@@ -314,6 +316,26 @@ def resolve_turn(
         if cp.owner != team_id and streak >= scenario.capture_hold_turns:
             emit("control_point_captured", {"cp_id": cp.id, "team_id": team_id})
             emit("control_point_held", {"cp_id": cp.id, "team_id": team_id, "turns": streak})
+
+    # 7b. The Crown: the same sole-occupancy streak as a control point
+    # (capture-capable units only), but taken once, for good, at hold_turns.
+    crown = state.crown
+    if crown is not None and crown.taken_by is None:
+        crown_occupants = {
+            u.team_id
+            for u in mid.units
+            if u.alive
+            and scenario.stats_for(u.role).can_capture
+            and positions.get(u.id, u.pos) == crown.pos
+        }
+        if len(crown_occupants) == 1:
+            holder = next(iter(crown_occupants))
+            streak = dict(crown.hold).get(holder, 0) + 1
+            emit("crown_held", {"team_id": holder, "turns": streak})
+            if streak >= crown.hold_turns:
+                emit("crown_taken", {"team_id": holder, "value": crown.value})
+        elif crown.hold:
+            emit("crown_held", {"team_id": "", "turns": 0})
 
     mid = fold_events(state, tuple(events))
 

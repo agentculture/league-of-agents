@@ -298,6 +298,8 @@ def _fogged_state(
         "missions": missions,
         "resource_nodes": [n.to_dict() for n in frame.resource_nodes],
         "cells_seen": sorted([list(cell) for cell in frame.cells_seen]),
+        # The Crown is announced in the rules (center cell), so it is always known.
+        **({"crown": state.crown.to_dict()} if state.crown is not None else {}),
     }
 
 

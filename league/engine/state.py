@@ -226,6 +226,43 @@ class ResourceNode:
 
 
 @dataclass(frozen=True)
+class Crown:
+    """ "The Crown": a prominent center objective with a modest, fully public
+    payoff. The first team to hold it alone (capture-capable units only, like a
+    control point) for ``hold_turns`` consecutive turns takes it, once, for
+    ``value`` points. Nothing about it is hidden; whether it is worth the units
+    and turns it ties up is the players' call."""
+
+    pos: tuple[int, int]
+    value: int
+    hold_turns: int
+    taken_by: str | None = None
+    taken_turn: int | None = None
+    hold: tuple[tuple[str, int], ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "pos": list(self.pos),
+            "value": self.value,
+            "hold_turns": self.hold_turns,
+            "taken_by": self.taken_by,
+            "taken_turn": self.taken_turn,
+            "hold": [[team, turns] for team, turns in self.hold],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "Crown":
+        return cls(
+            pos=(d["pos"][0], d["pos"][1]),
+            value=d["value"],
+            hold_turns=d["hold_turns"],
+            taken_by=d.get("taken_by"),
+            taken_turn=d.get("taken_turn"),
+            hold=tuple((h[0], h[1]) for h in d.get("hold", ())),
+        )
+
+
+@dataclass(frozen=True)
 class MatchState:
     """The complete, self-contained truth of a match at one turn boundary."""
 
@@ -244,6 +281,9 @@ class MatchState:
     control_points: tuple[ControlPoint, ...]
     missions: tuple[Mission, ...]
     resource_nodes: tuple[ResourceNode, ...]
+    # Optional, and omitted from the canonical JSON when absent, so every
+    # crown-free state (all existing scenarios and logs) hashes unchanged.
+    crown: Crown | None = None
 
     def __post_init__(self) -> None:
         if self.mode not in MATCH_MODES:
@@ -252,7 +292,7 @@ class MatchState:
             raise ValueError(f"unknown status {self.status!r}; expected one of {MATCH_STATUSES}")
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out = {
             "match_id": self.match_id,
             "scenario_id": self.scenario_id,
             "seed": self.seed,
@@ -269,6 +309,9 @@ class MatchState:
             "missions": [m.to_dict() for m in self.missions],
             "resource_nodes": [r.to_dict() for r in self.resource_nodes],
         }
+        if self.crown is not None:
+            out["crown"] = self.crown.to_dict()
+        return out
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "MatchState":
@@ -288,6 +331,7 @@ class MatchState:
             control_points=tuple(ControlPoint.from_dict(c) for c in d["control_points"]),
             missions=tuple(Mission.from_dict(m) for m in d["missions"]),
             resource_nodes=tuple(ResourceNode.from_dict(r) for r in d["resource_nodes"]),
+            crown=Crown.from_dict(d["crown"]) if d.get("crown") else None,
         )
 
 
