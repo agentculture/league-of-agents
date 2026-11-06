@@ -106,7 +106,7 @@ import hashlib
 import re
 from dataclasses import dataclass
 
-from league.engine.scenario import RoleStats, Scenario
+from league.engine.scenario import EarlyEnd, RoleStats, Scenario
 from league.engine.state import ControlPoint, Crown, Mission, ResourceNode
 
 # -- the pinned parameter space (see the module docstring) ------------------
@@ -121,6 +121,9 @@ DELIVER_AMOUNT_MIN, DELIVER_AMOUNT_MAX = 1, 80
 CROWN_VALUE_MIN, CROWN_VALUE_MAX = 1, 40
 CROWN_TURNS_MIN, CROWN_TURNS_MAX = 1, 20
 THIEVES_MIN, THIEVES_MAX = 0, 2
+EARLY_PCT_MIN, EARLY_PCT_MAX = 1, 100
+EARLY_TURNS_MIN, EARLY_TURNS_MAX = 1, 10
+_EARLY_TURNS, _EARLY_FROM = 3, 20
 _CROWN_TURNS = 5
 
 # Fixed, non-seeded role vocabulary + economy (a risk-r3 decision, see the
@@ -189,6 +192,12 @@ class GenParams:
     crown_value: int = 0  # 0 = no crown; N = "The Crown" on the center, worth N once taken
     crown_turns: int = _CROWN_TURNS  # consecutive sole-occupancy turns to take the crown
     thieves: int = 0  # thieves per team (0 = no thief role on the board)
+    # Early end: 0 = off; N = end when the lead is >= N% of the most the gap
+    # could still close by, for early_end_turns turns in a row from turn
+    # early_end_from (an out-of-reach lead always ends it when this is on).
+    early_end_pct: int = 0
+    early_end_turns: int = _EARLY_TURNS
+    early_end_from: int = _EARLY_FROM
 
 
 DEFAULT_PARAMS = GenParams()
@@ -293,6 +302,20 @@ def validate_params(params: GenParams) -> GenParams:
         THIEVES_MIN <= params.thieves <= THIEVES_MAX,
         f"thieves {params.thieves} out of range [{THIEVES_MIN}, {THIEVES_MAX}]",
     )
+    _require(
+        params.early_end_pct == 0 or EARLY_PCT_MIN <= params.early_end_pct <= EARLY_PCT_MAX,
+        f"early_end_pct {params.early_end_pct} must be 0 (off) or in "
+        f"[{EARLY_PCT_MIN}, {EARLY_PCT_MAX}]",
+    )
+    _require(
+        EARLY_TURNS_MIN <= params.early_end_turns <= EARLY_TURNS_MAX,
+        f"early_end_turns {params.early_end_turns} out of "
+        f"range [{EARLY_TURNS_MIN}, {EARLY_TURNS_MAX}]",
+    )
+    _require(
+        not params.early_end_pct or 0 <= params.early_end_from <= params.turn_limit,
+        f"early_end_from {params.early_end_from} out of [0, turn_limit={params.turn_limit}]",
+    )
     return params
 
 
@@ -310,14 +333,15 @@ def validate_params(params: GenParams) -> GenParams:
 
 # Further optional trailing segments, each emitted only when not default and
 # always in this order: s<node_stock> d<deliver_amount> x<crown_value> z<crown_turns>
-# f<thieves>.
+# f<thieves> q<early_end_pct> j<early_end_turns> v<early_end_from>.
 _TOKEN_RE = re.compile(
     r"^w(\d+)y(\d+)t(\d+)c(\d+)r(\d+)m(\d+)k(\d+)"
-    r"(?:e(\d+))?(?:s(\d+))?(?:d(\d+))?(?:x(\d+))?(?:z(\d+))?(?:f(\d+))?$"
+    r"(?:e(\d+))?(?:s(\d+))?(?:d(\d+))?(?:x(\d+))?(?:z(\d+))?(?:f(\d+))?"
+    r"(?:q(\d+))?(?:j(\d+))?(?:v(\d+))?$"
 )
 _ID_RE = re.compile(
     r"^gen-(\d+)-(w\d+y\d+t\d+c\d+r\d+m\d+k\d+"
-    r"(?:e\d+)?(?:s\d+)?(?:d\d+)?(?:x\d+)?(?:z\d+)?(?:f\d+)?)$"
+    r"(?:e\d+)?(?:s\d+)?(?:d\d+)?(?:x\d+)?(?:z\d+)?(?:f\d+)?(?:q\d+)?(?:j\d+)?(?:v\d+)?)$"
 )
 
 
@@ -345,6 +369,12 @@ def params_token(params: GenParams) -> str:
         token += f"z{params.crown_turns}"
     if params.thieves:
         token += f"f{params.thieves}"
+    if params.early_end_pct:
+        token += f"q{params.early_end_pct}"
+    if params.early_end_turns != _EARLY_TURNS:
+        token += f"j{params.early_end_turns}"
+    if params.early_end_from != _EARLY_FROM:
+        token += f"v{params.early_end_from}"
     return token
 
 
@@ -393,6 +423,9 @@ def parse_generated_id(candidate: str) -> tuple[int, GenParams] | None:
         crown_value=int(groups[10]) if groups[10] is not None else 0,
         crown_turns=int(groups[11]) if groups[11] is not None else _CROWN_TURNS,
         thieves=int(groups[12]) if groups[12] is not None else 0,
+        early_end_pct=int(groups[13]) if groups[13] is not None else 0,
+        early_end_turns=int(groups[14]) if groups[14] is not None else _EARLY_TURNS,
+        early_end_from=int(groups[15]) if groups[15] is not None else _EARLY_FROM,
     )
     return int(match.group(1)), params
 
@@ -551,6 +584,19 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
             f" The Crown sits on the center cell: {params.crown_value} points to the "
             f"first team to hold it alone for {params.crown_turns} consecutive turns."
         )
+    early_end = None
+    early_note = ""
+    if params.early_end_pct:
+        early_end = EarlyEnd(
+            ratio_pct=params.early_end_pct,
+            turns=params.early_end_turns,
+            from_turn=params.early_end_from,
+        )
+        early_note = (
+            f" Early end: an out-of-reach lead ends the match; so does a lead of at "
+            f"least {params.early_end_pct}% of the most the gap could still close by, "
+            f"held {params.early_end_turns} turns in a row from turn {params.early_end_from}."
+        )
     return Scenario(
         id=sid,
         name=f"Generated {width}x{height} — seed {seed}",
@@ -560,7 +606,7 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
             f"nodes, 1 deliver + {2 * params.hold_mission_pairs} hold mission(s). "
             "180-degree rotational symmetry — team spawns and every objective "
             "mirror through the center, so both teams face an identical board."
-            f"{roster_note}{crown_note}"
+            f"{roster_note}{crown_note}{early_note}"
         ),
         grid_width=width,
         grid_height=height,
@@ -574,4 +620,5 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
         missions=tuple(missions),
         resource_nodes=tuple(resource_nodes),
         crown=crown,
+        early_end=early_end,
     )

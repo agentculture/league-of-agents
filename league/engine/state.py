@@ -284,6 +284,10 @@ class MatchState:
     # Optional, and omitted from the canonical JSON when absent, so every
     # crown-free state (all existing scenarios and logs) hashes unchanged.
     crown: Crown | None = None
+    # Early end (2026-11-06): the leader's run of consecutive turns at or above
+    # the board's relative-lead threshold, as ((team_id, turns),) or ().
+    # Omitted from the canonical JSON when empty, so hashes are unchanged.
+    lead_hold: tuple[tuple[str, int], ...] = ()
 
     def __post_init__(self) -> None:
         if self.mode not in MATCH_MODES:
@@ -311,6 +315,8 @@ class MatchState:
         }
         if self.crown is not None:
             out["crown"] = self.crown.to_dict()
+        if self.lead_hold:
+            out["lead_hold"] = [[t, n] for t, n in self.lead_hold]
         return out
 
     @classmethod
@@ -332,6 +338,7 @@ class MatchState:
             missions=tuple(Mission.from_dict(m) for m in d["missions"]),
             resource_nodes=tuple(ResourceNode.from_dict(r) for r in d["resource_nodes"]),
             crown=Crown.from_dict(d["crown"]) if d.get("crown") else None,
+            lead_hold=tuple((t, int(n)) for t, n in d.get("lead_hold", ())),
         )
 
 

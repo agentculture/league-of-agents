@@ -96,6 +96,21 @@ class RoleStats:
 
 
 @dataclass(frozen=True)
+class EarlyEnd:
+    """The early-end rule (2026-11-06), see :mod:`league.engine.early_end`.
+
+    The match ends early when the leader's lead is out of reach (greater than
+    the most the gap could still close by), or when it is at least
+    ``ratio_pct`` percent of that for ``turns`` consecutive turns, counted
+    only from turn ``from_turn``.
+    """
+
+    ratio_pct: int
+    turns: int = 3
+    from_turn: int = 20
+
+
+@dataclass(frozen=True)
 class Scenario:
     id: str
     name: str
@@ -114,6 +129,7 @@ class Scenario:
     # Optional center objective (see state.Crown); None on every hand-built
     # scenario and on generated boards that don't ask for one.
     crown: Crown | None = None
+    early_end: EarlyEnd | None = None
 
     def stats_for(self, role: str) -> RoleStats:
         for name, stats in self.role_stats:

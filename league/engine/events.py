@@ -77,6 +77,7 @@ TRANSITION_KINDS = (
     "unit_defeated",
     "crown_held",
     "crown_taken",
+    "lead_held",
     "mission_completed",
     "turn_advanced",
     "match_finished",
@@ -90,6 +91,7 @@ OBSERVATION_KINDS = (
     "turn_resolved",
     "seat_latency",
     "orders_capped",
+    "match_decided",
 )
 EVENT_KINDS = TRANSITION_KINDS + OBSERVATION_KINDS
 
@@ -204,6 +206,10 @@ def apply_event(state: MatchState, event: Event) -> MatchState:
         team_id, turns = data["team_id"], data["turns"]
         hold = ((team_id, turns),) if team_id and turns > 0 else ()
         return dataclasses.replace(state, crown=dataclasses.replace(state.crown, hold=hold))
+    if kind == "lead_held":
+        team_id, turns = data["team_id"], data["turns"]
+        hold = ((team_id, turns),) if team_id and turns > 0 else ()
+        return dataclasses.replace(state, lead_hold=hold)
     if kind == "crown_taken":
         if state.crown is None:
             raise ValueError("crown_taken on a board without a crown")

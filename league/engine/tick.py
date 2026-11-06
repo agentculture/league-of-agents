@@ -48,7 +48,12 @@ v0 resolution rules (documented here, exercised in tests):
   full reward — team-id sort order never influences a mission outcome. (The
   v0 larger-total-then-lexicographic tiebreak decided a real season-0 match;
   see docs/playtests/season-0/orchestrator.report.md.)
-* The match finishes when every mission is resolved or the turn limit is hit.
+* The match finishes when every mission is resolved or the turn limit is hit,
+  or — on a board with an early-end rule (``Scenario.early_end``, competitive
+  only) — when the leader's lead is out of reach (greater than the most the
+  gap could still close by, :mod:`league.engine.early_end`), or at least
+  ``ratio_pct`` percent of that for ``turns`` consecutive turns from
+  ``from_turn`` on (tracked as ``lead_held`` events).
   Competitive winner: mission rewards + 2 points per owned control point +
   delivered resources; equal points is a ``draw``. Cooperative: the team wins
   iff every mission completed inside the limit.
@@ -56,8 +61,10 @@ v0 resolution rules (documented here, exercised in tests):
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any, Mapping
 
+from league.engine.early_end import standing
 from league.engine.events import Event, fold_events
 from league.engine.scenario import Scenario
 from league.engine.state import MatchState
@@ -416,11 +423,36 @@ def resolve_turn(
             if team_id == cp.owner and streak >= scenario.capture_hold_turns + mission.amount:
                 emit("mission_completed", {"mission_id": mission.id, "team_id": team_id})
 
+    # 8b. Early end: is the lead decisive relative to what can still change?
+    decided: dict[str, Any] | None = None
+    rule = scenario.early_end
+    if rule is not None and state.mode == "competitive" and turn < state.turn_limit:
+        mid = fold_events(state, tuple(events))
+        # Measure with this turn already on the clock (turns left after it).
+        now = standing(dataclasses.replace(mid, turn=turn), scenario, outcome_points(mid))
+        streak = 0
+        relative = False
+        if now is not None:
+            relative = (
+                turn >= rule.from_turn and now["lead"] * 100 >= rule.ratio_pct * now["max_swing"]
+            )
+        if relative:
+            streak = dict(mid.lead_hold).get(now["leader"], 0) + 1
+            emit("lead_held", {"team_id": now["leader"], "turns": streak})
+        elif mid.lead_hold:
+            emit("lead_held", {"team_id": "", "turns": 0})
+        if now is not None and now["lead"] > now["max_swing"]:
+            decided = {**now, "reason": "out_of_reach"}
+        elif relative and streak >= rule.turns:
+            decided = {**now, "reason": "relative_lead", "turns": streak}
+
     # 9. Advance the clock; close out if done.
     emit("turn_advanced", {"turn": turn})
     mid = fold_events(state, tuple(events))
     all_resolved = all(m.status != "open" for m in mid.missions)
-    if all_resolved or turn >= mid.turn_limit:
+    if all_resolved or turn >= mid.turn_limit or decided is not None:
+        if decided is not None and not all_resolved and turn < mid.turn_limit:
+            emit("match_decided", decided)
         winner = _pick_winner(mid, all_resolved)
         emit("match_finished", {"winner": winner})
     emit("turn_resolved", {"turn": turn})

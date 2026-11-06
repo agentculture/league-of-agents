@@ -61,6 +61,12 @@ def _scenario_dict(s: Scenario) -> dict[str, object]:
             "value": s.crown.value,
             "hold_turns": s.crown.hold_turns,
         }
+    if s.early_end is not None:
+        out["early_end"] = {
+            "ratio_pct": s.early_end.ratio_pct,
+            "turns": s.early_end.turns,
+            "from_turn": s.early_end.from_turn,
+        }
     return out
 
 

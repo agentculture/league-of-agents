@@ -474,6 +474,19 @@ _THIEF_RULES = """
     otherwise the rule above stands."""
 
 
+_EARLY_END_RULES = """
+- Early end. Besides turn {limit}, the match ends (and the leader wins) when
+  the leader's lead can no longer be overcome, or when the lead is at least
+  {pct}% of "max_swing" for {turns} turns in a row, counting from turn {start}.
+  max_swing is the most the gap could still close by: everything the trailing
+  team could still win in the turns left (each open mission, each control
+  point it does not own, the Crown, every resource still on the board or in
+  cargo, counting only what a unit could still reach in time) plus every
+  control point the leader could still lose. The state's "standing" block
+  shows points, leader, lead, max_swing and the leader's current run
+  ("lead_hold") every turn, so both teams see exactly where this stands."""
+
+
 def _has_thief(scenario: Mapping[str, Any]) -> bool:
     return any(r.get("can_steal") for r in scenario.get("roles", {}).values())
 
@@ -495,6 +508,14 @@ def _rules_text(scenario: Mapping[str, Any], fog: bool) -> str:
         )
     if _has_thief(scenario):
         text += _THIEF_RULES.format()
+    early = scenario.get("early_end")
+    if early:
+        text += _EARLY_END_RULES.format(
+            limit=scenario.get("turn_limit"),
+            pct=early["ratio_pct"],
+            turns=early["turns"],
+            start=early["from_turn"],
+        )
     return text + _FOG_RULES if fog else text
 
 
@@ -1218,6 +1239,7 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
             for n in state.get("resource_nodes", [])
         ],
         **({"crown": state["crown"]} if state.get("crown") is not None else {}),
+        **({"standing": state["standing"]} if state.get("standing") is not None else {}),
     }
 
 
