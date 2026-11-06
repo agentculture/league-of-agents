@@ -149,6 +149,7 @@ from typing import Any, Callable, Mapping
 
 from league.cli import main as cli_main
 from league.engine.events import Event
+from league.engine.tick import CP_POINTS
 from league.store import Store, validate_id
 
 Driver = Callable[[dict[str, Any], str, int, Mapping[str, Any] | None], dict[str, Any]]
@@ -398,14 +399,75 @@ def make_bot_file_driver(spec: Mapping[str, Any]) -> Driver:
 
 # -- external agents as subprocesses ---------------------------------------
 
-_RULES = """Rules, briefly: turn-based, simultaneous orders. Each unit does ONE action per
-turn: move (Manhattan distance <= its role's move stat), gather (on a resource
-node square, fills to carry capacity), deliver (on the deliver-mission square,
-unloads into team resources), or hold (stay; builds control-point streaks).
-Sole occupancy of a control point for {capture} consecutive turns captures it;
-holding it {capture}+N turns completes a hold mission of amount N. The deliver
-mission completes when team resources reach its amount. Declared plans and
-team messages are free and are scored for cooperation quality."""
+_RULES = """Rules (complete — nothing else applies):
+- Turns and timing. Orders are simultaneous: every unit's order for a turn
+  resolves together, and submission order never matters. The state's "turn"
+  field counts turns ALREADY resolved, so the order you send now is for turn
+  state.turn + 1. The match ends after the scenario's turn_limit turns, or
+  earlier once every mission is resolved. Thinking time is not scored.
+- One action per unit per turn:
+  * move: to=[x, y] with Manhattan distance |dx|+|dy| from the unit's CURRENT
+    position <= its role's move stat, and on the grid. The legal_actions list
+    shows every legal move target; anything else is rejected.
+  * gather: only on a resource-node square, only for a role with
+    can_gather=true; fills the unit up to its carry capacity (limited by what
+    the node has left).
+  * deliver: only on the deliver-mission square while carrying; unloads all
+    cargo into the team's resources.
+  * hold: stay put.
+  A rejected order does nothing; the unit simply loses that turn.
+- Squares can be shared by any number of units. There is no combat, no
+  blocking and no damage: units never push, stop or remove each other.
+- Control points. ONLY units whose role has can_capture=true count on a
+  control point. A unit with can_capture=false (for example the scout) counts
+  for NOTHING there: it neither builds a streak nor contests or blocks the
+  other team's. If exactly one team has capture-capable units on a point in
+  a turn, that team's streak on it grows by 1; if both teams do, or nobody
+  does, the streak resets to 0. A streak of {capture} captures the point.
+  Ownership stays with a team after its units leave, until the other team
+  captures it.
+- Hold mission of amount N: completes when its point is owned by a team that
+  keeps an unbroken capture-capable streak on it of {capture}+N turns (the
+  capture turns plus N more). Leaving or being contested resets the streak.
+- Deliver mission: completes when a team's resources reach its amount; if
+  both teams reach it on the same turn, both get it.
+- Score (competitive): mission rewards + {cp_points} points per control point
+  owned at the end + delivered resources. Higher total wins; equal totals draw.
+- Team play. {team} Messages and declared plans never reach the other team.
+  They are free and are scored for cooperation quality."""
+
+# Who runs a team's units and who reads its messages, per driver mode, so the
+# "complete" rules never describe a different mode than the one being played.
+TEAM_COMMANDER = "You command every unit on your team yourself."
+TEAM_SEATS = (
+    "Each unit on your team is run by its own agent; your teammates read your "
+    "messages and your team's declared plan."
+)
+TEAM_SEATS_NO_COMMS = (
+    "Each unit on your team is run by its own agent. Teammates do not read your "
+    "messages; only your team master's guidance is relayed to you."
+)
+TEAM_MASTER = (
+    "Each unit on your team is run by its own agent; you command none of them and "
+    "guide them through messages."
+)
+
+_FOG_RULES = """
+- Fog of war is ON. Each unit sees every cell within Manhattan distance of its
+  role's vision stat; your team sees the union of its units' views. You always
+  know your own units. Enemy units, resource nodes, control points and
+  missions are known only once seen (a sighting is remembered, but may be
+  stale) or once a teammate's message names them by their exact id (for
+  example "rn-1a" or "red-u2"); a description like "the western node" teaches
+  nothing. The other team cannot see your messages."""
+
+
+def _rules_text(scenario: Mapping[str, Any], fog: bool, team: str = TEAM_SEATS) -> str:
+    """The rules block for a seat: the complete rules, plus the fog paragraph
+    only when the match is fogged."""
+    text = _RULES.format(capture=scenario["capture_hold_turns"], cp_points=CP_POINTS, team=team)
+    return text + _FOG_RULES if fog else text
+
 
 _PROMPT = """You are the {team_id} team commander in a League of Agents match.
 {rules}
@@ -648,7 +710,9 @@ def make_command_driver(
     timeout = float(spec.get("timeout", 300))
     solo = bool(spec.get("solo", False))
     extra = str(spec.get("prompt", ""))
-    rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    # A full-map commander reads the unfogged board, so the fog paragraph
+    # would contradict what it is shown.
+    rules = _rules_text(scenario, fog and map_read != "full", TEAM_COMMANDER)
     # The commander's whole team shares one fogged view (spec c5/h4): under
     # fog the once-per-turn "Scenario:" block drops map furniture too — see
     # _fogged_scenario. `state` itself is already the team's fogged
@@ -765,7 +829,10 @@ def make_per_seat_driver(
     argv = list(spec["argv"])
     timeout = float(spec.get("timeout", 300))
     extra = str(spec.get("prompt", ""))
-    rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    rules = _rules_text(scenario, fog, TEAM_SEATS if unit_comms else TEAM_SEATS_NO_COMMS)
+    # The master may read the full board (map_read="full"): its rules then
+    # drop the fog paragraph, as for a full-map commander.
+    master_rules = _rules_text(scenario, fog and map_read != "full", TEAM_MASTER)
     scenario_for_prompt = _fogged_scenario(scenario) if fog else scenario
     seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
 
@@ -806,7 +873,7 @@ def make_per_seat_driver(
             master_prompt = _MASTER_PROMPT.format(
                 master_id=master_id,
                 team_id=team_id,
-                rules=rules,
+                rules=master_rules,
                 extra=f"\n{master_extra}\n" if master_extra else "",
                 scenario=json.dumps(master_scenario, sort_keys=True),
                 state=json.dumps(master_state, sort_keys=True),
@@ -911,6 +978,14 @@ class ClaudeCliSession:
     def __init__(self, spec: Mapping[str, Any], match_id: str, agent_id: str) -> None:
         self._command = str(spec.get("command", "claude"))
         self._model = spec.get("model")
+        # Extra CLI flags (e.g. --effort, --tools "") and a system prompt that
+        # REPLACES the CLI's own, so a claude seat and an HTTP seat can be
+        # handed the identical system prompt (fairness across transports).
+        args = spec.get("args", [])
+        if not isinstance(args, (list, tuple)):
+            raise ValueError(f"resident claude 'args' must be a list of strings, got {args!r}")
+        self._args = [str(a) for a in args]
+        self._system_prompt = spec.get("system_prompt")
         self.session_id = _mint_session_id(match_id, agent_id)
         self._started = False
 
@@ -918,7 +993,9 @@ class ClaudeCliSession:
         argv = [self._command, "-p", flag, self.session_id]
         if self._model:
             argv += ["--model", str(self._model)]
-        return argv
+        if self._system_prompt:
+            argv += ["--system-prompt", str(self._system_prompt)]
+        return argv + self._args
 
     def _run(self, argv: list[str], prompt: str, timeout: float) -> subprocess.CompletedProcess:
         try:
@@ -985,19 +1062,33 @@ class ColleagueDirectSession:
             or os.environ.get("COLLEAGUE_BASE_URL", _DEFAULT_COLLEAGUE_BASE_URL)
         ).rstrip("/")
         self._temperature = float(spec.get("temperature", 0.6))
-        self._max_tokens = int(spec.get("max_tokens", 4096))
+        self._top_p = spec.get("top_p")
+        # "max_tokens": null in the spec means no cap: the field is omitted and
+        # the server's own context window is the only limit.
+        max_tokens = spec.get("max_tokens", 4096)
+        self._max_tokens = None if max_tokens is None else int(max_tokens)
         self._chat_template_kwargs = spec.get("chat_template_kwargs")
+        self._reasoning_fallback = _spec_bool(spec, "reasoning_fallback", True)
+        self.last_finish_reason: str | None = None
+        self.last_usage: Any = None
         self._history: list[dict[str, str]] = []
+        if spec.get("system_prompt"):
+            self._history.append({"role": "system", "content": str(spec["system_prompt"])})
         self.session_id = f"colleague-direct-{_mint_session_id(match_id, agent_id)}"
 
     def send(self, prompt: str, *, timeout: float) -> str:
+        self.last_finish_reason = None
+        self.last_usage = None
         self._history.append({"role": "user", "content": prompt})
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": list(self._history),
-            "max_tokens": self._max_tokens,
             "temperature": self._temperature,
         }
+        if self._max_tokens is not None:
+            payload["max_tokens"] = self._max_tokens
+        if self._top_p is not None:
+            payload["top_p"] = float(self._top_p)
         if self._chat_template_kwargs:
             payload["chat_template_kwargs"] = dict(self._chat_template_kwargs)
         try:
@@ -1007,13 +1098,43 @@ class ColleagueDirectSession:
             # so the next attempt isn't preceded by a phantom user turn.
             self._history.pop()
             raise RuntimeError(f"colleague-direct session {self.session_id}: {err}") from err
-        message = data["choices"][0]["message"]
+        choice = data["choices"][0]
+        message = choice["message"]
         # The Qwen gotcha (spike, scripts/openai_driver.py): thinking models
-        # may return content=None with the answer in reasoning_content.
-        content = message.get("content") or message.get("reasoning_content") or ""
+        # may return content=None with the answer in reasoning_content. That
+        # fallback is opt-in now: with "reasoning_fallback": false, a reply
+        # that ran out of budget mid-thought stays empty (the seat idles and
+        # the failure is visible) instead of feeding the raw reasoning back
+        # into the transcript as if it were the answer.
+        self.last_finish_reason = choice.get("finish_reason")
+        self.last_usage = data.get("usage")
+        content = message.get("content") or ""
+        if not content and self._reasoning_fallback:
+            content = message.get("reasoning_content") or ""
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.S).strip()
+        if not content:
+            # No answer: drop this exchange so the transcript stays as it was.
+            # The seat is not marked briefed, so its next turn re-sends the
+            # full briefing once into a clean history, never a duplicate.
+            self._history.pop()
+            raise RuntimeError(
+                f"colleague-direct session {self.session_id}: empty answer "
+                f"(finish_reason={self.last_finish_reason}, usage={self.last_usage})"
+            )
         self._history.append({"role": "assistant", "content": content})
         return content
+
+
+def _spec_bool(spec: Mapping[str, Any], key: str, default: bool) -> bool:
+    """A boolean driver-spec field: a real bool, or the strings "true"/"false"
+    (from YAML/env passthrough). Anything else is a loud error, never a silent
+    truthiness guess ("false" is not True)."""
+    value = spec.get(key, default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+        return value.strip().lower() == "true"
+    raise ValueError(f"driver spec {key!r} must be true or false, got {value!r}")
 
 
 # name -> factory(spec, match_id, agent_id). Tests register a fake here so no
@@ -1022,6 +1143,18 @@ SESSION_TRANSPORTS: dict[str, Callable[[Mapping[str, Any], str, str], Any]] = {
     "claude": ClaudeCliSession,
     "colleague": ColleagueDirectSession,
 }
+
+
+def _turn_meta(session: Any) -> dict[str, Any]:
+    """finish_reason/usage of a seat's last call, when its transport reports
+    them — recorded on success AND on failure (an empty answer is exactly the
+    case those fields exist to explain)."""
+    return {
+        k: getattr(session, a)
+        for k, a in (("finish_reason", "last_finish_reason"), ("usage", "last_usage"))
+        if getattr(session, a, None) is not None
+    }
+
 
 _RESIDENT_NOTE = """This is a resident session: it lasts the whole match. This turn-1 briefing is
 the ONLY time you will see the rules and the scenario — remember them. Every
@@ -1090,9 +1223,22 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _events_since(match_id: str, since_turn: int, upto_turn: int) -> list[dict[str, Any]]:
+# A team's declared orders and their rejections are its own business too: the
+# other team sees only their outcome on the board (moves, gathers, captures).
+_TEAM_PRIVATE_EVENTS = frozenset(
+    {"message_sent", "plan_declared", "action_declared", "action_rejected"}
+)
+
+
+def _events_since(
+    match_id: str, since_turn: int, upto_turn: int, team_id: str | None = None
+) -> list[dict[str, Any]]:
     """Events a seat hasn't seen yet, read off the log via the public CLI
-    (``match replay --json``) — the harness never opens the log file itself."""
+    (``match replay --json``) — the harness never opens the log file itself.
+
+    With ``team_id``, the other team's messages and declared plans are
+    dropped: they are team-private, and a resident seat must not read the
+    opponent's coordination off the shared log."""
     if not match_id:
         return []
     events_by_turn = _cli_json(["match", "replay", match_id]).get("events_by_turn", {})
@@ -1101,6 +1247,9 @@ def _events_since(match_id: str, since_turn: int, upto_turn: int) -> list[dict[s
         for turn in sorted(events_by_turn, key=int)
         if since_turn < int(turn) <= upto_turn
         for event in events_by_turn[turn]
+        if team_id is None
+        or event.get("kind") not in _TEAM_PRIVATE_EVENTS
+        or (event.get("data") or {}).get("team_id") == team_id
     ]
 
 
@@ -1133,7 +1282,7 @@ def make_resident_driver(
         )
     timeout = float(spec.get("timeout", 300))
     extra = str(spec.get("prompt", ""))
-    rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    rules = _rules_text(scenario, fog)
     scenario_for_prompt = _fogged_scenario(scenario) if fog else scenario
     seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
     sessions: dict[str, Any] = {}
@@ -1212,7 +1361,7 @@ def make_resident_driver(
             else:
                 since = last_seen.get(agent["id"], 0)
                 if str(since) not in new_events:
-                    new_events[str(since)] = _events_since(match_id, since, state["turn"])
+                    new_events[str(since)] = _events_since(match_id, since, state["turn"], team_id)
                 prompt = _RESIDENT_DELTA_PROMPT.format(
                     turn=turn,
                     unit_id=unit["id"],
@@ -1233,7 +1382,7 @@ def make_resident_driver(
             except RuntimeError as err:
                 if match_id:
                     store.append_session_record(
-                        match_id, agent["id"], {**record, "error": str(err)}
+                        match_id, agent["id"], {**record, "error": str(err), **_turn_meta(session)}
                     )
                 print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
                 if sink is not None:
@@ -1250,7 +1399,9 @@ def make_resident_driver(
                     {"agent_id": agent["id"], "unit_id": unit["id"], "elapsed_ms": _elapsed_ms(t0)}
                 )
             if match_id:
-                store.append_session_record(match_id, agent["id"], {**record, "received": reply})
+                store.append_session_record(
+                    match_id, agent["id"], {**record, "received": reply, **_turn_meta(session)}
+                )
             briefed.add(agent["id"])
             last_seen[agent["id"]] = state["turn"]
             if fog and current_knowledge is not None:
