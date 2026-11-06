@@ -436,6 +436,23 @@ _RULES = """Rules (complete — nothing else applies):
   messages and declared plan; the other team does not. Declared plans and
   team messages are free and are scored for cooperation quality."""
 
+_FOG_RULES = """
+- Fog of war is ON. Each unit sees every cell within Manhattan distance of its
+  role's vision stat; your team sees the union of its units' views. You always
+  know your own units. Enemy units, resource nodes, control points and
+  missions are known only once seen (a sighting is remembered, but may be
+  stale) or once a teammate's message names them by their exact id (for
+  example "rn-1a" or "red-u2"); a description like "the western node" teaches
+  nothing. The other team cannot see your messages."""
+
+
+def _rules_text(scenario: Mapping[str, Any], fog: bool) -> str:
+    """The rules block for a seat: the complete rules, plus the fog paragraph
+    only when the match is fogged."""
+    text = _RULES.format(capture=scenario["capture_hold_turns"])
+    return text + _FOG_RULES if fog else text
+
+
 _PROMPT = """You are the {team_id} team commander in a League of Agents match.
 {rules}
 {extra}
@@ -677,7 +694,7 @@ def make_command_driver(
     timeout = float(spec.get("timeout", 300))
     solo = bool(spec.get("solo", False))
     extra = str(spec.get("prompt", ""))
-    rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    rules = _rules_text(scenario, fog)
     # The commander's whole team shares one fogged view (spec c5/h4): under
     # fog the once-per-turn "Scenario:" block drops map furniture too — see
     # _fogged_scenario. `state` itself is already the team's fogged
@@ -794,7 +811,7 @@ def make_per_seat_driver(
     argv = list(spec["argv"])
     timeout = float(spec.get("timeout", 300))
     extra = str(spec.get("prompt", ""))
-    rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    rules = _rules_text(scenario, fog)
     scenario_for_prompt = _fogged_scenario(scenario) if fog else scenario
     seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
 
@@ -1207,7 +1224,7 @@ def make_resident_driver(
         )
     timeout = float(spec.get("timeout", 300))
     extra = str(spec.get("prompt", ""))
-    rules = _RULES.format(capture=scenario["capture_hold_turns"])
+    rules = _rules_text(scenario, fog)
     scenario_for_prompt = _fogged_scenario(scenario) if fog else scenario
     seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
     sessions: dict[str, Any] = {}
