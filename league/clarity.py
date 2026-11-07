@@ -257,6 +257,21 @@ def _ask_claude(spec: dict[str, Any], system: str, text: str, schema: dict | Non
     return proc.stdout
 
 
+def _wait_idle(metrics_url: str, poll: float = 5.0) -> None:
+    """Block until the server reports no request running (a live match's
+    seat), so a check slots in between the match's own calls."""
+    while True:
+        try:
+            with urllib.request.urlopen(metrics_url, timeout=10) as resp:  # nosec B310
+                text = resp.read().decode()
+            running = re.search(r"^\S*requests_running\S*\s+(\d+)", text, re.M)
+            if running is None or int(running.group(1)) == 0:
+                return
+        except OSError:
+            return
+        time.sleep(poll)
+
+
 def run_cases(cases, drivers, models, repeat=1, structured=True, out=None):
     rows = []
     for name in models:
@@ -265,6 +280,8 @@ def run_cases(cases, drivers, models, repeat=1, structured=True, out=None):
         for case in cases:
             schema = _reply_schema(_scenario_dict(get_scenario(case["scenario_id"])))
             for n in range(repeat):
+                if spec.get("wait_idle_metrics"):
+                    _wait_idle(spec["wait_idle_metrics"])
                 t0 = time.time()
                 try:
                     reply = ask(
