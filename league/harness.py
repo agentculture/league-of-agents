@@ -764,6 +764,85 @@ def _extract_json(text: str) -> dict[str, Any]:
     raise ValueError("no JSON object found in driver output")
 
 
+_JSON_STR = r'"(?:[^"\\]|\\.)*"'
+_PLAN_RE = re.compile(r'"plan"\s*:\s*(' + _JSON_STR + ")")
+# A message as seats write it, even when its object is missing a brace.
+_MESSAGE_RE = re.compile(
+    r'"from"\s*:\s*(' + _JSON_STR + r')\s*,\s*"text"\s*:\s*(' + _JSON_STR + ")"
+)
+
+
+def _parse_seat_reply(text: str) -> tuple[dict[str, Any], str | None, str | None]:
+    """A resident seat's reply as orders, plus two notes: what the seat must be
+    told (something was lost), and what the audit record keeps (any repair).
+
+    A reply the harness can still read is the harness's job to read: a JSON
+    slip such as a message object missing its closing brace must not cost the
+    seat its order. On a parse failure the reply's parts are recovered one by
+    one: the action object, every message object, and the plan string. Only
+    when no action can be read is the seat told, and its unit idles.
+    """
+    decoder = json.JSONDecoder()
+    start = text.find("{")
+    if start < 0:
+        note = "your reply contained no JSON object, so your unit idled"
+        return {}, note, note
+    try:
+        obj, _ = decoder.raw_decode(text[start:])
+    except json.JSONDecodeError as err:
+        error = f"{err.msg} at line {err.lineno} column {err.colno}"
+    else:
+        if isinstance(obj, dict):
+            action = obj.get("action")
+            if action is None or isinstance(action, dict):
+                return obj, None, None
+            if isinstance(action, str):  # a flat action: {"action": "move", "to": [...]}
+                flat = {k: v for k, v in obj.items() if k not in ("messages", "plan")}
+                rest = {k: obj[k] for k in ("messages", "plan") if k in obj}
+                return {"action": flat, **rest}, None, "read a flat action object"
+        error = "the reply is not a JSON object"
+    action: dict[str, Any] | None = None
+    messages: list[dict[str, Any]] = []
+    for i in range(start + 1, len(text)):
+        if text[i] != "{":
+            continue
+        try:
+            inner, _ = decoder.raw_decode(text[i:])
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(inner, dict):
+            continue
+        if action is None and isinstance(inner.get("action"), str):
+            action = inner
+        elif inner.get("text") and inner not in messages:
+            messages.append(inner)
+    found = [
+        {"from": json.loads(m.group(1)), "text": json.loads(m.group(2))}
+        for m in _MESSAGE_RE.finditer(text)
+    ]
+    if len(found) > len(messages):
+        messages = found
+    result: dict[str, Any] = {}
+    if messages:
+        result["messages"] = messages
+    plan = _PLAN_RE.search(text)
+    if plan:
+        result["plan"] = json.loads(plan.group(1))
+    if action is None:
+        note = (
+            f"your reply was not valid JSON ({error}) and no action could be read, "
+            "so your unit idled"
+        )
+        return result, note, note
+    result["action"] = action
+    parts = ", ".join(
+        ["action"]
+        + (["%d message(s)" % len(messages)] if messages else [])
+        + (["plan"] if plan else [])
+    )
+    return result, None, f"repaired invalid JSON ({error}); recovered {parts}"
+
+
 def _run_command(argv: list[str], prompt: str, timeout: float, who: str) -> dict[str, Any]:
     """One driver call, retried once — live seats flake; matches must not die.
 
@@ -1220,7 +1299,10 @@ SESSION_TRANSPORTS: dict[str, Callable[[Mapping[str, Any], str, str], Any]] = {
 _RESIDENT_NOTE = """This is a resident session: it lasts the whole match. This turn-1 briefing is
 the ONLY time you will see the rules and the scenario — remember them. Every
 later turn sends only a delta: new events, your own rejections, your legal
-actions, a compact state, and teammate messages."""
+actions, a compact state, and teammate messages.
+If a reply has a JSON slip, the harness still reads whatever it can (your
+action, messages and plan). Only if no action can be read does your unit
+idle, and you are told so on your next turn."""
 
 _RESIDENT_DELTA_PROMPT = """Turn {turn} — delta briefing (rules, scenario and role are unchanged
 from turn 1; you still control ONLY unit {unit_id}).
@@ -1363,6 +1445,7 @@ def make_resident_driver(
     seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
     sessions: dict[str, Any] = {}
     briefed: set[str] = set()  # seats whose session has actually seen the rules
+    reply_notes: dict[str, str] = {}  # a seat's last reply problem, told once on its next turn
     last_seen: dict[str, int] = {}  # state turn at the seat's last successful briefing
     last_known: dict[str, Mapping[str, Any]] = {}  # fog only: last knowledge snapshot per seat
 
@@ -1414,8 +1497,10 @@ def make_resident_driver(
             if session is None:
                 session = SESSION_TRANSPORTS[transport](spec, match_id, agent["id"])
                 sessions[agent["id"]] = session
+            note = reply_notes.get(agent["id"])
             shared = {
-                "rejections": _format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
+                "rejections": (f"About your previous reply: {note}.\n" if note else "")
+                + _format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
                 "legal_actions": _format_legal_actions(legal_actions, [unit["id"]]),
                 "team_messages": json.dumps(combined["messages"], sort_keys=True),
             }
@@ -1475,19 +1560,23 @@ def make_resident_driver(
                 sink.append(
                     {"agent_id": agent["id"], "unit_id": unit["id"], "elapsed_ms": _elapsed_ms(t0)}
                 )
+            reply_notes.pop(agent["id"], None)  # the seat saw it in this prompt
+            result, problem, repair = _parse_seat_reply(reply)
             if match_id:
+                extra = {"reply_problem": repair} if repair else {}
                 store.append_session_record(
-                    match_id, agent["id"], {**record, "received": reply, **_seat_meta(session)}
+                    match_id,
+                    agent["id"],
+                    {**record, "received": reply, **_seat_meta(session), **extra},
                 )
             briefed.add(agent["id"])
             last_seen[agent["id"]] = state["turn"]
             if fog and current_knowledge is not None:
                 last_known[agent["id"]] = current_knowledge
-            try:
-                result = _extract_json(reply)
-            except ValueError as err:
-                print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
-                continue
+            if problem:
+                reply_notes[agent["id"]] = problem
+            if repair:
+                print(f"[harness] seat {agent['id']}: {repair}", file=sys.stderr)
             _fold_seat_reply(combined, result, unit["id"], agent["id"])
         if not combined["messages"]:
             combined.pop("messages")
