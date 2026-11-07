@@ -682,16 +682,31 @@ def _format_rejections(rejections: list[Mapping[str, Any]]) -> str:
     )
 
 
-def _format_move_targets(moves: list[Any]) -> str:
-    """Keep the legal-actions line short even for a wide-ranging role."""
+def _unit_positions(state: Mapping[str, Any]) -> dict[str, list[int]]:
+    return {u["id"]: list(u["pos"]) for u in state.get("units", []) if u.get("pos")}
+
+
+def _format_move_targets(moves: list[Any], pos: list[int] | None = None) -> str:
+    """The legal move targets, exactly. A short list is printed as is; a long
+    one as the Manhattan rule from the unit's cell, which is exact (a bounding
+    box was not: it invited diagonal targets the engine rejects)."""
     if len(moves) <= 8:
         return json.dumps(moves)
-    xs = [m[0] for m in moves]
-    ys = [m[1] for m in moves]
-    return f"{len(moves)} cells, x in [{min(xs)}, {max(xs)}], y in [{min(ys)}, {max(ys)}]"
+    if pos is None:
+        return json.dumps(moves)
+    ux, uy = pos
+    reach = max(abs(x - ux) + abs(y - uy) for x, y in moves)
+    return (
+        f"{len(moves)} cells: any on-grid [x, y] with |x-{ux}| + |y-{uy}| <= {reach} "
+        f"(steps add up: 2 across and 2 up is 4, not 2)"
+    )
 
 
-def _format_legal_actions(legal_actions: Mapping[str, Any], unit_ids: list[str]) -> str:
+def _format_legal_actions(
+    legal_actions: Mapping[str, Any],
+    unit_ids: list[str],
+    positions: Mapping[str, list[int]] | None = None,
+) -> str:
     """A compact 'legal now' line per unit — checkable before declaring, not
     just discovered after the engine rejects it."""
     lines = []
@@ -703,7 +718,8 @@ def _format_legal_actions(legal_actions: Mapping[str, Any], unit_ids: list[str])
         if legal.get("can_steal"):
             steal = f"; steal: {'yes' if legal.get('steal') else 'no (full)'}"
         lines.append(
-            f"- {unit_id}: move to {_format_move_targets(legal.get('move', []))}; "
+            f"- {unit_id}: move to "
+            f"{_format_move_targets(legal.get('move', []), (positions or {}).get(unit_id))}; "
             f"gather: {'yes' if legal.get('gather') else 'no'}; "
             f"deliver: {'yes' if legal.get('deliver') else 'no'}{steal}; hold: yes"
         )
@@ -966,7 +982,9 @@ def make_command_driver(
             rejections=_format_rejections(
                 _rejections_for(context.get("rejections", []), team_id=team_id)
             ),
-            legal_actions=_format_legal_actions(context.get("legal_actions", {}), my_unit_ids),
+            legal_actions=_format_legal_actions(
+                context.get("legal_actions", {}), my_unit_ids, _unit_positions(state)
+            ),
             state=json.dumps(briefing_state, sort_keys=True),
             verbs=_verbs(scenario),
         )
@@ -1135,7 +1153,9 @@ def make_per_seat_driver(
                 extra=f"\n{seat_extra}\n" if seat_extra else "",
                 scenario=json.dumps(scenario_for_prompt, sort_keys=True),
                 rejections=_format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
-                legal_actions=_format_legal_actions(legal_actions, [unit["id"]]),
+                legal_actions=_format_legal_actions(
+                    legal_actions, [unit["id"]], _unit_positions(state)
+                ),
                 state=json.dumps(state, sort_keys=True),
                 team_messages=json.dumps(visible_messages, sort_keys=True) or "[]",
                 verbs=_verbs(scenario),
@@ -1574,7 +1594,9 @@ def make_resident_driver(
             shared = {
                 "rejections": (f"About your previous reply: {note}.\n" if note else "")
                 + _format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
-                "legal_actions": _format_legal_actions(legal_actions, [unit["id"]]),
+                "legal_actions": _format_legal_actions(
+                    legal_actions, [unit["id"]], _unit_positions(state)
+                ),
                 "team_messages": json.dumps(combined["messages"], sort_keys=True),
             }
             if agent["id"] not in briefed:

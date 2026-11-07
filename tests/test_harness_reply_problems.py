@@ -140,3 +140,17 @@ def test_broken_string_messages_are_recovered(broken: str) -> None:
     result, seat_note, repair = _parse_seat_reply(broken)
     assert result["messages"] == ['a "x"', "b"] and result["plan"] == "p"
     assert result["action"] == {"action": "hold"} and seat_note is None and repair
+
+
+# -- legal move targets are described exactly ----------------------------------
+
+
+def test_long_move_lists_state_the_exact_manhattan_rule() -> None:
+    pos = [18, 13]
+    moves = [
+        [x, y] for x in range(15, 21) for y in range(10, 17) if 0 < abs(x - 18) + abs(y - 13) <= 3
+    ]
+    line = harness._format_move_targets(moves, pos)
+    assert "|x-18| + |y-13| <= 3" in line and "x in [" not in line
+    assert harness._format_move_targets(moves) == json.dumps(moves), "no position: list them all"
+    assert harness._format_move_targets([[1, 1]], pos) == "[[1, 1]]"
