@@ -519,6 +519,34 @@ def _verbs(scenario: Mapping[str, Any]) -> str:
     return "move|gather|deliver|steal|hold" if _has_thief(scenario) else "move|gather|deliver|hold"
 
 
+def _reply_schema(scenario: Mapping[str, Any]) -> dict[str, Any]:
+    """The seat reply format as a JSON schema, for drivers that opt into
+    structured output (``"structured_output": true``): the serving side then
+    constrains the reply to it, so a JSON slip cannot happen. Same schema for
+    every seat on the board; it encodes the format the prompt already asks
+    for, nothing more."""
+    return {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "object",
+                "properties": {
+                    "unit_id": {"type": "string"},
+                    "action": {"type": "string", "enum": _verbs(scenario).split("|")},
+                    "to": {"type": "array", "items": {"type": "integer"}},
+                    "target": {"type": "string"},
+                },
+                "required": ["action"],
+                "additionalProperties": False,
+            },
+            "messages": {"type": "array", "items": {"type": "string"}},
+            "plan": {"type": "string"},
+        },
+        "required": ["action"],
+        "additionalProperties": False,
+    }
+
+
 def _rules_text(scenario: Mapping[str, Any], fog: bool) -> str:
     """The rules block for a seat: the complete rules, plus the crown, thief
     and fog paragraphs only when they apply."""
@@ -1179,9 +1207,13 @@ class ClaudeCliSession:
         self._system_prompt = spec.get("system_prompt")
         self.session_id = _mint_session_id(match_id, agent_id)
         self._started = False
+        # Set by the resident driver when the spec opts into structured output.
+        self.reply_schema: dict[str, Any] | None = None
 
     def _argv(self, flag: str) -> list[str]:
         argv = [self._command, "-p", flag, self.session_id]
+        if self.reply_schema is not None:
+            argv += ["--json-schema", json.dumps(self.reply_schema, separators=(",", ":"))]
         if self._model:
             argv += ["--model", str(self._model)]
         if self._system_prompt:
@@ -1265,6 +1297,8 @@ class ColleagueDirectSession:
         # The model's thinking for the last reply, kept for the audit record
         # only: it is never fed back into the transcript.
         self.last_reasoning: str | None = None
+        # Set by the resident driver when the spec opts into structured output.
+        self.reply_schema: dict[str, Any] | None = None
         self._history: list[dict[str, str]] = []
         if spec.get("system_prompt"):
             self._history.append({"role": "system", "content": str(spec["system_prompt"])})
@@ -1284,6 +1318,11 @@ class ColleagueDirectSession:
             payload["top_p"] = float(self._top_p)
         if self._chat_template_kwargs:
             payload["chat_template_kwargs"] = dict(self._chat_template_kwargs)
+        if self.reply_schema is not None:
+            payload["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": "seat_reply", "schema": self.reply_schema},
+            }
         try:
             data = _http_post_json(f"{self._base_url}/chat/completions", payload, timeout)
         except OSError as err:
@@ -1474,6 +1513,10 @@ def make_resident_driver(
     sessions: dict[str, Any] = {}
     briefed: set[str] = set()  # seats whose session has actually seen the rules
     reply_notes: dict[str, str] = {}  # a seat's last reply problem, told once on its next turn
+    structured = spec.get("structured_output", False)
+    if not isinstance(structured, bool):
+        raise ValueError(f"structured_output must be true or false, got {structured!r}")
+    reply_schema = _reply_schema(scenario)
     last_seen: dict[str, int] = {}  # state turn at the seat's last successful briefing
     last_known: dict[str, Mapping[str, Any]] = {}  # fog only: last knowledge snapshot per seat
 
@@ -1524,6 +1567,8 @@ def make_resident_driver(
             session = sessions.get(agent["id"])
             if session is None:
                 session = SESSION_TRANSPORTS[transport](spec, match_id, agent["id"])
+                if structured and hasattr(session, "reply_schema"):
+                    session.reply_schema = reply_schema
                 sessions[agent["id"]] = session
             note = reply_notes.get(agent["id"])
             shared = {
