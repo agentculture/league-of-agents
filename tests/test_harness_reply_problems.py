@@ -154,3 +154,24 @@ def test_long_move_lists_state_the_exact_manhattan_rule() -> None:
     assert "|x-18| + |y-13| <= 3" in line and "x in [" not in line
     assert harness._format_move_targets(moves) == json.dumps(moves), "no position: list them all"
     assert harness._format_move_targets([[1, 1]], pos) == "[[1, 1]]"
+
+
+# -- passive capture notes are not rejections; steal rules spell out targets ---
+
+
+def test_passive_capture_note_is_not_reported_as_a_rejection() -> None:
+    rows = [
+        {"unit_id": "red-u1", "reason": "this role cannot capture control points", "passive": True},
+        {"unit_id": "red-u2", "reason": "target beyond this role's move range"},
+    ]
+    text = harness._format_rejections(rows)
+    rejections, notes = text.split("NOTES (not rejections)")
+    assert "red-u2: target beyond" in rejections and "red-u1" not in rejections
+    assert "red-u1 stands on a control point" in notes and "carried out" in notes
+    only_note = harness._format_rejections(rows[:1])
+    assert "REJECTIONS" not in only_note and "NOTES (not rejections)" in only_note
+
+
+def test_thief_rules_explain_named_targets_and_failed_steals() -> None:
+    assert "A named target must be" in harness._THIEF_RULES
+    assert "the thief stays where" in harness._THIEF_RULES

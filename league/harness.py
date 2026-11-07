@@ -490,7 +490,10 @@ _THIEF_RULES = """
     included; without a target, the first such unit by id). It fails if an
     enemy defender stands on that cell at that moment, if the thief is
     already full (thief carry 1), or if no enemy unit with cargo is there (one
-    that moved away or delivered this turn is gone). Stolen cargo is carried
+    that moved away or delivered this turn is gone). A named target must be
+    that unit: if it is not on the cell the steal fails, even when another
+    enemy carrier is. A failed steal costs nothing more: the thief stays where
+    it is, as with hold. Stolen cargo is carried
     like gathered cargo and counts only once delivered. A thief cannot gather
     or capture. Moving cargo this way is the only interaction between units;
     otherwise the rule above stands."""
@@ -673,13 +676,26 @@ def _rejections_for(
 
 def _format_rejections(rejections: list[Mapping[str, Any]]) -> str:
     """A REJECTIONS section citing the engine's own reason text verbatim."""
-    if not rejections:
-        return ""
-    lines = "\n".join(f"- {r.get('unit_id')}: {r.get('reason')}" for r in rejections)
-    return (
-        "\nREJECTIONS from your last turn — the engine's own reason, so you "
-        f"don't repeat it:\n{lines}\n"
-    )
+    # A passive row is not a rejected order: the engine notes that a unit
+    # whose role cannot capture is standing on a control point (its move or
+    # hold succeeded). Telling the seat its order was rejected would be false.
+    real = [r for r in rejections if not r.get("passive")]
+    notes = [r for r in rejections if r.get("passive")]
+    out = ""
+    if real:
+        lines = "\n".join(f"- {r.get('unit_id')}: {r.get('reason')}" for r in real)
+        out += (
+            "\nREJECTIONS from your last turn — the engine's own reason, so you "
+            f"don't repeat it:\n{lines}\n"
+        )
+    if notes:
+        lines = "\n".join(
+            f"- {r.get('unit_id')} stands on a control point, but {r.get('reason')}: "
+            "its order was carried out; it just does not count toward capture"
+            for r in notes
+        )
+        out += f"\nNOTES (not rejections) from your last turn:\n{lines}\n"
+    return out
 
 
 def _unit_positions(state: Mapping[str, Any]) -> dict[str, list[int]]:
