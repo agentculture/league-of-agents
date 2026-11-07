@@ -593,8 +593,9 @@ Coordinate through messages; you cannot command other units. Reply with ONLY
 one JSON object, no prose:
 {{"action": {{"unit_id": "{unit_id}", "action": "{verbs}",
              "to": [x, y]}},
-  "messages": [{{"from": "{agent_id}", "text": "..."}}],
+  "messages": ["<optional message to your team>", "..."],
   "plan": "<optional; only if proposing/refreshing the team plan>"}}
+Each message is a plain string; it is signed as {agent_id} for you.
 """
 
 _MASTER_PROMPT = """You are {master_id}, the {team_id} team's ORCHESTRATOR/MASTER. This is a
@@ -772,6 +773,27 @@ _MESSAGE_RE = re.compile(
 )
 
 
+def _messages_array_strings(text: str, decoder: json.JSONDecoder) -> list[str]:
+    """The plain-string items of a reply's ``"messages": [...]`` array, read
+    one by one so a missing or trailing comma does not lose them."""
+    head = re.search(r'"messages"\s*:\s*\[', text)
+    if not head:
+        return []
+    out: list[str] = []
+    i = head.end()
+    while i < len(text):
+        while i < len(text) and text[i] in " \t\r\n,":
+            i += 1
+        if i >= len(text) or text[i] != '"':
+            break
+        try:
+            item, i = decoder.raw_decode(text, i)
+        except json.JSONDecodeError:
+            break
+        out.append(item)
+    return out
+
+
 def _parse_seat_reply(text: str) -> tuple[dict[str, Any], str | None, str | None]:
     """A resident seat's reply as orders, plus two notes: what the seat must be
     told (something was lost), and what the audit record keeps (any repair).
@@ -802,7 +824,7 @@ def _parse_seat_reply(text: str) -> tuple[dict[str, Any], str | None, str | None
                 return {"action": flat, **rest}, None, "read a flat action object"
         error = "the reply is not a JSON object"
     action: dict[str, Any] | None = None
-    messages: list[dict[str, Any]] = []
+    messages: list[Any] = []
     for i in range(start + 1, len(text)):
         if text[i] != "{":
             continue
@@ -816,12 +838,15 @@ def _parse_seat_reply(text: str) -> tuple[dict[str, Any], str | None, str | None
             action = inner
         elif inner.get("text") and inner not in messages:
             messages.append(inner)
-    found = [
+    found: list[Any] = [
         {"from": json.loads(m.group(1)), "text": json.loads(m.group(2))}
         for m in _MESSAGE_RE.finditer(text)
     ]
     if len(found) > len(messages):
         messages = found
+    strings = _messages_array_strings(text, decoder)
+    if len(strings) > len(messages):
+        messages = strings
     result: dict[str, Any] = {}
     if messages:
         result["messages"] = messages
@@ -952,8 +977,11 @@ def _fold_seat_reply(
         action["unit_id"] = unit_id  # a seat commands its own unit, only
         combined["actions"].append(action)
     for message in _as_list(result.get("messages")):
-        if isinstance(message, dict) and message.get("text"):
-            combined["messages"].append({"from": agent_id, "text": str(message["text"])})
+        # A message is a plain string; the older {"from", "text"} object form
+        # is still read. Either way the seat signs as itself.
+        text = message.get("text") if isinstance(message, dict) else message
+        if isinstance(text, str) and text.strip():
+            combined["messages"].append({"from": agent_id, "text": text})
     if result.get("plan") and "plan" not in combined:
         combined["plan"] = str(result["plan"])
 

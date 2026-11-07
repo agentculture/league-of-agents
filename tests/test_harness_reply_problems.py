@@ -109,3 +109,34 @@ def test_driver_tells_the_seat_when_nothing_could_be_read(arena, monkeypatch, ca
     capsys.readouterr()
     assert "About your previous reply: your reply contained no JSON object" in prompts[1]
     assert "About your previous reply" not in prompts[0]
+
+
+# -- plain-string messages (the seat reply format since the GLM vs Opus match) --
+
+
+def test_seat_prompt_asks_for_plain_string_messages() -> None:
+    assert '"messages": ["<optional message to your team>"' in harness._SEAT_PROMPT
+    assert '{{"from"' not in harness._SEAT_PROMPT.split("Coordinate through messages")[1]
+
+
+def test_fold_reads_strings_and_the_old_object_form() -> None:
+    combined: dict[str, Any] = {"actions": [], "messages": []}
+    reply = {"messages": ["go north", {"from": "someone-else", "text": "old form"}, "", 7]}
+    harness._fold_seat_reply(combined, reply, "blue-u1", "blue-1")
+    assert combined["messages"] == [
+        {"from": "blue-1", "text": "go north"},
+        {"from": "blue-1", "text": "old form"},
+    ]
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        '{"action": {"action": "hold"}, "messages": ["a \\"x\\"", "b",], "plan": "p"}',
+        '{"action": {"action": "hold"}, "messages": ["a \\"x\\"" "b"], "plan": "p"}',
+    ],
+)
+def test_broken_string_messages_are_recovered(broken: str) -> None:
+    result, seat_note, repair = _parse_seat_reply(broken)
+    assert result["messages"] == ['a "x"', "b"] and result["plan"] == "p"
+    assert result["action"] == {"action": "hold"} and seat_note is None and repair
