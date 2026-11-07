@@ -1155,12 +1155,16 @@ class ColleagueDirectSession:
         self._reasoning_fallback = bool(spec.get("reasoning_fallback", True))
         self.last_finish_reason: str | None = None
         self.last_usage: Any = None
+        # The model's thinking for the last reply, kept for the audit record
+        # only: it is never fed back into the transcript.
+        self.last_reasoning: str | None = None
         self._history: list[dict[str, str]] = []
         if spec.get("system_prompt"):
             self._history.append({"role": "system", "content": str(spec["system_prompt"])})
         self.session_id = f"colleague-direct-{_mint_session_id(match_id, agent_id)}"
 
     def send(self, prompt: str, *, timeout: float) -> str:
+        self.last_reasoning = None
         self._history.append({"role": "user", "content": prompt})
         payload: dict[str, Any] = {
             "model": self._model,
@@ -1189,6 +1193,9 @@ class ColleagueDirectSession:
         # the failure is visible) instead of feeding the raw reasoning back
         # into the transcript as if it were the answer.
         content = message.get("content") or ""
+        inline = re.findall(r"<think>(.*?)</think>", content, flags=re.S)
+        reasoning = message.get("reasoning_content") or "\n".join(t.strip() for t in inline)
+        self.last_reasoning = reasoning or None
         if not content and self._reasoning_fallback:
             content = message.get("reasoning_content") or ""
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.S).strip()
@@ -1305,6 +1312,21 @@ def _events_since(
         or event.get("kind") not in _TEAM_PRIVATE_EVENTS
         or (event.get("data") or {}).get("team_id") == team_id
     ]
+
+
+_SEAT_META = (
+    ("finish_reason", "last_finish_reason"),
+    ("usage", "last_usage"),
+    ("reasoning", "last_reasoning"),
+)
+
+
+def _seat_meta(session: Any) -> dict[str, Any]:
+    """What the session knows about its last reply, for the audit record:
+    finish reason, token usage and, when the model exposes it, its thinking.
+    Absent fields are left out, so records from sessions that expose nothing
+    (the Claude CLI) keep their old shape."""
+    return {k: getattr(session, a) for k, a in _SEAT_META if getattr(session, a, None) is not None}
 
 
 def make_resident_driver(
@@ -1437,7 +1459,7 @@ def make_resident_driver(
             except RuntimeError as err:
                 if match_id:
                     store.append_session_record(
-                        match_id, agent["id"], {**record, "error": str(err)}
+                        match_id, agent["id"], {**record, "error": str(err), **_seat_meta(session)}
                     )
                 print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
                 if sink is not None:
@@ -1454,13 +1476,8 @@ def make_resident_driver(
                     {"agent_id": agent["id"], "unit_id": unit["id"], "elapsed_ms": _elapsed_ms(t0)}
                 )
             if match_id:
-                meta = {
-                    k: getattr(session, a)
-                    for k, a in (("finish_reason", "last_finish_reason"), ("usage", "last_usage"))
-                    if getattr(session, a, None) is not None
-                }
                 store.append_session_record(
-                    match_id, agent["id"], {**record, "received": reply, **meta}
+                    match_id, agent["id"], {**record, "received": reply, **_seat_meta(session)}
                 )
             briefed.add(agent["id"])
             last_seen[agent["id"]] = state["turn"]
