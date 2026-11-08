@@ -499,6 +499,13 @@ _THIEF_RULES = """
     otherwise the rule above stands."""
 
 
+_BURDEN_RULES = """
+- Burden. A unit carrying any cargo (gathered or stolen) moves 1 cell less
+  than its role's move stat that turn, never below 1: a harvester carrying
+  cargo moves 1, a scout or thief moves 2. Cargo counts as of the start of the
+  turn. Each unit's legal-actions line already shows its range this turn."""
+
+
 _EARLY_END_RULES = """
 - Early end. Besides turn {limit}, the match ends (and the leader wins) when
   the leader's lead can no longer be overcome, or when the lead is at least
@@ -573,6 +580,8 @@ def _rules_text(scenario: Mapping[str, Any], fog: bool) -> str:
         text += _HOME_DELIVERY_RULES
     if _has_thief(scenario):
         text += _THIEF_RULES.format()
+    if scenario.get("cargo_slows"):
+        text += _BURDEN_RULES
     early = scenario.get("early_end")
     if early:
         text += _EARLY_END_RULES.format(

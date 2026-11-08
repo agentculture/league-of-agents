@@ -204,6 +204,8 @@ class GenParams:
     early_end_pct: int = 0
     early_end_turns: int = _EARLY_TURNS
     early_end_from: int = _EARLY_FROM
+    # Burden: 1 = a unit carrying cargo moves 1 less (never below 1); 0 = off.
+    cargo_slows: int = 0
 
 
 DEFAULT_PARAMS = GenParams()
@@ -313,6 +315,10 @@ def validate_params(params: GenParams) -> GenParams:
         f"cp_vision {params.cp_vision} out of range [{CP_VISION_MIN}, {CP_VISION_MAX}]",
     )
     _require(
+        params.cargo_slows in (0, 1),
+        f"cargo_slows {params.cargo_slows} must be 0 (off) or 1 (carrying slows by 1)",
+    )
+    _require(
         params.home_delivery in (0, 1),
         f"home_delivery {params.home_delivery} must be 0 (shared, center) or 1 (home corners)",
     )
@@ -347,16 +353,17 @@ def validate_params(params: GenParams) -> GenParams:
 
 # Further optional trailing segments, each emitted only when not default and
 # always in this order: s<node_stock> d<deliver_amount> x<crown_value> z<crown_turns>
-# f<thieves> h<home_delivery> o<cp_vision> q<early_end_pct> j<early_end_turns> v<early_end_from>.
+# f<thieves> h<home_delivery> o<cp_vision> q<early_end_pct> j<early_end_turns> v<early_end_from>
+# b<cargo_slows>.
 _TOKEN_RE = re.compile(
     r"^w(\d+)y(\d+)t(\d+)c(\d+)r(\d+)m(\d+)k(\d+)"
     r"(?:e(\d+))?(?:s(\d+))?(?:d(\d+))?(?:x(\d+))?(?:z(\d+))?(?:f(\d+))?(?:h(\d+))?(?:o(\d+))?"
-    r"(?:q(\d+))?(?:j(\d+))?(?:v(\d+))?$"
+    r"(?:q(\d+))?(?:j(\d+))?(?:v(\d+))?(?:b(\d+))?$"
 )
 _ID_RE = re.compile(
     r"^gen-(\d+)-(w\d+y\d+t\d+c\d+r\d+m\d+k\d+"
     r"(?:e\d+)?(?:s\d+)?(?:d\d+)?(?:x\d+)?(?:z\d+)?(?:f\d+)?(?:h\d+)?(?:o\d+)?"
-    r"(?:q\d+)?(?:j\d+)?(?:v\d+)?)$"
+    r"(?:q\d+)?(?:j\d+)?(?:v\d+)?(?:b\d+)?)$"
 )
 
 
@@ -394,6 +401,8 @@ def params_token(params: GenParams) -> str:
         token += f"j{params.early_end_turns}"
     if params.early_end_from != _EARLY_FROM:
         token += f"v{params.early_end_from}"
+    if params.cargo_slows:
+        token += f"b{params.cargo_slows}"
     return token
 
 
@@ -447,6 +456,7 @@ def parse_generated_id(candidate: str) -> tuple[int, GenParams] | None:
         early_end_pct=int(groups[15]) if groups[15] is not None else 0,
         early_end_turns=int(groups[16]) if groups[16] is not None else _EARLY_TURNS,
         early_end_from=int(groups[17]) if groups[17] is not None else _EARLY_FROM,
+        cargo_slows=int(groups[18]) if groups[18] is not None else 0,
     )
     return int(match.group(1)), params
 
@@ -631,6 +641,12 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
         if params.cp_vision
         else ""
     )
+    burden_note = (
+        " Burden: a unit carrying any cargo moves 1 cell less than its role's move "
+        "stat (never below 1)."
+        if params.cargo_slows
+        else ""
+    )
     early_end = None
     early_note = ""
     if params.early_end_pct:
@@ -654,7 +670,7 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
             f"{2 * params.hold_mission_pairs} hold mission(s). "
             "180-degree rotational symmetry — team spawns and every objective "
             "mirror through the center, so both teams face an identical board."
-            f"{roster_note}{home_note}{cp_note}{crown_note}{early_note}"
+            f"{roster_note}{home_note}{cp_note}{burden_note}{crown_note}{early_note}"
         ),
         grid_width=width,
         grid_height=height,
@@ -670,4 +686,5 @@ def generate(seed: int, params: GenParams = DEFAULT_PARAMS) -> Scenario:
         crown=crown,
         early_end=early_end,
         cp_vision=params.cp_vision,
+        cargo_slows=bool(params.cargo_slows),
     )
