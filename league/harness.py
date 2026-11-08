@@ -438,7 +438,9 @@ _RULES = """Rules (complete — nothing else applies):
 - Deliver mission: completes when a team's resources reach its amount; if
   both teams reach it on the same turn, both get it.
 - Score (competitive): mission rewards + 2 points per control point owned at
-  the end + delivered resources. Higher total wins; equal totals draw.
+  the end + delivered resources. Each mission in the state lists its "reward":
+  the points the completing team scores (the "amount" is its target, not its
+  value). Higher total wins; equal totals draw.
 - Team play. Each unit is controlled by its own agent. Teammates see your
   messages and declared plan; the other team does not. Declared plans and
   team messages are free and are scored for cooperation quality."""
@@ -1488,6 +1490,7 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
                 "kind": m.get("kind"),
                 "pos": m.get("pos"),
                 "amount": m.get("amount"),
+                "reward": m.get("reward"),
                 "status": m.get("status"),
                 **({"team_id": m["team_id"]} if m.get("team_id") else {}),
             }
