@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-11-09
+
+### Added
+
+- Opt-in structured output for resident seats (`"structured_output": true`): the reply is constrained to the board's reply format as a JSON schema (`response_format` for an OpenAI-compatible server, `--json-schema` for the Claude CLI). Off by default
+- Each seat's thinking is kept in its session record (`reasoning`), on success and on failure
+- `python -m league.clarity`: replays recorded game moments (mistaken orders plus legal controls) against any mix of models with today's prompt wording and checks the replies mechanically; `wait_idle_metrics` waits for an idle server between checks
+
+### Changed
+
+- Seats send messages as plain strings (`"messages": ["text", ...]`); the object form is still read. Every recorded JSON slip was in the old message objects
+- Legal moves for a unit with many targets are stated as the exact Manhattan rule (`|x-18| + |y-13| <= 3`) instead of a bounding box that included out-of-range diagonal cells
+- A capture-incapable unit ending on a control point gets a NOTES line (its order was carried out), not a rejection; the thief rules spell out that a named target must be that unit and that a failed steal costs nothing more
+
+### Fixed
+
+- A JSON slip in a resident seat's reply no longer drops the order silently: the reply is recovered as fully as possible (in GLM vs Sonnet a slip had cost one side 14 of 126 orders)
+
 ## [0.19.0] - 2026-11-06
 
 ### Added
