@@ -110,6 +110,15 @@ chatter; ``True`` keeps today's unfiltered relay (master + teammates). Every
 seat's own messages still land in the match log either way — filtering only
 trims what a later seat is *shown*, never what is recorded.
 
+**Live seat output and seat settings (issue #47).** With ``"live_output":
+true`` in the match config, a resident seat whose transport streams
+(``claude``, ``colleague``, ``pi``) keeps ``.league/matches/<id>/live/
+<agent-id>.json`` current while it answers (:class:`LiveSeatWriter`). Every
+match also records each seat's ``tools``/``network`` in ``seats.json``
+(:func:`seat_settings`, failing closed), shown by ``match show --json`` as
+``seats``. The ``pi`` transport (:class:`PiSession`) runs pi with no tools
+and no MCP and captures the model's reasoning text.
+
 **Bot drivers stay full-information under fog, by default.**
 ``make_bot_driver`` (the in-harness greedy bot) always reads scenario
 furniture (control points, missions, resource nodes) directly out of
@@ -142,6 +151,7 @@ import re
 # Command drivers run operator-configured argv without a shell.
 import subprocess  # nosec B404
 import sys
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -1270,9 +1280,13 @@ class ClaudeCliSession:
     """
 
     transport = "claude-cli"
+    #: Can report partial output while answering (``send(on_progress=...)``).
+    streams = True
 
     def __init__(self, spec: Mapping[str, Any], match_id: str, agent_id: str) -> None:
         self._command = str(spec.get("command", "claude"))
+        self.last_usage: Any = None
+        self.last_reasoning: str | None = None
         self._model = spec.get("model")
         # Extra CLI flags (e.g. --effort, --tools "") and a system prompt that
         # REPLACES the CLI's own, so a claude seat and an HTTP seat can be
@@ -1308,7 +1322,67 @@ class ClaudeCliSession:
                 f"claude-cli session {self.session_id} timed out after {timeout}s"
             ) from err
 
-    def send(self, prompt: str, *, timeout: float) -> str:
+    def _send_streaming(
+        self, prompt: str, timeout: float, on_progress: Callable[[str, str], None]
+    ) -> str:
+        """``--output-format stream-json``: forward text (and any thinking) as it
+        arrives; the final ``result`` event is the reply. ``claude -p`` returns
+        no thinking text in practice, so ``thinking_so_far`` normally stays empty.
+        """
+        stream_flags = ["--output-format", "stream-json", "--verbose", "--include-partial-messages"]
+
+        def attempt(flag: str) -> tuple[int, str, dict[str, Any]]:
+            got: dict[str, Any] = {"text": [], "thinking": [], "result": None, "usage": None}
+
+            def on_line(line: str) -> None:
+                event = json.loads(line)
+                kind = event.get("type")
+                if kind == "stream_event":
+                    inner = event.get("event") or {}
+                    delta = inner.get("delta") or {}
+                    if inner.get("type") == "content_block_delta":
+                        if delta.get("type") == "text_delta":
+                            got["text"].append(str(delta.get("text", "")))
+                        elif delta.get("type") == "thinking_delta":
+                            got["thinking"].append(str(delta.get("thinking", "")))
+                        on_progress("".join(got["thinking"]), "".join(got["text"]))
+                elif kind == "result":
+                    got["result"] = event.get("result")
+                    got["usage"] = event.get("usage")
+                    got["is_error"] = bool(event.get("is_error"))
+
+            try:
+                code, err = _stream_process(
+                    self._argv(flag) + stream_flags, prompt, timeout, on_line
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError(
+                    f"claude-cli session {self.session_id} timed out after {timeout}s"
+                ) from exc
+            return code, err, got
+
+        code, err, got = attempt("--resume" if self._started else "--session-id")
+        if code != 0 and not self._started:
+            code, err, got = attempt("--resume")
+        if code != 0 or got.get("is_error"):
+            raise RuntimeError(
+                f"claude-cli session {self.session_id} failed (exit {code}): {err.strip()[:300]}"
+            )
+        self._started = True
+        self.last_usage = got["usage"]
+        self.last_reasoning = "".join(got["thinking"]) or None
+        reply = got["result"] if isinstance(got["result"], str) else "".join(got["text"])
+        return reply
+
+    def send(
+        self,
+        prompt: str,
+        *,
+        timeout: float,
+        on_progress: Callable[[str, str], None] | None = None,
+    ) -> str:
+        if on_progress is not None:
+            return self._send_streaming(prompt, timeout, on_progress)
         proc = self._run(
             self._argv("--resume" if self._started else "--session-id"), prompt, timeout
         )
@@ -1340,6 +1414,88 @@ def _http_post_json(url: str, payload: dict[str, Any], timeout: float) -> dict[s
         return json.load(response)
 
 
+def _http_post_stream(url: str, payload: dict[str, Any], timeout: float):
+    """POST and yield each server-sent ``data:`` JSON chunk (OpenAI streaming)."""
+    if not url.startswith(("http://", "https://")):
+        raise RuntimeError(f"colleague-direct base_url must be http(s), got {url!r}")
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310
+        for raw in response:
+            line = raw.decode("utf-8", "replace").strip()
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            try:
+                yield json.loads(data)
+            except ValueError:
+                continue
+
+
+def _stream_process(
+    argv: list[str],
+    prompt: str,
+    timeout: float,
+    on_line: Callable[[str], None],
+    *,
+    cwd: str | None = None,
+) -> tuple[int, str]:
+    """Run ``argv`` with ``prompt`` on stdin, handing each stdout line to
+    ``on_line`` as it arrives. Returns ``(returncode, stderr)``; raises
+    ``subprocess.TimeoutExpired`` (after killing the process) on timeout.
+
+    Readers run on threads so a chatty child can never block on a full pipe
+    while the prompt is still being written.
+    """
+    # Operator-configured command, shell=False, bounded by timeout.
+    proc = subprocess.Popen(  # nosec B603
+        argv,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=cwd,
+    )
+    err_parts: list[str] = []
+
+    def _read_out() -> None:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            line = line.rstrip("\n")
+            if line:
+                with contextlib.suppress(Exception):
+                    on_line(line)
+
+    def _read_err() -> None:
+        assert proc.stderr is not None
+        err_parts.append(proc.stderr.read())
+
+    readers = [threading.Thread(target=f, daemon=True) for f in (_read_out, _read_err)]
+    for t in readers:
+        t.start()
+    try:
+        assert proc.stdin is not None
+        with contextlib.suppress(BrokenPipeError):
+            proc.stdin.write(prompt)
+            proc.stdin.close()
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        raise
+    finally:
+        for t in readers:
+            t.join(timeout=5)
+    return proc.returncode, "".join(err_parts)
+
+
 class ColleagueDirectSession:
     """A colleague seat: the driver-held transcript IS the session.
 
@@ -1351,6 +1507,7 @@ class ColleagueDirectSession:
     """
 
     transport = "colleague-direct"
+    streams = True
 
     def __init__(self, spec: Mapping[str, Any], match_id: str, agent_id: str) -> None:
         model = spec.get("model")
@@ -1381,10 +1538,16 @@ class ColleagueDirectSession:
             self._history.append({"role": "system", "content": str(spec["system_prompt"])})
         self.session_id = f"colleague-direct-{_mint_session_id(match_id, agent_id)}"
 
-    def send(self, prompt: str, *, timeout: float) -> str:
-        self.last_reasoning = None
+    def send(
+        self,
+        prompt: str,
+        *,
+        timeout: float,
+        on_progress: Callable[[str, str], None] | None = None,
+    ) -> str:
         self.last_finish_reason = None
         self.last_usage = None
+        self.last_reasoning = None
         self._history.append({"role": "user", "content": prompt})
         payload: dict[str, Any] = {
             "model": self._model,
@@ -1402,15 +1565,40 @@ class ColleagueDirectSession:
                 "type": "json_schema",
                 "json_schema": {"name": "seat_reply", "schema": self.reply_schema},
             }
+        url = f"{self._base_url}/chat/completions"
         try:
-            data = _http_post_json(f"{self._base_url}/chat/completions", payload, timeout)
+            if on_progress is None:
+                data = _http_post_json(url, payload, timeout)
+                choice = data["choices"][0]
+                message = choice["message"]
+            else:
+                payload["stream"] = True
+                payload["stream_options"] = {"include_usage": True}
+                thinking: list[str] = []
+                text: list[str] = []
+                finish: str | None = None
+                usage: Any = None
+                for chunk in _http_post_stream(url, payload, timeout):
+                    if chunk.get("usage"):
+                        usage = chunk["usage"]
+                    for part in chunk.get("choices") or []:
+                        delta = part.get("delta") or {}
+                        piece = delta.get("reasoning_content") or delta.get("reasoning")
+                        if piece:
+                            thinking.append(str(piece))
+                        if delta.get("content"):
+                            text.append(str(delta["content"]))
+                        if part.get("finish_reason"):
+                            finish = part["finish_reason"]
+                    on_progress("".join(thinking), "".join(text))
+                choice = {"finish_reason": finish}
+                message = {"content": "".join(text), "reasoning_content": "".join(thinking)}
+                data = {"usage": usage}
         except OSError as err:
             # The model never saw this message — keep the transcript honest
             # so the next attempt isn't preceded by a phantom user turn.
             self._history.pop()
             raise RuntimeError(f"colleague-direct session {self.session_id}: {err}") from err
-        choice = data["choices"][0]
-        message = choice["message"]
         # The Qwen gotcha (spike, scripts/openai_driver.py): thinking models
         # may return content=None with the answer in reasoning_content. That
         # fallback is opt-in now: with "reasoning_fallback": false, a reply
@@ -1439,6 +1627,131 @@ class ColleagueDirectSession:
         return content
 
 
+#: pi flags that would give a seat tools; a pi seat refuses them (issue #47).
+_PI_TOOL_FLAGS = frozenset({"--tools", "-t", "--no-builtin-tools", "-nbt", "--mcp"})
+
+
+class PiSession:
+    """A pi seat (pi.dev): ``pi -p --mode json`` with **no tools and no MCP**.
+
+    pi keeps the conversation itself: ``--session-dir`` under the match folder
+    plus a deterministic ``--session-id`` resumes the same seat's session
+    every turn, and after a crash. ``--no-context-files`` and
+    ``--no-prompt-templates`` stop pi from reading ``AGENTS.md``/``CLAUDE.md``
+    or templates from the working directory, and ``--system-prompt`` replaces
+    pi's own coding-assistant preamble, so a pi seat can be handed the same
+    system prompt as every other seat. The prompt goes in on stdin (briefings
+    exceed a single argv entry). JSON mode streams ``thinking_delta`` and
+    ``text_delta`` events, so the seat's reasoning text is captured.
+    """
+
+    transport = "pi-print"
+    streams = True
+
+    def __init__(self, spec: Mapping[str, Any], match_id: str, agent_id: str) -> None:
+        model = spec.get("model")
+        if not model:
+            raise ValueError("a 'pi' resident transport needs a 'model' in the driver spec")
+        self._command = str(spec.get("command", "pi"))
+        self._model = str(model)
+        self._args = [str(a) for a in spec.get("args", [])]
+        bad = sorted(_PI_TOOL_FLAGS.intersection(self._args))
+        if bad:
+            raise ValueError(f"a pi seat runs without tools; remove {', '.join(bad)} from 'args'")
+        self._system_prompt = spec.get("system_prompt")
+        self._thinking = spec.get("thinking")
+        self.session_id = _mint_session_id(match_id, agent_id)
+        self._session_dir = (
+            Store().match_dir(match_id) / "pi-sessions" / validate_id(agent_id, what="agent id")
+            if match_id
+            else None
+        )
+        self.last_usage: Any = None
+        self.last_reasoning: str | None = None
+        self.last_finish_reason: str | None = None
+
+    def _argv(self) -> list[str]:
+        argv = [self._command, "-p", "--mode", "json", "--model", self._model]
+        argv += ["--no-tools", "--no-mcp", "--no-context-files", "--no-prompt-templates"]
+        if self._session_dir is not None:
+            argv += ["--session-dir", str(self._session_dir), "--session-id", self.session_id]
+        else:
+            argv += ["--no-session"]
+        if self._system_prompt:
+            argv += ["--system-prompt", str(self._system_prompt)]
+        if self._thinking:
+            argv += ["--thinking", str(self._thinking)]
+        return argv + self._args
+
+    def send(
+        self,
+        prompt: str,
+        *,
+        timeout: float,
+        on_progress: Callable[[str, str], None] | None = None,
+    ) -> str:
+        got: dict[str, Any] = {"thinking": [], "text": [], "final": None, "usage": None}
+
+        def on_line(line: str) -> None:
+            event = json.loads(line)
+            kind = event.get("type")
+            if kind == "message_update":
+                if event.get("usage"):
+                    got["usage"] = event["usage"]
+                inner = event.get("assistantMessageEvent") or {}
+                if inner.get("type") == "thinking_delta":
+                    got["thinking"].append(str(inner.get("delta", "")))
+                elif inner.get("type") == "text_delta":
+                    got["text"].append(str(inner.get("delta", "")))
+                else:
+                    return
+                if on_progress is not None:
+                    on_progress("".join(got["thinking"]), "".join(got["text"]))
+            elif kind == "turn_end":
+                message = event.get("message") or {}
+                parts = message.get("content") or []
+                got["final"] = "".join(
+                    str(p.get("text", ""))
+                    for p in parts
+                    if isinstance(p, dict) and p.get("type") == "text"
+                )
+                got["stop"] = message.get("stopReason") or message.get("stop_reason")
+
+        if self._session_dir is not None:
+            self._session_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            code, err = _stream_process(
+                self._argv(),
+                prompt,
+                timeout,
+                on_line,
+                cwd=str(self._session_dir) if self._session_dir is not None else None,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"pi session {self.session_id} timed out after {timeout}s") from exc
+        if code != 0:
+            raise RuntimeError(
+                f"pi session {self.session_id} failed (exit {code}): {err.strip()[:300]}"
+            )
+        usage = got["usage"] or {}
+        self.last_usage = (
+            {
+                "prompt_tokens": usage.get("input"),
+                "completion_tokens": usage.get("output"),
+                "reasoning_tokens": usage.get("reasoning"),
+            }
+            if usage
+            else None
+        )
+        self.last_reasoning = "".join(got["thinking"]) or None
+        self.last_finish_reason = got.get("stop")
+        reply = got["final"] if got["final"] else "".join(got["text"])
+        reply = reply.strip()
+        if not reply:
+            raise RuntimeError(f"pi session {self.session_id}: empty answer")
+        return reply
+
+
 def _spec_bool(spec: Mapping[str, Any], key: str, default: bool) -> bool:
     """A boolean driver-spec field: a real bool, or the strings "true"/"false"
     (from YAML/env passthrough). Anything else is a loud error, never a silent
@@ -1456,7 +1769,63 @@ def _spec_bool(spec: Mapping[str, Any], key: str, default: bool) -> bool:
 SESSION_TRANSPORTS: dict[str, Callable[[Mapping[str, Any], str, str], Any]] = {
     "claude": ClaudeCliSession,
     "colleague": ColleagueDirectSession,
+    "pi": PiSession,
 }
+
+
+# -- live seat output: what a seat has produced so far (issue #47) ---------
+
+
+class LiveSeatWriter:
+    """Keeps ``.league/matches/<id>/live/<agent-id>.json`` current while a seat
+    answers: written once when the seat starts (empty, ``done: false``), then
+    at most every ``interval`` seconds as tokens arrive, and once more with
+    ``done: true`` when the reply is complete (or the seat failed). Each write
+    is atomic (:meth:`league.store.Store.write_live_seat`). Harness-side only:
+    it never touches the match log, so state and its hash are unaffected.
+    """
+
+    def __init__(
+        self,
+        store: Store,
+        match_id: str,
+        agent_id: str,
+        turn: int,
+        *,
+        interval: float = 5.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._store, self._match_id, self._agent_id, self._turn = store, match_id, agent_id, turn
+        self._interval, self._clock = float(interval), clock
+        self.thinking = ""
+        self.response = ""
+        self._last = self._clock()
+        self._write(done=False)
+
+    def _write(self, *, done: bool, error: str | None = None) -> None:
+        record: dict[str, Any] = {
+            "turn": self._turn,
+            "agent_id": self._agent_id,
+            "thinking_so_far": self.thinking,
+            "response_so_far": self.response,
+            "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "done": done,
+        }
+        if error:
+            record["error"] = error
+        self._store.write_live_seat(self._match_id, self._agent_id, record)
+
+    def update(self, thinking: str, response: str) -> None:
+        self.thinking, self.response = thinking, response
+        now = self._clock()
+        if now - self._last >= self._interval:
+            self._last = now
+            self._write(done=False)
+
+    def finish(self, *, reply: str | None = None, error: str | None = None) -> None:
+        if reply is not None and not self.response:
+            self.response = reply
+        self._write(done=True, error=error)
 
 
 _RESIDENT_NOTE = """This is a resident session: it lasts the whole match. This turn-1 briefing is
@@ -1599,6 +1968,8 @@ def make_resident_driver(
     agents: list[dict[str, Any]],
     *,
     fog: bool = False,
+    live: bool = False,
+    live_interval: float = 5.0,
 ) -> Driver:
     """One long-lived session per seat for the whole match (per-seat by
     definition). Turn 1 = full briefing into a fresh session; turn N>1 = delta
@@ -1613,6 +1984,10 @@ def make_resident_driver(
     (:func:`_knowledge_delta`) instead of the raw log — the raw log would
     otherwise show every team's moves regardless of vision. Legal actions are
     unaffected: a unit always knows its own, fog or not.
+
+    With ``live=True`` (issue #47) a seat whose transport ``streams`` keeps
+    ``.league/matches/<id>/live/<agent-id>.json`` current while it answers —
+    see :class:`LiveSeatWriter`.
     """
     transport = spec.get("transport")
     if transport not in SESSION_TRANSPORTS:
@@ -1728,10 +2103,20 @@ def make_resident_driver(
                 "transport": session.transport,
                 "sent": prompt,
             }
+            writer = (
+                LiveSeatWriter(store, match_id, agent["id"], turn, interval=live_interval)
+                if live and match_id and getattr(session, "streams", False)
+                else None
+            )
             t0 = time.perf_counter()
             try:
-                reply = session.send(prompt, timeout=timeout)
+                if writer is not None:
+                    reply = session.send(prompt, timeout=timeout, on_progress=writer.update)
+                else:
+                    reply = session.send(prompt, timeout=timeout)
             except RuntimeError as err:
+                if writer is not None:
+                    writer.finish(error="the seat could not answer this turn")
                 if match_id:
                     store.append_session_record(
                         match_id, agent["id"], {**record, "error": str(err), **_seat_meta(session)}
@@ -1746,6 +2131,8 @@ def make_resident_driver(
                         }
                     )
                 continue
+            if writer is not None:
+                writer.finish(reply=reply)
             if sink is not None:
                 sink.append(
                     {"agent_id": agent["id"], "unit_id": unit["id"], "elapsed_ms": _elapsed_ms(t0)}
@@ -1783,8 +2170,11 @@ def build_driver(
     fog: bool = False,
     map_read: str = "fog",
     unit_comms: bool = True,
+    live: bool = False,
+    live_interval: float = 5.0,
 ) -> Driver:
-    """``fog`` only reaches the ``command``/``resident`` factories — bot and
+    """``live``/``live_interval`` (issue #47) only reach a ``resident`` driver.
+    ``fog`` only reaches the ``command``/``resident`` factories — bot and
     bot-file drivers stay full-information regardless (documented asymmetry,
     see the module docstring's "Fog of war" section). ``map_read``/
     ``unit_comms`` are orchestrator mode's declared fairness axes (plan t6,
@@ -1799,7 +2189,9 @@ def build_driver(
     if kind == "bot-file":
         return make_bot_file_driver(spec)
     if kind == "resident":  # per-seat by definition
-        return make_resident_driver(spec, scenario, agents or [], fog=fog)
+        return make_resident_driver(
+            spec, scenario, agents or [], fog=fog, live=live, live_interval=live_interval
+        )
     if kind == "command" and spec.get("per_seat"):
         return make_per_seat_driver(
             spec, scenario, agents or [], fog=fog, map_read=map_read, unit_comms=unit_comms
@@ -1846,6 +2238,81 @@ def driver_kind(spec: Mapping[str, Any]) -> str:
     raise ValueError(
         f"unknown driver type {kind!r}; expected 'bot', 'bot-file', 'command' or 'resident'"
     )
+
+
+# -- seat settings: tools and network per seat (issue #47) -----------------
+#
+# Recorded per seat in ``.league/matches/<id>/seats.json`` and shown by
+# ``league match show --json`` as ``seats``. A consumer (the live evals site)
+# publishes team chat and reasoning while a match runs only when every seat
+# has ``tools: false`` and ``network: false`` — a seat that could browse could
+# otherwise read the other team's live plans. Values fail closed: anything the
+# harness cannot verify is recorded as ``true`` unless the roster says so.
+
+
+def _claude_tools_off(args: list[str]) -> bool:
+    """A ``claude -p`` seat has tools off only when ``--tools ""`` is passed."""
+    for i, arg in enumerate(args):
+        if arg == "--tools" and i + 1 < len(args) and args[i + 1].strip() in ("", '""', "''"):
+            return True
+        if arg.startswith("--tools=") and arg.split("=", 1)[1].strip() in ("", '""', "''"):
+            return True
+    return False
+
+
+def seat_settings(
+    spec: Mapping[str, Any], agent: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """``{"tools", "network", "runtime"}`` for one seat of a team with driver ``spec``.
+
+    ``bot``/``bot-file`` seats, ``colleague`` (a plain HTTP completion with no
+    tools defined) and ``pi`` (always run with ``--no-tools --no-mcp``) are
+    tool-free by construction. A ``claude`` seat is tool-free only with
+    ``--tools ""`` in its args. A ``command`` driver runs an arbitrary program,
+    so its seats are recorded as having tools and network unless the roster
+    declares ``"tools": false`` / ``"network": false`` on the driver or the seat.
+    For the other kinds a declaration can only widen (a declared ``true`` is
+    recorded), never hide a tool the harness can see.
+    """
+    kind = spec.get("type")
+    agent = agent or {}
+    if kind in ("bot", "bot-file"):
+        derived = {"tools": False, "network": False, "runtime": str(kind)}
+    elif kind == "resident":
+        transport = spec.get("transport")
+        if transport == "colleague":
+            derived = {"tools": False, "network": False, "runtime": "colleague-direct"}
+        elif transport == "pi":
+            derived = {"tools": False, "network": False, "runtime": "pi-print"}
+        elif transport == "claude":
+            off = _claude_tools_off([str(a) for a in spec.get("args", [])])
+            derived = {"tools": not off, "network": not off, "runtime": "claude-cli"}
+        else:
+            derived = {"tools": True, "network": True, "runtime": str(transport)}
+    elif kind == "command":
+        out = {"runtime": "command"}
+        for key in ("tools", "network"):
+            out[key] = bool(agent.get(key, spec.get(key, True)))
+        return out
+    else:
+        raise ValueError(f"unknown driver type {kind!r}")
+    for key in ("tools", "network"):
+        if agent.get(key, spec.get(key)) is True:
+            derived[key] = True
+    return derived
+
+
+def _record_seats(match_id: str, teams: list[Mapping[str, Any]]) -> dict[str, Any]:
+    seats: dict[str, Any] = {}
+    for team in teams:
+        for agent in team.get("agents", []):
+            seats[agent["id"]] = {
+                "team_id": team["id"],
+                "model": agent.get("model"),
+                **seat_settings(team["driver"], agent),
+            }
+    Store().write_seats(match_id, seats)
+    return seats
 
 
 # -- the run loop -----------------------------------------------------------
@@ -1945,6 +2412,10 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
         created = _cli_json(new_argv + ["--apply"])
         match_id = created["match_id"]
 
+    _record_seats(match_id, config["teams"])
+    # Live seat output (issue #47): opt-in, harness-side only.
+    live = bool(config.get("live_output", False))
+    live_interval = float(config.get("live_interval", 5.0))
     drivers = {
         t["id"]: build_driver(
             t["driver"],
@@ -1953,6 +2424,8 @@ def run_match(config: Mapping[str, Any], *, on_turn: Callable[[dict], None] | No
             fog=fog,
             map_read=t.get("map_read", "fog"),
             unit_comms=t.get("unit_comms", True),
+            live=live,
+            live_interval=live_interval,
         )
         for t in config["teams"]
     }

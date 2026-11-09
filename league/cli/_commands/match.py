@@ -661,6 +661,9 @@ def cmd_match_show(args: argparse.Namespace) -> int:
             "map_read": log.map_read,
             "unit_comms": log.unit_comms,
             "max_actions": log.max_actions,
+            # Per-seat tool/network settings the harness recorded (issue #47);
+            # {} for a match no harness configured.
+            "seats": store.read_seats(args.match_id),
         }
         if fog:
             # Additive and read-only: swaps only this response's "state" for

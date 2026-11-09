@@ -49,7 +49,7 @@ from league.store import validate_id
 # (see the module docstring's one-way-dependency note). A regression test
 # (tests/test_presets.py::test_resident_transports_mirror_the_harness_session_transports)
 # asserts the two never drift apart.
-_RESIDENT_TRANSPORTS: tuple[str, ...] = ("claude", "colleague")
+_RESIDENT_TRANSPORTS: tuple[str, ...] = ("claude", "colleague", "pi")
 
 _DRIVER_TYPES = ("bot", "bot-file", "command", "resident")
 
@@ -274,6 +274,39 @@ def _resident_vs_bot() -> Preset:
     )
 
 
+def _pi_nemotron_vs_bot() -> Preset:
+    """A pi seat team (issue #47): Nemotron 3.5 Super on the lobes gateway's
+    ``worker`` model through pi, with no tools and no MCP, one persistent pi
+    session per seat, on the small Skirmish board against the greedy bot."""
+    return Preset(
+        name="pi-nemotron-vs-bot",
+        description=(
+            "One persistent pi session per seat running Nemotron 3.5 Super (lobes "
+            "'worker') with no tools and no MCP, on Skirmish, against the "
+            "deterministic greedy bot baseline."
+        ),
+        scenario_id="skirmish-1",
+        mode="competitive",
+        seed=20261109,
+        teams=(
+            TeamPreset(
+                id="nemotron",
+                name="Nemotron (pi)",
+                driver={
+                    "type": "resident",
+                    "transport": "pi",
+                    "command": "pi",
+                    "model": "lobes/worker",
+                    "timeout": _DEFAULT_TIMEOUT,
+                },
+                model="nemotron-3.5-super",
+            ),
+            _bot_side("house", "House Baseline"),
+        ),
+        fog=False,
+    )
+
+
 def _build_registry() -> tuple[Preset, ...]:
     """Declaration order IS the stable order — the one place a new preset is
     wired in (a data entry, per the module docstring)."""
@@ -283,6 +316,7 @@ def _build_registry() -> tuple[Preset, ...]:
         _team_vs_team(),
         _orchestrator_vs_bot(),
         _resident_vs_bot(),
+        _pi_nemotron_vs_bot(),
     )
 
 
