@@ -13,11 +13,14 @@ Layout::
       matches/<match-id>/log.jsonl
       matches/<match-id>/pending/<team-id>.json
       matches/<match-id>/sessions/<agent-id>.jsonl
+      matches/<match-id>/live/<agent-id>.json     in-progress seat output (issue #47)
+      matches/<match-id>/seats.json               per-seat tool/network settings (issue #47)
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -143,6 +146,42 @@ class Store:
         with path.open("a", encoding="utf-8") as fh:
             fh.write(_canon(record) + "\n")
         return path
+
+    # -- live seat output and seat settings (issue #47) ---------------------
+
+    def live_dir(self, match_id: str) -> Path:
+        return self.match_dir(match_id) / "live"
+
+    def live_seat_path(self, match_id: str, agent_id: str) -> Path:
+        return self.live_dir(match_id) / f"{validate_id(agent_id, what='agent id')}.json"
+
+    def write_live_seat(self, match_id: str, agent_id: str, record: dict[str, Any]) -> Path:
+        """Replace a seat's in-progress file atomically (temp file + rename), so a
+        reader polling it never sees half a JSON document."""
+        path = self.live_seat_path(match_id, agent_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(f".{path.name}.tmp")
+        tmp.write_text(_canon(record) + "\n", encoding="utf-8")
+        os.replace(tmp, path)
+        return path
+
+    def seats_path(self, match_id: str) -> Path:
+        return self.match_dir(match_id) / "seats.json"
+
+    def write_seats(self, match_id: str, seats: dict[str, Any]) -> Path:
+        path = self.seats_path(match_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(f".{path.name}.tmp")
+        tmp.write_text(_canon(seats) + "\n", encoding="utf-8")
+        os.replace(tmp, path)
+        return path
+
+    def read_seats(self, match_id: str) -> dict[str, Any]:
+        """Per-seat settings recorded by the harness, or ``{}`` when none were."""
+        path = self.seats_path(match_id)
+        if not path.exists():
+            return {}
+        return json.loads(path.read_text(encoding="utf-8"))
 
     # -- pending orders (staged by `match act`, consumed by resolution) ----
 

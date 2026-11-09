@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-11-09
+
+### Added
+
+- Live seat output (issue #47): with `"live_output": true` in a match config, each resident seat whose transport streams keeps `.league/matches/<id>/live/<agent-id>.json` current while it answers (`turn`, `agent_id`, `thinking_so_far`, `response_so_far`, `updated`, `done`). It is written when the seat starts, at most every `live_interval` seconds (default 5) as tokens arrive, and once more with `done: true` (plus `error` if the seat failed). Each write is atomic (temp file and rename). Harness-side only: the match log and state hash are unchanged
+- Streaming in both resident transports when live output is on: the OpenAI-compatible transport streams `reasoning_content` and `content`; `claude -p` uses `--output-format stream-json` and fills the response only (it returns no thinking text)
+- Per-seat tool and network settings: `.league/matches/<id>/seats.json` and a `seats` block in `match show --json`, per seat `{team_id, model, tools, network, runtime}`. Values fail closed: bot, bot-file, `colleague` and `pi` seats are tool-free by construction; a `claude` seat only with `--tools ""`; a `command` seat has tools and network unless the roster declares `"tools": false` / `"network": false` on the driver or the seat
+- A `pi` resident transport (`pi-print`): `pi -p --mode json` with `--no-tools --no-mcp --no-context-files --no-prompt-templates`, one persistent pi session per seat under the match folder, the prompt on stdin, and `--system-prompt` so a pi seat gets the same system prompt as every other seat. Tool flags in `args` are refused. Reasoning text is captured from `thinking_delta` events, with token usage
+- Session records carry `reasoning` when the transport returns it
+- The `pi-nemotron-vs-bot` preset: Nemotron 3.5 Super (lobes `worker`) through pi on Skirmish against the greedy bot
+
 ## [0.19.0] - 2026-11-06
 
 ### Added
