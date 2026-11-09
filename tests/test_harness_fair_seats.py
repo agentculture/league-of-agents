@@ -73,10 +73,10 @@ def test_colleague_session_no_reasoning_fallback_raises_on_empty(monkeypatch):
     # The failed exchange is dropped: no phantom user turn, no empty answer.
     assert s._history == []
     assert (s.last_finish_reason, s.last_usage) == ("length", {"completion_tokens": 32768})
-    assert harness._turn_meta(s) == {
+    assert harness._seat_meta(s) == {
         "finish_reason": "length",
         "usage": {"completion_tokens": 32768},
-        # 0.20.0: the seat's reasoning is recorded too, even on a failed turn
+        # the seat's thinking is kept in the record, even on a failed turn
         "reasoning": "thinking...",
     }
 
@@ -147,3 +147,41 @@ def test_compact_state_carries_the_crown():
     state = {"turn": 3, "teams": [], "units": [], "crown": {"pos": [6, 5], "value": 4}}
     assert harness._compact_state(state)["crown"]["value"] == 4
     assert "crown" not in harness._compact_state({**state, "crown": None})
+
+
+def test_compact_state_shows_each_missions_reward():
+    """A seat must see what a mission is worth: the rules score "mission rewards",
+    so the per-turn state carries each mission's reward next to its amount."""
+    state = {
+        "units": [],
+        "control_points": [],
+        "resource_nodes": [],
+        "missions": [
+            {
+                "id": "ms-hold-2b",
+                "kind": "hold",
+                "pos": [20, 6],
+                "amount": 3,
+                "reward": 8,
+                "status": "open",
+            },
+            {
+                "id": "ms-deliver-a",
+                "kind": "deliver",
+                "pos": [0, 0],
+                "amount": 10,
+                "reward": 10,
+                "status": "open",
+                "team_id": "blue",
+            },
+        ],
+    }
+    missions = {m["id"]: m for m in harness._compact_state(state)["missions"]}
+    assert missions["ms-hold-2b"]["reward"] == 8
+    assert missions["ms-hold-2b"]["amount"] == 3
+    assert missions["ms-deliver-a"]["reward"] == 10
+
+
+def test_rules_say_where_the_reward_is():
+    text = harness._rules_text({"capture_hold_turns": 2}, fog=False)
+    assert '"reward"' in text and "not its" in text

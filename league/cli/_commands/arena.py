@@ -70,6 +70,8 @@ def _scenario_dict(s: Scenario) -> dict[str, object]:
         }
     if s.cp_vision:
         out["cp_vision"] = s.cp_vision
+    if s.cargo_slows:
+        out["cargo_slows"] = True
     if s.early_end is not None:
         out["early_end"] = {
             "ratio_pct": s.early_end.ratio_pct,

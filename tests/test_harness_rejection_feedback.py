@@ -232,7 +232,10 @@ def test_commander_prompt_cites_legal_actions_surface(arena, capsys) -> None:
     # blue-u1 (scout, move=3, at (0, 0)) has 9 in-range cells — over the
     # 8-cell threshold, so it's summarized (count + bounds), not listed raw,
     # and the beyond-range mistake never appears as if it were legal.
-    assert "blue-u1: move to 9 cells, x in [0, 3], y in [0, 3]; gather: no; deliver: no" in prompt
+    assert (
+        "blue-u1: move to 9 cells: any on-grid [x, y] with |x-0| + |y-0| <= 3 "
+        "(steps add up: 2 across and 2 up is 4, not 2); gather: no; deliver: no" in prompt
+    )
     assert "[4, 0]" not in prompt.split("Legal actions right now:")[1].split("\n\n")[0]
     # blue-u2 (harvester, move=2) has few enough targets to list in full.
     assert "blue-u2: move to [[0, 0], [0, 1]" in prompt
@@ -268,7 +271,7 @@ def test_per_seat_prompt_cites_only_its_own_units_legal_actions(arena, capsys) -
     texts = [m["text"] for m in orders["messages"]]
 
     u1_prompt = next(t for t in texts if "You control ONLY unit blue-u1" in t)
-    assert "blue-u1: move to 9 cells, x in [0, 3], y in [0, 3]" in u1_prompt
+    assert "blue-u1: move to 9 cells: any on-grid [x, y] with |x-0| + |y-0| <= 3" in u1_prompt
     # Scoped to its own unit only — no other seat's legal-actions line leaks in.
     assert "blue-u2:" not in u1_prompt
     assert "blue-u3:" not in u1_prompt

@@ -449,7 +449,9 @@ _RULES = """Rules (complete — nothing else applies):
 - Deliver mission: completes when a team's resources reach its amount; if
   both teams reach it on the same turn, both get it.
 - Score (competitive): mission rewards + {cp_points} points per control point
-  owned at the end + delivered resources. Higher total wins; equal totals draw.
+  owned at the end + delivered resources. Each mission in the state lists its
+  "reward": the points the completing team scores (the "amount" is its target,
+  not its value). Higher total wins; equal totals draw.
 - Team play. {team} Messages and declared plans never reach the other team.
   They are free and are scored for cooperation quality."""
 
@@ -478,7 +480,13 @@ _FOG_RULES = """
   "red-u2"); a description like "the western node" teaches nothing. A mission
   is listed once your team has seen its cell or knows the control point or
   resource node it sits on, and a listed mission always shows its current
-  status. The other team cannot see your messages."""
+  status. The other team cannot see your messages.
+- Reading the fog. In the state, anything you remember rather than see now
+  carries "seen_turn": the turn it was last seen ("told": true if only a
+  teammate named it). An enemy unit with a seen_turn before the current turn
+  is where it WAS on that turn: it may have moved since, and its cargo may
+  have changed. Things you see this turn have seen_turn equal to the current
+  turn; your own units never carry it."""
 
 
 _CP_VISION_RULES = """
@@ -516,10 +524,20 @@ _THIEF_RULES = """
     included; without a target, the first such unit by id). It fails if an
     enemy defender stands on that cell at that moment, if the thief is
     already full (thief carry 1), or if no enemy unit with cargo is there (one
-    that moved away or delivered this turn is gone). Stolen cargo is carried
+    that moved away or delivered this turn is gone). A named target must be
+    that unit: if it is not on the cell the steal fails, even when another
+    enemy carrier is. A failed steal costs nothing more: the thief stays where
+    it is, as with hold. Stolen cargo is carried
     like gathered cargo and counts only once delivered. A thief cannot gather
     or capture. Moving cargo this way is the only interaction between units;
     otherwise the rule above stands."""
+
+
+_BURDEN_RULES = """
+- Burden. A unit carrying any cargo (gathered or stolen) moves 1 cell less
+  than its role's move stat that turn, never below 1: a harvester carrying
+  cargo moves 1, a scout or thief moves 2. Cargo counts as of the start of the
+  turn. Each unit's legal-actions line already shows its range this turn."""
 
 
 _EARLY_END_RULES = """
@@ -545,6 +563,34 @@ def _verbs(scenario: Mapping[str, Any]) -> str:
     return "move|gather|deliver|steal|hold" if _has_thief(scenario) else "move|gather|deliver|hold"
 
 
+def _reply_schema(scenario: Mapping[str, Any]) -> dict[str, Any]:
+    """The seat reply format as a JSON schema, for drivers that opt into
+    structured output (``"structured_output": true``): the serving side then
+    constrains the reply to it, so a JSON slip cannot happen. Same schema for
+    every seat on the board; it encodes the format the prompt already asks
+    for, nothing more."""
+    return {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "object",
+                "properties": {
+                    "unit_id": {"type": "string"},
+                    "action": {"type": "string", "enum": _verbs(scenario).split("|")},
+                    "to": {"type": "array", "items": {"type": "integer"}},
+                    "target": {"type": "string"},
+                },
+                "required": ["action"],
+                "additionalProperties": False,
+            },
+            "messages": {"type": "array", "items": {"type": "string"}},
+            "plan": {"type": "string"},
+        },
+        "required": ["action"],
+        "additionalProperties": False,
+    }
+
+
 def _rules_text(scenario: Mapping[str, Any], fog: bool, team: str = TEAM_SEATS) -> str:
     """The rules block for a seat: the complete rules, plus the crown, thief
     and fog paragraphs only when they apply."""
@@ -568,6 +614,8 @@ def _rules_text(scenario: Mapping[str, Any], fog: bool, team: str = TEAM_SEATS) 
         text += _HOME_DELIVERY_RULES
     if _has_thief(scenario):
         text += _THIEF_RULES.format()
+    if scenario.get("cargo_slows"):
+        text += _BURDEN_RULES
     early = scenario.get("early_end")
     if early:
         text += _EARLY_END_RULES.format(
@@ -619,8 +667,9 @@ Coordinate through messages; you cannot command other units. Reply with ONLY
 one JSON object, no prose:
 {{"action": {{"unit_id": "{unit_id}", "action": "{verbs}",
              "to": [x, y]}},
-  "messages": [{{"from": "{agent_id}", "text": "..."}}],
+  "messages": ["<optional message to your team>", "..."],
   "plan": "<optional; only if proposing/refreshing the team plan>"}}
+Each message is a plain string; it is signed as {agent_id} for you.
 """
 
 _MASTER_PROMPT = """You are {master_id}, the {team_id} team's ORCHESTRATOR/MASTER. This is a
@@ -670,25 +719,53 @@ def _rejections_for(
 
 def _format_rejections(rejections: list[Mapping[str, Any]]) -> str:
     """A REJECTIONS section citing the engine's own reason text verbatim."""
-    if not rejections:
-        return ""
-    lines = "\n".join(f"- {r.get('unit_id')}: {r.get('reason')}" for r in rejections)
+    # A passive row is not a rejected order: the engine notes that a unit
+    # whose role cannot capture is standing on a control point (its move or
+    # hold succeeded). Telling the seat its order was rejected would be false.
+    real = [r for r in rejections if not r.get("passive")]
+    notes = [r for r in rejections if r.get("passive")]
+    out = ""
+    if real:
+        lines = "\n".join(f"- {r.get('unit_id')}: {r.get('reason')}" for r in real)
+        out += (
+            "\nREJECTIONS from your last turn — the engine's own reason, so you "
+            f"don't repeat it:\n{lines}\n"
+        )
+    if notes:
+        lines = "\n".join(
+            f"- {r.get('unit_id')} stands on a control point, but {r.get('reason')}: "
+            "its order was carried out; it just does not count toward capture"
+            for r in notes
+        )
+        out += f"\nNOTES (not rejections) from your last turn:\n{lines}\n"
+    return out
+
+
+def _unit_positions(state: Mapping[str, Any]) -> dict[str, list[int]]:
+    return {u["id"]: list(u["pos"]) for u in state.get("units", []) if u.get("pos")}
+
+
+def _format_move_targets(moves: list[Any], pos: list[int] | None = None) -> str:
+    """The legal move targets, exactly. A short list is printed as is; a long
+    one as the Manhattan rule from the unit's cell, which is exact (a bounding
+    box was not: it invited diagonal targets the engine rejects)."""
+    if len(moves) <= 8:
+        return json.dumps(moves)
+    if pos is None:
+        return json.dumps(moves)
+    ux, uy = pos
+    reach = max(abs(x - ux) + abs(y - uy) for x, y in moves)
     return (
-        "\nREJECTIONS from your last turn — the engine's own reason, so you "
-        f"don't repeat it:\n{lines}\n"
+        f"{len(moves)} cells: any on-grid [x, y] with |x-{ux}| + |y-{uy}| <= {reach} "
+        f"(steps add up: 2 across and 2 up is 4, not 2)"
     )
 
 
-def _format_move_targets(moves: list[Any]) -> str:
-    """Keep the legal-actions line short even for a wide-ranging role."""
-    if len(moves) <= 8:
-        return json.dumps(moves)
-    xs = [m[0] for m in moves]
-    ys = [m[1] for m in moves]
-    return f"{len(moves)} cells, x in [{min(xs)}, {max(xs)}], y in [{min(ys)}, {max(ys)}]"
-
-
-def _format_legal_actions(legal_actions: Mapping[str, Any], unit_ids: list[str]) -> str:
+def _format_legal_actions(
+    legal_actions: Mapping[str, Any],
+    unit_ids: list[str],
+    positions: Mapping[str, list[int]] | None = None,
+) -> str:
     """A compact 'legal now' line per unit — checkable before declaring, not
     just discovered after the engine rejects it."""
     lines = []
@@ -700,7 +777,8 @@ def _format_legal_actions(legal_actions: Mapping[str, Any], unit_ids: list[str])
         if legal.get("can_steal"):
             steal = f"; steal: {'yes' if legal.get('steal') else 'no (full)'}"
         lines.append(
-            f"- {unit_id}: move to {_format_move_targets(legal.get('move', []))}; "
+            f"- {unit_id}: move to "
+            f"{_format_move_targets(legal.get('move', []), (positions or {}).get(unit_id))}; "
             f"gather: {'yes' if legal.get('gather') else 'no'}; "
             f"deliver: {'yes' if legal.get('deliver') else 'no'}{steal}; hold: yes"
         )
@@ -790,6 +868,109 @@ def _extract_json(text: str) -> dict[str, Any]:
     raise ValueError("no JSON object found in driver output")
 
 
+_JSON_STR = r'"(?:[^"\\]|\\.)*"'
+_PLAN_RE = re.compile(r'"plan"\s*:\s*(' + _JSON_STR + ")")
+# A message as seats write it, even when its object is missing a brace.
+_MESSAGE_RE = re.compile(
+    r'"from"\s*:\s*(' + _JSON_STR + r')\s*,\s*"text"\s*:\s*(' + _JSON_STR + ")"
+)
+
+
+def _messages_array_strings(text: str, decoder: json.JSONDecoder) -> list[str]:
+    """The plain-string items of a reply's ``"messages": [...]`` array, read
+    one by one so a missing or trailing comma does not lose them."""
+    head = re.search(r'"messages"\s*:\s*\[', text)
+    if not head:
+        return []
+    out: list[str] = []
+    i = head.end()
+    while i < len(text):
+        while i < len(text) and text[i] in " \t\r\n,":
+            i += 1
+        if i >= len(text) or text[i] != '"':
+            break
+        try:
+            item, i = decoder.raw_decode(text, i)
+        except json.JSONDecodeError:
+            break
+        out.append(item)
+    return out
+
+
+def _parse_seat_reply(text: str) -> tuple[dict[str, Any], str | None, str | None]:
+    """A resident seat's reply as orders, plus two notes: what the seat must be
+    told (something was lost), and what the audit record keeps (any repair).
+
+    A reply the harness can still read is the harness's job to read: a JSON
+    slip such as a message object missing its closing brace must not cost the
+    seat its order. On a parse failure the reply's parts are recovered one by
+    one: the action object, every message object, and the plan string. Only
+    when no action can be read is the seat told, and its unit idles.
+    """
+    decoder = json.JSONDecoder()
+    start = text.find("{")
+    if start < 0:
+        note = "your reply contained no JSON object, so your unit idled"
+        return {}, note, note
+    try:
+        obj, _ = decoder.raw_decode(text[start:])
+    except json.JSONDecodeError as err:
+        error = f"{err.msg} at line {err.lineno} column {err.colno}"
+    else:
+        if isinstance(obj, dict):
+            action = obj.get("action")
+            if action is None or isinstance(action, dict):
+                return obj, None, None
+            if isinstance(action, str):  # a flat action: {"action": "move", "to": [...]}
+                flat = {k: v for k, v in obj.items() if k not in ("messages", "plan")}
+                rest = {k: obj[k] for k in ("messages", "plan") if k in obj}
+                return {"action": flat, **rest}, None, "read a flat action object"
+        error = "the reply is not a JSON object"
+    action: dict[str, Any] | None = None
+    messages: list[Any] = []
+    for i in range(start + 1, len(text)):
+        if text[i] != "{":
+            continue
+        try:
+            inner, _ = decoder.raw_decode(text[i:])
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(inner, dict):
+            continue
+        if action is None and isinstance(inner.get("action"), str):
+            action = inner
+        elif inner.get("text") and inner not in messages:
+            messages.append(inner)
+    found: list[Any] = [
+        {"from": json.loads(m.group(1)), "text": json.loads(m.group(2))}
+        for m in _MESSAGE_RE.finditer(text)
+    ]
+    if len(found) > len(messages):
+        messages = found
+    strings = _messages_array_strings(text, decoder)
+    if len(strings) > len(messages):
+        messages = strings
+    result: dict[str, Any] = {}
+    if messages:
+        result["messages"] = messages
+    plan = _PLAN_RE.search(text)
+    if plan:
+        result["plan"] = json.loads(plan.group(1))
+    if action is None:
+        note = (
+            f"your reply was not valid JSON ({error}) and no action could be read, "
+            "so your unit idled"
+        )
+        return result, note, note
+    result["action"] = action
+    parts = ", ".join(
+        ["action"]
+        + (["%d message(s)" % len(messages)] if messages else [])
+        + (["plan"] if plan else [])
+    )
+    return result, None, f"repaired invalid JSON ({error}); recovered {parts}"
+
+
 def _run_command(argv: list[str], prompt: str, timeout: float, who: str) -> dict[str, Any]:
     """One driver call, retried once — live seats flake; matches must not die.
 
@@ -862,7 +1043,9 @@ def make_command_driver(
             rejections=_format_rejections(
                 _rejections_for(context.get("rejections", []), team_id=team_id)
             ),
-            legal_actions=_format_legal_actions(context.get("legal_actions", {}), my_unit_ids),
+            legal_actions=_format_legal_actions(
+                context.get("legal_actions", {}), my_unit_ids, _unit_positions(state)
+            ),
             state=json.dumps(briefing_state, sort_keys=True),
             verbs=_verbs(scenario),
         )
@@ -901,8 +1084,11 @@ def _fold_seat_reply(
         action["unit_id"] = unit_id  # a seat commands its own unit, only
         combined["actions"].append(action)
     for message in _as_list(result.get("messages")):
-        if isinstance(message, dict) and message.get("text"):
-            combined["messages"].append({"from": agent_id, "text": str(message["text"])})
+        # A message is a plain string; the older {"from", "text"} object form
+        # is still read. Either way the seat signs as itself.
+        text = message.get("text") if isinstance(message, dict) else message
+        if isinstance(text, str) and text.strip():
+            combined["messages"].append({"from": agent_id, "text": text})
     if result.get("plan") and "plan" not in combined:
         combined["plan"] = str(result["plan"])
 
@@ -1031,7 +1217,9 @@ def make_per_seat_driver(
                 extra=f"\n{seat_extra}\n" if seat_extra else "",
                 scenario=json.dumps(scenario_for_prompt, sort_keys=True),
                 rejections=_format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
-                legal_actions=_format_legal_actions(legal_actions, [unit["id"]]),
+                legal_actions=_format_legal_actions(
+                    legal_actions, [unit["id"]], _unit_positions(state)
+                ),
                 state=json.dumps(state, sort_keys=True),
                 team_messages=json.dumps(visible_messages, sort_keys=True) or "[]",
                 verbs=_verbs(scenario),
@@ -1110,9 +1298,13 @@ class ClaudeCliSession:
         self._system_prompt = spec.get("system_prompt")
         self.session_id = _mint_session_id(match_id, agent_id)
         self._started = False
+        # Set by the resident driver when the spec opts into structured output.
+        self.reply_schema: dict[str, Any] | None = None
 
     def _argv(self, flag: str) -> list[str]:
         argv = [self._command, "-p", flag, self.session_id]
+        if self.reply_schema is not None:
+            argv += ["--json-schema", json.dumps(self.reply_schema, separators=(",", ":"))]
         if self._model:
             argv += ["--model", str(self._model)]
         if self._system_prompt:
@@ -1336,7 +1528,11 @@ class ColleagueDirectSession:
         self._reasoning_fallback = _spec_bool(spec, "reasoning_fallback", True)
         self.last_finish_reason: str | None = None
         self.last_usage: Any = None
+        # The model's thinking for the last reply, kept for the audit record
+        # only: it is never fed back into the transcript.
         self.last_reasoning: str | None = None
+        # Set by the resident driver when the spec opts into structured output.
+        self.reply_schema: dict[str, Any] | None = None
         self._history: list[dict[str, str]] = []
         if spec.get("system_prompt"):
             self._history.append({"role": "system", "content": str(spec["system_prompt"])})
@@ -1364,6 +1560,11 @@ class ColleagueDirectSession:
             payload["top_p"] = float(self._top_p)
         if self._chat_template_kwargs:
             payload["chat_template_kwargs"] = dict(self._chat_template_kwargs)
+        if self.reply_schema is not None:
+            payload["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": "seat_reply", "schema": self.reply_schema},
+            }
         url = f"{self._base_url}/chat/completions"
         try:
             if on_progress is None:
@@ -1398,7 +1599,6 @@ class ColleagueDirectSession:
             # so the next attempt isn't preceded by a phantom user turn.
             self._history.pop()
             raise RuntimeError(f"colleague-direct session {self.session_id}: {err}") from err
-        self.last_reasoning = message.get("reasoning_content") or None
         # The Qwen gotcha (spike, scripts/openai_driver.py): thinking models
         # may return content=None with the answer in reasoning_content. That
         # fallback is opt-in now: with "reasoning_fallback": false, a reply
@@ -1408,6 +1608,9 @@ class ColleagueDirectSession:
         self.last_finish_reason = choice.get("finish_reason")
         self.last_usage = data.get("usage")
         content = message.get("content") or ""
+        inline = re.findall(r"<think>(.*?)</think>", content, flags=re.S)
+        reasoning = message.get("reasoning_content") or "\n".join(t.strip() for t in inline)
+        self.last_reasoning = reasoning or None
         if not content and self._reasoning_fallback:
             content = message.get("reasoning_content") or ""
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.S).strip()
@@ -1625,25 +1828,13 @@ class LiveSeatWriter:
         self._write(done=True, error=error)
 
 
-def _turn_meta(session: Any) -> dict[str, Any]:
-    """finish_reason/usage/reasoning of a seat's last call, when its transport reports
-    them — recorded on success AND on failure (an empty answer is exactly the
-    case those fields exist to explain)."""
-    return {
-        k: getattr(session, a)
-        for k, a in (
-            ("finish_reason", "last_finish_reason"),
-            ("usage", "last_usage"),
-            ("reasoning", "last_reasoning"),
-        )
-        if getattr(session, a, None) is not None
-    }
-
-
 _RESIDENT_NOTE = """This is a resident session: it lasts the whole match. This turn-1 briefing is
 the ONLY time you will see the rules and the scenario — remember them. Every
 later turn sends only a delta: new events, your own rejections, your legal
-actions, a compact state, and teammate messages."""
+actions, a compact state, and teammate messages.
+If a reply has a JSON slip, the harness still reads whatever it can (your
+action, messages and plan). Only if no action can be read does your unit
+idle, and you are told so on your next turn."""
 
 _RESIDENT_DELTA_PROMPT = """Turn {turn} — delta briefing (rules, scenario and role are unchanged
 from turn 1; you still control ONLY unit {unit_id}).
@@ -1659,6 +1850,19 @@ Messages your teammates already sent this turn:
 Reply as before: ONLY one JSON object — your single action for unit
 {unit_id}, plus optional messages/plan.
 """
+
+
+def _sighting(fact: Mapping[str, Any]) -> dict[str, Any]:
+    """When a fog-of-war fact was last observed. A remembered enemy unit,
+    node or control point carries the turn it was last seen (or told), and
+    that turn must reach the seat: without it a stale sighting reads exactly
+    like a live one. Full records (your own units, no fog) carry nothing."""
+    if "turn" not in fact:
+        return {}
+    out: dict[str, Any] = {"seen_turn": fact["turn"]}
+    if fact.get("source") == "told":
+        out["told"] = True
+    return out
 
 
 def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
@@ -1684,11 +1888,12 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
                 "pos": u["pos"],
                 "carrying": u.get("carrying"),
                 "alive": u["alive"],
+                **_sighting(u),
             }
             for u in state.get("units", [])
         ],
         "control_points": [
-            {"id": c["id"], "pos": c["pos"], "owner": c.get("owner")}
+            {"id": c["id"], "pos": c["pos"], "owner": c.get("owner"), **_sighting(c)}
             for c in state.get("control_points", [])
         ],
         "missions": [
@@ -1697,13 +1902,14 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
                 "kind": m.get("kind"),
                 "pos": m.get("pos"),
                 "amount": m.get("amount"),
+                "reward": m.get("reward"),
                 "status": m.get("status"),
                 **({"team_id": m["team_id"]} if m.get("team_id") else {}),
             }
             for m in state.get("missions", [])
         ],
         "resource_nodes": [
-            {"id": n["id"], "pos": n["pos"], "remaining": n["remaining"]}
+            {"id": n["id"], "pos": n["pos"], "remaining": n.get("remaining"), **_sighting(n)}
             for n in state.get("resource_nodes", [])
         ],
         **({"crown": state["crown"]} if state.get("crown") is not None else {}),
@@ -1739,6 +1945,21 @@ def _events_since(
         or event.get("kind") not in _TEAM_PRIVATE_EVENTS
         or (event.get("data") or {}).get("team_id") == team_id
     ]
+
+
+_SEAT_META = (
+    ("finish_reason", "last_finish_reason"),
+    ("usage", "last_usage"),
+    ("reasoning", "last_reasoning"),
+)
+
+
+def _seat_meta(session: Any) -> dict[str, Any]:
+    """What the session knows about its last reply, for the audit record:
+    finish reason, token usage and, when the model exposes it, its thinking.
+    Absent fields are left out, so records from sessions that expose nothing
+    (the Claude CLI) keep their old shape."""
+    return {k: getattr(session, a) for k, a in _SEAT_META if getattr(session, a, None) is not None}
 
 
 def make_resident_driver(
@@ -1781,6 +2002,11 @@ def make_resident_driver(
     seat_prompts = {a["id"]: str(a.get("prompt", "")) for a in agents}
     sessions: dict[str, Any] = {}
     briefed: set[str] = set()  # seats whose session has actually seen the rules
+    reply_notes: dict[str, str] = {}  # a seat's last reply problem, told once on its next turn
+    structured = spec.get("structured_output", False)
+    if not isinstance(structured, bool):
+        raise ValueError(f"structured_output must be true or false, got {structured!r}")
+    reply_schema = _reply_schema(scenario)
     last_seen: dict[str, int] = {}  # state turn at the seat's last successful briefing
     last_known: dict[str, Mapping[str, Any]] = {}  # fog only: last knowledge snapshot per seat
 
@@ -1831,10 +2057,16 @@ def make_resident_driver(
             session = sessions.get(agent["id"])
             if session is None:
                 session = SESSION_TRANSPORTS[transport](spec, match_id, agent["id"])
+                if structured and hasattr(session, "reply_schema"):
+                    session.reply_schema = reply_schema
                 sessions[agent["id"]] = session
+            note = reply_notes.get(agent["id"])
             shared = {
-                "rejections": _format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
-                "legal_actions": _format_legal_actions(legal_actions, [unit["id"]]),
+                "rejections": (f"About your previous reply: {note}.\n" if note else "")
+                + _format_rejections(_rejections_for(rejections, unit_id=unit["id"])),
+                "legal_actions": _format_legal_actions(
+                    legal_actions, [unit["id"]], _unit_positions(state)
+                ),
                 "team_messages": json.dumps(combined["messages"], sort_keys=True),
             }
             if agent["id"] not in briefed:
@@ -1887,7 +2119,7 @@ def make_resident_driver(
                     writer.finish(error="the seat could not answer this turn")
                 if match_id:
                     store.append_session_record(
-                        match_id, agent["id"], {**record, "error": str(err), **_turn_meta(session)}
+                        match_id, agent["id"], {**record, "error": str(err), **_seat_meta(session)}
                     )
                 print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
                 if sink is not None:
@@ -1905,19 +2137,23 @@ def make_resident_driver(
                 sink.append(
                     {"agent_id": agent["id"], "unit_id": unit["id"], "elapsed_ms": _elapsed_ms(t0)}
                 )
+            reply_notes.pop(agent["id"], None)  # the seat saw it in this prompt
+            result, problem, repair = _parse_seat_reply(reply)
             if match_id:
+                extra = {"reply_problem": repair} if repair else {}
                 store.append_session_record(
-                    match_id, agent["id"], {**record, "received": reply, **_turn_meta(session)}
+                    match_id,
+                    agent["id"],
+                    {**record, "received": reply, **_seat_meta(session), **extra},
                 )
             briefed.add(agent["id"])
             last_seen[agent["id"]] = state["turn"]
             if fog and current_knowledge is not None:
                 last_known[agent["id"]] = current_knowledge
-            try:
-                result = _extract_json(reply)
-            except ValueError as err:
-                print(f"[harness] seat {agent['id']} idles this turn: {err}", file=sys.stderr)
-                continue
+            if problem:
+                reply_notes[agent["id"]] = problem
+            if repair:
+                print(f"[harness] seat {agent['id']}: {repair}", file=sys.stderr)
             _fold_seat_reply(combined, result, unit["id"], agent["id"])
         if not combined["messages"]:
             combined.pop("messages")
