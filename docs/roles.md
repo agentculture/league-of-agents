@@ -93,6 +93,19 @@ harvester and defender remain exactly as r4 pinned them.
 field the coding-reflective roster: an **explorer** and a **planner** alongside
 a **harvester** and a **defender** (the executors) — read, plan, execute.
 
+## thief — the raider (generated boards, opt-in)
+
+A generated board fields `thieves` thieves per team (`GenParams.thieves`,
+0..2, id segment `f<n>`; 0 by default, so every existing id and role table is
+unchanged). Thief stats: move 3, carry 1, vision 3; it cannot gather or
+capture. Its one extra action, `steal`, resolves after moves, gathers and
+deliveries, on end-of-turn positions: it takes exactly 1 cargo from an enemy
+unit carrying cargo on the thief's cell (harvesters included; `target` may
+name the victim), unless an enemy defender stands on that cell. Stolen cargo
+scores only once delivered. Its software-work analog is the competitor who
+takes your shipped work instead of building their own; the counter is an
+escort (a defender) or a route that does not linger.
+
 ## Decision: the scout is eyes-only (cycle 8)
 
 **The grid scout can no longer capture control points.** `can_capture` flips

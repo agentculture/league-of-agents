@@ -26,7 +26,7 @@ def _role_caps(st) -> str:
 
 
 def _scenario_dict(s: Scenario) -> dict[str, object]:
-    return {
+    out: dict[str, object] = {
         "id": s.id,
         "name": s.name,
         "description": s.description,
@@ -41,19 +41,42 @@ def _scenario_dict(s: Scenario) -> dict[str, object]:
                 "vision": st.vision,
                 "can_gather": st.can_gather,
                 "can_capture": st.can_capture,
+                **({"can_steal": True} if st.can_steal else {}),
                 "analog": st.analog,
             }
             for name, st in s.role_stats
         },
         "control_points": [{"id": c.id, "pos": list(c.pos)} for c in s.control_points],
         "missions": [
-            {"id": m.id, "kind": m.kind, "pos": list(m.pos), "amount": m.amount, "reward": m.reward}
+            {
+                "id": m.id,
+                "kind": m.kind,
+                "pos": list(m.pos),
+                "amount": m.amount,
+                "reward": m.reward,
+                **({"side": m.side} if m.side is not None else {}),
+            }
             for m in s.missions
         ],
         "resource_nodes": [
             {"id": r.id, "pos": list(r.pos), "remaining": r.remaining} for r in s.resource_nodes
         ],
     }
+    if s.crown is not None:
+        out["crown"] = {
+            "pos": list(s.crown.pos),
+            "value": s.crown.value,
+            "hold_turns": s.crown.hold_turns,
+        }
+    if s.cp_vision:
+        out["cp_vision"] = s.cp_vision
+    if s.early_end is not None:
+        out["early_end"] = {
+            "ratio_pct": s.early_end.ratio_pct,
+            "turns": s.early_end.turns,
+            "from_turn": s.early_end.from_turn,
+        }
+    return out
 
 
 def cmd_arena_overview(args: argparse.Namespace) -> int:

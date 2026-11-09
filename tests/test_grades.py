@@ -272,6 +272,7 @@ def test_role_home_purpose_field_matches_the_pinned_mapping() -> None:
         "harvester": "economy",
         "defender": "control",
         "scout": "recon",
+        "thief": "economy",
         "explorer": "recon",
         "planner": "coordination",
     }

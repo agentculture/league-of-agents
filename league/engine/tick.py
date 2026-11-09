@@ -29,6 +29,13 @@ v0 resolution rules (documented here, exercised in tests):
   point), so the "rejection" for this capability is an explicit
   ``action_rejected`` event emitted whenever a capture-incapable unit is the
   sole thing standing between its team and a streak — not a silent skip.
+* ``steal`` (a role with ``can_steal``, the thief): resolves AFTER moves,
+  gathers and deliveries, on everyone's end-of-turn position. It takes exactly
+  1 cargo from an enemy unit carrying cargo on the thief's cell (``target``
+  names it; without one, the first such unit in id order), unless a defender
+  of another team than the thief's stands on that cell. The thief must be
+  empty (carry 1). A unit that moved away or delivered this turn is no longer
+  there to rob. Several thieves on one cell resolve in canonical order.
 * Messages and a per-team plan are free, observational, and on the record —
   coordination is played *through* the engine so cooperation can be scored.
 * Control points: sole occupancy builds a streak (``hold``). A non-owner's
@@ -41,7 +48,12 @@ v0 resolution rules (documented here, exercised in tests):
   full reward — team-id sort order never influences a mission outcome. (The
   v0 larger-total-then-lexicographic tiebreak decided a real season-0 match;
   see docs/playtests/season-0/orchestrator.report.md.)
-* The match finishes when every mission is resolved or the turn limit is hit.
+* The match finishes when every mission is resolved or the turn limit is hit,
+  or — on a board with an early-end rule (``Scenario.early_end``, competitive
+  only) — when the leader's lead is out of reach (greater than the most the
+  gap could still close by, :mod:`league.engine.early_end`), or at least
+  ``ratio_pct`` percent of that for ``turns`` consecutive turns from
+  ``from_turn`` on (tracked as ``lead_held`` events).
   Competitive winner: mission rewards + 2 points per owned control point +
   delivered resources; equal points is a ``draw``. Cooperative: the team wins
   iff every mission completed inside the limit.
@@ -49,8 +61,10 @@ v0 resolution rules (documented here, exercised in tests):
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any, Mapping
 
+from league.engine.early_end import standing
 from league.engine.events import Event, fold_events
 from league.engine.scenario import Scenario
 from league.engine.state import MatchState
@@ -88,6 +102,8 @@ def outcome_points(state: MatchState) -> dict[str, int]:
             points[cp.owner] += CP_POINTS
     for team in state.teams:
         points[team.id] += team.resources
+    if state.crown is not None and state.crown.taken_by in points:
+        points[state.crown.taken_by] += state.crown.value
     return points
 
 
@@ -102,7 +118,7 @@ def resolve_turn(
 
         {"plan": str | None,
          "messages": [{"from": agent_id, "text": str}, ...],
-         "actions": [{"unit_id": str, "action": "move|gather|deliver|hold", ...}]}
+         "actions": [{"unit_id": str, "action": "move|gather|deliver|steal|hold", ...}]}
 
     Returns the new state and the events that produced it.
     """
@@ -160,6 +176,7 @@ def resolve_turn(
     moves: list[tuple[str, tuple[int, int]]] = []  # (unit_id, to)
     gathers: list[str] = []
     delivers: list[str] = []
+    steals: list[tuple[str, str | None]] = []  # (thief_id, named target or None)
     for team_id, action in declared:
         # Trim pure-formatting noise (LLM drivers emit " hold" etc.); wrong
         # verbs and ids still reject loudly below.
@@ -210,14 +227,36 @@ def resolve_turn(
             gathers.append(unit.id)
             continue
         if verb == "deliver":
-            target = next((m for m in state.missions if m.kind == "deliver"), None)
+            target = next(
+                (m for m in state.missions if m.kind == "deliver" and m.serves(team_id)), None
+            )
             if target is None or unit.pos != target.pos:
-                reject(team_id, action, "not standing on the delivery square")
+                home = target is not None and target.team_id is not None
+                reject(
+                    team_id,
+                    action,
+                    (
+                        "not standing on your team's delivery square"
+                        if home
+                        else "not standing on the delivery square"
+                    ),
+                )
                 continue
             if unit.carrying <= 0:
                 reject(team_id, action, "nothing to deliver")
                 continue
             delivers.append(unit.id)
+            continue
+        if verb == "steal":
+            role_stats = scenario.stats_for(unit.role)
+            if not role_stats.can_steal:
+                reject(team_id, action, "this role cannot steal")
+                continue
+            if unit.carrying >= role_stats.carry:
+                reject(team_id, action, "already carrying to capacity")
+                continue
+            target = action.get("target")
+            steals.append((unit.id, str(target).strip() if target else None))
             continue
         reject(team_id, action, f"unknown action {verb!r}")
 
@@ -247,6 +286,45 @@ def resolve_turn(
             "resource_delivered",
             {"unit_id": unit_id, "team_id": unit.team_id, "amount": unit.carrying},
         )
+
+    # 6b. Steals, on end-of-turn positions and post-delivery cargo.
+    if steals:
+        mid = fold_events(state, tuple(events))
+        carrying = {u.id: u.carrying for u in mid.units}
+        for thief_id, target_id in steals:
+            thief = units[thief_id]
+            cell = positions[thief_id]
+            enemies_here = [
+                u
+                for u in mid.units
+                if u.alive and u.team_id != thief.team_id and positions[u.id] == cell
+            ]
+            stolen = {"unit_id": thief_id, "action": "steal"}
+            if any(u.role == "defender" for u in enemies_here):
+                reject(thief.team_id, stolen, "an enemy defender guards this cell")
+                continue
+            loaded = [u for u in sorted(enemies_here, key=lambda u: u.id) if carrying[u.id] > 0]
+            if target_id is not None:
+                loaded = [u for u in loaded if u.id == target_id]
+            if not loaded:
+                reason = (
+                    f"{target_id} is not an enemy unit carrying cargo on this cell"
+                    if target_id is not None
+                    else "no enemy unit carrying cargo on this cell"
+                )
+                reject(thief.team_id, stolen, reason)
+                continue
+            victim = loaded[0]
+            carrying[victim.id] -= 1
+            emit(
+                "resource_stolen",
+                {
+                    "unit_id": thief_id,
+                    "victim_id": victim.id,
+                    "team_id": thief.team_id,
+                    "amount": 1,
+                },
+            )
 
     # Fold what happened so far; occupancy and totals below read the mid-state.
     mid = fold_events(state, tuple(events))
@@ -315,6 +393,26 @@ def resolve_turn(
             emit("control_point_captured", {"cp_id": cp.id, "team_id": team_id})
             emit("control_point_held", {"cp_id": cp.id, "team_id": team_id, "turns": streak})
 
+    # 7b. The Crown: the same sole-occupancy streak as a control point
+    # (capture-capable units only), but taken once, for good, at hold_turns.
+    crown = state.crown
+    if crown is not None and crown.taken_by is None:
+        crown_occupants = {
+            u.team_id
+            for u in mid.units
+            if u.alive
+            and scenario.stats_for(u.role).can_capture
+            and positions.get(u.id, u.pos) == crown.pos
+        }
+        if len(crown_occupants) == 1:
+            holder = next(iter(crown_occupants))
+            streak = dict(crown.hold).get(holder, 0) + 1
+            emit("crown_held", {"team_id": holder, "turns": streak})
+            if streak >= crown.hold_turns:
+                emit("crown_taken", {"team_id": holder, "value": crown.value})
+        elif crown.hold:
+            emit("crown_held", {"team_id": "", "turns": 0})
+
     mid = fold_events(state, tuple(events))
 
     # 8. Missions.
@@ -326,7 +424,10 @@ def resolve_turn(
             # Dual award (spec decision c15): every team at or over the amount
             # this turn completes the mission for the full reward. Canonical id
             # order sequences the events; it never selects a winner.
-            for team_id in sorted(t for t, total in totals.items() if total >= mission.amount):
+            qualified = (
+                t for t, total in totals.items() if total >= mission.amount and mission.serves(t)
+            )
+            for team_id in sorted(qualified):
                 emit("mission_completed", {"mission_id": mission.id, "team_id": team_id})
         elif mission.kind == "hold":
             cp = next((c for c in mid.control_points if c.pos == mission.pos), None)
@@ -336,11 +437,36 @@ def resolve_turn(
             if team_id == cp.owner and streak >= scenario.capture_hold_turns + mission.amount:
                 emit("mission_completed", {"mission_id": mission.id, "team_id": team_id})
 
+    # 8b. Early end: is the lead decisive relative to what can still change?
+    decided: dict[str, Any] | None = None
+    rule = scenario.early_end
+    if rule is not None and state.mode == "competitive" and turn < state.turn_limit:
+        mid = fold_events(state, tuple(events))
+        # Measure with this turn already on the clock (turns left after it).
+        now = standing(dataclasses.replace(mid, turn=turn), scenario, outcome_points(mid))
+        streak = 0
+        relative = False
+        if now is not None:
+            relative = (
+                turn >= rule.from_turn and now["lead"] * 100 >= rule.ratio_pct * now["max_swing"]
+            )
+        if relative:
+            streak = dict(mid.lead_hold).get(now["leader"], 0) + 1
+            emit("lead_held", {"team_id": now["leader"], "turns": streak})
+        elif mid.lead_hold:
+            emit("lead_held", {"team_id": "", "turns": 0})
+        if now is not None and now["lead"] > now["max_swing"]:
+            decided = {**now, "reason": "out_of_reach"}
+        elif relative and streak >= rule.turns:
+            decided = {**now, "reason": "relative_lead", "turns": streak}
+
     # 9. Advance the clock; close out if done.
     emit("turn_advanced", {"turn": turn})
     mid = fold_events(state, tuple(events))
     all_resolved = all(m.status != "open" for m in mid.missions)
-    if all_resolved or turn >= mid.turn_limit:
+    if all_resolved or turn >= mid.turn_limit or decided is not None:
+        if decided is not None and not all_resolved and turn < mid.turn_limit:
+            emit("match_decided", decided)
         winner = _pick_winner(mid, all_resolved)
         emit("match_finished", {"winner": winner})
     emit("turn_resolved", {"turn": turn})
@@ -361,4 +487,6 @@ def _action_facts(action: Mapping[str, Any]) -> dict[str, Any]:
     facts = {"action": action.get("action")}
     if "to" in action:
         facts["to"] = list(action["to"])
+    if action.get("target"):
+        facts["target"] = str(action["target"])
     return facts

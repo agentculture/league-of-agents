@@ -46,12 +46,14 @@ fixture).
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from typing import Sequence
 
 from league.engine.state import (
     AgentSlot,
     ControlPoint,
+    Crown,
     MatchState,
     Mission,
     ResourceNode,
@@ -88,7 +90,25 @@ class RoleStats:
     vision: int
     can_gather: bool = True
     can_capture: bool = True
+    # The thief (2026-11-06): may take one unit of cargo from an enemy unit on
+    # its cell. Defaults to False so every pre-existing role is unchanged.
+    can_steal: bool = False
     analog: str = ""
+
+
+@dataclass(frozen=True)
+class EarlyEnd:
+    """The early-end rule (2026-11-06), see :mod:`league.engine.early_end`.
+
+    The match ends early when the leader's lead is out of reach (greater than
+    the most the gap could still close by), or when it is at least
+    ``ratio_pct`` percent of that for ``turns`` consecutive turns, counted
+    only from turn ``from_turn``.
+    """
+
+    ratio_pct: int
+    turns: int = 3
+    from_turn: int = 20
 
 
 @dataclass(frozen=True)
@@ -107,6 +127,14 @@ class Scenario:
     control_points: tuple[ControlPoint, ...]
     missions: tuple[Mission, ...]
     resource_nodes: tuple[ResourceNode, ...]
+    # Optional center objective (see state.Crown); None on every hand-built
+    # scenario and on generated boards that don't ask for one.
+    crown: Crown | None = None
+    early_end: EarlyEnd | None = None
+    # Control-point vision (2026-11-06): a control point a team owns sees
+    # every cell within this Manhattan radius for that team, from the turn it
+    # is captured until the turn another team captures it. 0 = off.
+    cp_vision: int = 0
 
     def stats_for(self, role: str) -> RoleStats:
         for name, stats in self.role_stats:
@@ -467,6 +495,10 @@ def instantiate(
         teams=tuple(team_states),
         units=tuple(units),
         control_points=scenario.control_points,
-        missions=scenario.missions,
+        missions=tuple(
+            m if m.side is None else dataclasses.replace(m, team_id=teams[m.side][0])
+            for m in scenario.missions
+        ),
         resource_nodes=scenario.resource_nodes,
+        crown=scenario.crown,
     )

@@ -83,6 +83,8 @@ def score_match(log: MatchLog, version: str = "v0") -> dict[str, Any]:
             "control": control,
             "resources": team.resources,
         }
+        if final.crown is not None:
+            outcome[team.id]["crown"] = final.crown.value if final.crown.taken_by == team.id else 0
 
     if version == "v1":
         index = _build_action_index(log)

@@ -89,10 +89,12 @@ def legal_actions(state: MatchState, scenario: Scenario, unit_id: str) -> dict[s
     # Mirrors resolve_turn's deliver validation exactly: the first deliver
     # mission (regardless of status) is the delivery target, and only its
     # square + a positive carry make the order legal.
-    target = next((m for m in state.missions if m.kind == "deliver"), None)
+    target = next(
+        (m for m in state.missions if m.kind == "deliver" and m.serves(unit.team_id)), None
+    )
     deliver = target is not None and unit.pos == target.pos and unit.carrying > 0
 
-    return {
+    out = {
         "move": moves,
         "gather": bool(gather),
         "deliver": bool(deliver),
@@ -100,3 +102,11 @@ def legal_actions(state: MatchState, scenario: Scenario, unit_id: str) -> dict[s
         "can_gather": bool(stats.can_gather),
         "can_capture": bool(stats.can_capture),
     }
+    if stats.can_steal:
+        # A steal resolves on end-of-turn positions (after everyone moves), so
+        # whether it lands cannot be known here; it is legal whenever the
+        # thief has room to carry. Only thief-capable roles get these keys,
+        # so thief-free boards keep their exact legal-actions shape.
+        out["steal"] = unit.carrying < stats.carry
+        out["can_steal"] = True
+    return out

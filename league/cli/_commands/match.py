@@ -29,6 +29,7 @@ from league.engine.continuous.grades import PURPOSES as CONTINUOUS_GRADE_PURPOSE
 from league.engine.continuous.grades import cgrade_units
 from league.engine.continuous.resolve import outcome_points as continuous_outcome_points
 from league.engine.continuous.scenario import CONTINUOUS_ID_PREFIX
+from league.engine.early_end import standing
 from league.engine.events import Event, MatchLog
 from league.engine.grades import grade_units
 from league.engine.knowledge import KnowledgeFrame, knowledge_by_turn, latest_knowledge
@@ -38,7 +39,7 @@ from league.engine.scenario import Scenario, get_scenario, instantiate
 from league.engine.scoring import score_match
 from league.engine.state import MatchState
 from league.engine.tempo import score_tempo
-from league.engine.tick import resolve_turn, start_match
+from league.engine.tick import outcome_points, resolve_turn, start_match
 from league.faces import faces_app, render_brief_markdown
 from league.replay import (
     DEFAULT_FPS,
@@ -273,8 +274,18 @@ def _fogged_state(
             known = known_units.get(unit.id)
             if known is not None:
                 units.append(known.to_dict())
-    known_positions = {n.pos for n in frame.resource_nodes} | {c.pos for c in frame.control_points}
-    missions = [m.to_dict() for m in scenario.missions if m.pos in known_positions]
+    # A mission is revealed once the team has seen its cell, knows the
+    # control point / resource node it sits on, or it sits on the Crown's
+    # cell (announced in the rules). It is listed from the live ``state``, so
+    # a completed mission reads as completed, never as a stale "open".
+    known_positions = (
+        {n.pos for n in frame.resource_nodes}
+        | {c.pos for c in frame.control_points}
+        | set(frame.cells_seen)
+    )
+    if state.crown is not None:
+        known_positions.add(state.crown.pos)
+    missions = [m.to_dict() for m in state.missions if m.pos in known_positions]
     return {
         "match_id": state.match_id,
         "scenario_id": state.scenario_id,
@@ -298,6 +309,22 @@ def _fogged_state(
         "missions": missions,
         "resource_nodes": [n.to_dict() for n in frame.resource_nodes],
         "cells_seen": sorted([list(cell) for cell in frame.cells_seen]),
+        # The Crown is announced in the rules (center cell), so it is always known.
+        **({"crown": state.crown.to_dict()} if state.crown is not None else {}),
+    }
+
+
+def _standing(state: MatchState, scenario: Scenario) -> dict[str, Any]:
+    points = outcome_points(state)
+    now = standing(state, scenario, points)
+    rule = scenario.early_end
+    return {
+        "points": points,
+        "leader": now["leader"] if now else None,
+        "lead": now["lead"] if now else 0,
+        "max_swing": now["max_swing"] if now else None,
+        "lead_hold": [[t, n] for t, n in state.lead_hold],
+        "rule": {"ratio_pct": rule.ratio_pct, "turns": rule.turns, "from_turn": rule.from_turn},
     }
 
 
@@ -642,6 +669,11 @@ def cmd_match_show(args: argparse.Namespace) -> int:
             frame = latest_knowledge(log, scenario)[team_id]
             payload["knowledge"] = frame.to_dict()
             payload["state"] = _fogged_state(state, scenario, team_id, frame)
+        if scenario.early_end is not None:
+            # The early-end rule is public, so the numbers it reads are too:
+            # the scoreboard, the lead, the most the gap could still close by,
+            # and the leader's current run toward the threshold.
+            payload["state"]["standing"] = _standing(state, scenario)
         emit_result(payload, json_mode=True)
         return 0
     lines = [

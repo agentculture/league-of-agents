@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-11-06
+
+### Added
+
+- Early end (`GenParams.early_end_pct`, `early_end_turns`, `early_end_from`; id segments `q`/`j`/`v`, off by default): after each turn the engine computes `max_swing`, the most the gap could still close by (everything the trailing team could still reach in time, credited all at once, plus every control point the leader could still lose). An out-of-reach lead ends the match at once; a lead of at least `early_end_pct`% of `max_swing` for `early_end_turns` turns in a row from turn `early_end_from` ends it too. New `lead_held` and `match_decided` events, a public `standing` block in `match show`, rules paragraph
+- Control-point vision (`GenParams.cp_vision`, id segment `o<radius>`, off by default): a control point a team owns watches every cell within that radius for its owner, from the turn it is captured (arrival grants nothing) until the other team captures it; the owner sees an enemy capture streak building there and learns of the capture the same turn (its view of the point then goes dark). Rules paragraph under fog
+- Home delivery (`GenParams.home_delivery`, id segment `h1`, off by default): each team delivers at its own spawn corner, for its own deliver mission (`Mission.side` / `Mission.team_id`); the center is left to the Crown
+- The Crown: an optional public objective on the center cell of a generated board (`GenParams.crown_value`, `crown_turns`; id segments `x`/`z`). The first team to hold it alone with capture-capable units for `crown_turns` consecutive turns takes it once, for good, for `crown_value` points; a contest resets the streak. New `crown_held`/`crown_taken` events, crown rules paragraph, scoring and outcome keys
+- Economy knobs on generated boards: `node_stock` (resources per node, id segment `s`) and `deliver_amount` (id segment `d`)
+- The thief role (`GenParams.thieves`, 0..2, id segment `f`): move 3, carry 1, vision 3, cannot gather or capture; `steal` takes exactly 1 cargo from an enemy unit carrying cargo on its cell (harvesters included), after moves/gathers/deliveries, unless an enemy defender stands there. New `resource_stolen` event, legal actions, grades, rules paragraph, verb hint
+- Fog: a seen enemy unit's cargo (`carrying`) is part of the sighting
+
+### Fixed
+
+- Fog view listed a mission only when it sat on a known control point or resource node, so the center deliver mission was never listed; missions are now revealed on a seen cell, a known CP/node, or the announced Crown cell, and read from live state so a completed mission shows completed
+
 ## [0.18.0] - 2026-11-06
 
 ### Added
