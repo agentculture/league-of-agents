@@ -71,8 +71,9 @@ def legal_actions(state: MatchState, scenario: Scenario, unit_id: str) -> dict[s
     ux, uy = unit.pos
 
     moves: list[list[int]] = []
-    for dx in range(-stats.move, stats.move + 1):
-        remaining = stats.move - abs(dx)
+    reach = scenario.move_for(unit.role, unit.carrying)
+    for dx in range(-reach, reach + 1):
+        remaining = reach - abs(dx)
         for dy in range(-remaining, remaining + 1):
             if dx == 0 and dy == 0:
                 continue

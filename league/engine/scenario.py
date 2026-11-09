@@ -135,12 +135,23 @@ class Scenario:
     # every cell within this Manhattan radius for that team, from the turn it
     # is captured until the turn another team captures it. 0 = off.
     cp_vision: int = 0
+    # Burden (2026-11-08): a unit carrying any cargo moves 1 cell less than
+    # its role's move stat, never below 1. False = off (every older board).
+    cargo_slows: bool = False
 
     def stats_for(self, role: str) -> RoleStats:
         for name, stats in self.role_stats:
             if name == role:
                 return stats
         raise ValueError(f"unknown role {role!r} in scenario {self.id!r}")
+
+    def move_for(self, role: str, carrying: int) -> int:
+        """This unit's move range this turn: its role's move stat, less 1
+        while it carries cargo on a board with burden on (never below 1)."""
+        move = self.stats_for(role).move
+        if self.cargo_slows and carrying > 0:
+            return max(1, move - 1)
+        return move
 
 
 def _skirmish_1() -> Scenario:

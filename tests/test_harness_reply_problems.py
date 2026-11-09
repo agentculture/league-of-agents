@@ -175,3 +175,56 @@ def test_passive_capture_note_is_not_reported_as_a_rejection() -> None:
 def test_thief_rules_explain_named_targets_and_failed_steals() -> None:
     assert "A named target must be" in harness._THIEF_RULES
     assert "the thief stays where" in harness._THIEF_RULES
+
+
+# -- fog sightings keep their turn in the compact state -------------------------
+
+
+def test_compact_state_keeps_when_a_remembered_fact_was_seen() -> None:
+    state = {
+        "turn": 23,
+        "units": [
+            {
+                "id": "blue-u1",
+                "team_id": "blue",
+                "role": "scout",
+                "pos": [9, 7],
+                "carrying": 1,
+                "alive": True,
+            },
+            {
+                "id": "red-u2",
+                "team_id": "red",
+                "role": "harvester",
+                "pos": [12, 10],
+                "carrying": 3,
+                "alive": True,
+                "source": "seen",
+                "turn": 12,
+            },
+            {
+                "id": "red-u4",
+                "team_id": "red",
+                "role": "defender",
+                "pos": [8, 6],
+                "alive": True,
+                "source": "told",
+                "turn": 20,
+            },
+        ],
+        "control_points": [
+            {"id": "cp-2a", "pos": [8, 6], "owner": "red", "source": "seen", "turn": 23}
+        ],
+        "resource_nodes": [
+            {"id": "rn-2a", "pos": [9, 7], "remaining": 1, "source": "seen", "turn": 23}
+        ],
+    }
+    out = harness._compact_state(state)
+    units = {u["id"]: u for u in out["units"]}
+    assert "seen_turn" not in units["blue-u1"]
+    assert units["red-u2"]["seen_turn"] == 12 and "told" not in units["red-u2"]
+    assert units["red-u4"]["seen_turn"] == 20 and units["red-u4"]["told"] is True
+    assert (
+        out["control_points"][0]["seen_turn"] == 23 and out["resource_nodes"][0]["seen_turn"] == 23
+    )
+    assert "Reading the fog" in harness._FOG_RULES

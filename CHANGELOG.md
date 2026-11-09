@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-11-09
+
+### Added
+
+- Burden (`GenParams.burden`, id segment `b1`, off by default): a unit carrying cargo moves 1 less
+
+### Fixed
+
+- Remembered fog facts keep their `seen_turn` in the state a seat is shown, so a stale sighting is never presented as current
+- Each mission's `reward` is shown to the seats, and the rules say that `reward` is the points scored (the `amount` is its target)
+
 ## [0.20.0] - 2026-11-09
 
 ### Added

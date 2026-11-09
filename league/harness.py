@@ -439,7 +439,9 @@ _RULES = """Rules (complete — nothing else applies):
 - Deliver mission: completes when a team's resources reach its amount; if
   both teams reach it on the same turn, both get it.
 - Score (competitive): mission rewards + {cp_points} points per control point
-  owned at the end + delivered resources. Higher total wins; equal totals draw.
+  owned at the end + delivered resources. Each mission in the state lists its
+  "reward": the points the completing team scores (the "amount" is its target,
+  not its value). Higher total wins; equal totals draw.
 - Team play. {team} Messages and declared plans never reach the other team.
   They are free and are scored for cooperation quality."""
 
@@ -468,7 +470,13 @@ _FOG_RULES = """
   "red-u2"); a description like "the western node" teaches nothing. A mission
   is listed once your team has seen its cell or knows the control point or
   resource node it sits on, and a listed mission always shows its current
-  status. The other team cannot see your messages."""
+  status. The other team cannot see your messages.
+- Reading the fog. In the state, anything you remember rather than see now
+  carries "seen_turn": the turn it was last seen ("told": true if only a
+  teammate named it). An enemy unit with a seen_turn before the current turn
+  is where it WAS on that turn: it may have moved since, and its cargo may
+  have changed. Things you see this turn have seen_turn equal to the current
+  turn; your own units never carry it."""
 
 
 _CP_VISION_RULES = """
@@ -513,6 +521,13 @@ _THIEF_RULES = """
     like gathered cargo and counts only once delivered. A thief cannot gather
     or capture. Moving cargo this way is the only interaction between units;
     otherwise the rule above stands."""
+
+
+_BURDEN_RULES = """
+- Burden. A unit carrying any cargo (gathered or stolen) moves 1 cell less
+  than its role's move stat that turn, never below 1: a harvester carrying
+  cargo moves 1, a scout or thief moves 2. Cargo counts as of the start of the
+  turn. Each unit's legal-actions line already shows its range this turn."""
 
 
 _EARLY_END_RULES = """
@@ -589,6 +604,8 @@ def _rules_text(scenario: Mapping[str, Any], fog: bool, team: str = TEAM_SEATS) 
         text += _HOME_DELIVERY_RULES
     if _has_thief(scenario):
         text += _THIEF_RULES.format()
+    if scenario.get("cargo_slows"):
+        text += _BURDEN_RULES
     early = scenario.get("early_end")
     if early:
         text += _EARLY_END_RULES.format(
@@ -1466,6 +1483,19 @@ Reply as before: ONLY one JSON object — your single action for unit
 """
 
 
+def _sighting(fact: Mapping[str, Any]) -> dict[str, Any]:
+    """When a fog-of-war fact was last observed. A remembered enemy unit,
+    node or control point carries the turn it was last seen (or told), and
+    that turn must reach the seat: without it a stale sighting reads exactly
+    like a live one. Full records (your own units, no fog) carry nothing."""
+    if "turn" not in fact:
+        return {}
+    out: dict[str, Any] = {"seen_turn": fact["turn"]}
+    if fact.get("source") == "told":
+        out["told"] = True
+    return out
+
+
 def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
     """The delta's state snapshot: what changes turn to turn, nothing that was
     already taught (grid, roles, scenario constants stay in turn 1).
@@ -1489,11 +1519,12 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
                 "pos": u["pos"],
                 "carrying": u.get("carrying"),
                 "alive": u["alive"],
+                **_sighting(u),
             }
             for u in state.get("units", [])
         ],
         "control_points": [
-            {"id": c["id"], "pos": c["pos"], "owner": c.get("owner")}
+            {"id": c["id"], "pos": c["pos"], "owner": c.get("owner"), **_sighting(c)}
             for c in state.get("control_points", [])
         ],
         "missions": [
@@ -1502,13 +1533,14 @@ def _compact_state(state: Mapping[str, Any]) -> dict[str, Any]:
                 "kind": m.get("kind"),
                 "pos": m.get("pos"),
                 "amount": m.get("amount"),
+                "reward": m.get("reward"),
                 "status": m.get("status"),
                 **({"team_id": m["team_id"]} if m.get("team_id") else {}),
             }
             for m in state.get("missions", [])
         ],
         "resource_nodes": [
-            {"id": n["id"], "pos": n["pos"], "remaining": n["remaining"]}
+            {"id": n["id"], "pos": n["pos"], "remaining": n.get("remaining"), **_sighting(n)}
             for n in state.get("resource_nodes", [])
         ],
         **({"crown": state["crown"]} if state.get("crown") is not None else {}),

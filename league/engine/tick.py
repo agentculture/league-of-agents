@@ -203,8 +203,16 @@ def resolve_turn(
             if not (0 <= to[0] < state.grid_width and 0 <= to[1] < state.grid_height):
                 reject(team_id, action, "target is off the grid")
                 continue
-            if _manhattan(unit.pos, to) > scenario.stats_for(unit.role).move:
-                reject(team_id, action, "target beyond this role's move range")
+            reach = scenario.move_for(unit.role, unit.carrying)
+            if _manhattan(unit.pos, to) > reach:
+                if reach < scenario.stats_for(unit.role).move:
+                    reject(
+                        team_id,
+                        action,
+                        f"target beyond this unit's move range ({reach}, slowed by its cargo)",
+                    )
+                else:
+                    reject(team_id, action, "target beyond this role's move range")
                 continue
             moves.append((unit.id, to))
             continue
