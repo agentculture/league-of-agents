@@ -70,7 +70,67 @@ def test_colleague_session_no_reasoning_fallback_raises_on_empty(monkeypatch):
         assert "finish_reason=length" in str(err)
     else:
         raise AssertionError("an empty answer must not pass as a reply")
-    assert s._history[-1] == {"role": "assistant", "content": ""}
+    # The failed exchange is dropped: no phantom user turn, no empty answer.
+    assert s._history == []
+    assert (s.last_finish_reason, s.last_usage) == ("length", {"completion_tokens": 32768})
+    assert harness._turn_meta(s) == {
+        "finish_reason": "length",
+        "usage": {"completion_tokens": 32768},
+        # 0.20.0: the seat's reasoning is recorded too, even on a failed turn
+        "reasoning": "thinking...",
+    }
+
+
+def test_colleague_session_empty_answer_with_fallback_also_leaves_history_clean(monkeypatch):
+    monkeypatch.setattr(
+        harness,
+        "_http_post_json",
+        lambda url, payload, timeout: {
+            "choices": [{"finish_reason": "stop", "message": {"content": "<think>x</think>"}}],
+        },
+    )
+    s = harness.ColleagueDirectSession({"model": "m", "system_prompt": "sys"}, "match", "a1")
+    try:
+        s.send("hi", timeout=5)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("an empty answer must not pass as a reply")
+    assert s._history == [{"role": "system", "content": "sys"}]
+
+
+def test_reasoning_fallback_parses_strictly():
+    assert harness._spec_bool({"reasoning_fallback": "false"}, "reasoning_fallback", True) is False
+    assert harness._spec_bool({}, "reasoning_fallback", True) is True
+    try:
+        harness._spec_bool({"reasoning_fallback": "no"}, "reasoning_fallback", True)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an unparseable flag must be loud")
+
+
+def test_claude_args_must_be_a_list():
+    try:
+        harness.ClaudeCliSession({"model": "m", "args": "--effort medium"}, "match", "a1")
+    except ValueError as err:
+        assert "must be a list" in str(err)
+    else:
+        raise AssertionError("a string args must not be split into characters")
+
+
+def test_rules_text_team_play_matches_the_driver_mode():
+    scenario = {"capture_hold_turns": 2}
+    assert harness.TEAM_COMMANDER in harness._rules_text(scenario, False, harness.TEAM_COMMANDER)
+    seats = harness._rules_text(scenario, False)
+    assert harness.TEAM_SEATS in seats and "If exactly one team" in seats
+    assert f"+ {harness.CP_POINTS} points per control point" in seats
+    no_comms = harness._rules_text(scenario, False, harness.TEAM_SEATS_NO_COMMS)
+    assert "Teammates do not read your" in no_comms
+
+
+def test_team_private_events_cover_declared_and_rejected_orders():
+    assert {"action_declared", "action_rejected"} <= harness._TEAM_PRIVATE_EVENTS
 
 
 def test_rules_text_adds_crown_and_fog_paragraphs_only_when_present():

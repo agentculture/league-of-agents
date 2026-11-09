@@ -48,6 +48,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - Resident deltas no longer show a seat the other team's `message_sent` and `plan_declared` events
+- An empty model answer no longer leaves the failed exchange in a resident seat's transcript (with or without the reasoning fallback), so the seat's next turn re-sends the briefing once into a clean history
+- Session records carry `finish_reason`/`usage` on failed turns too, not only on success
+- The seat rules state the team-play arrangement of the actual driver mode (commander, seats, seats without unit messaging, master); a full-map reader no longer gets the fog paragraph; the control-point rule reads as a condition; control-point points come from the engine's constant
+- Resident deltas also keep the other team's `action_declared`/`action_rejected` events private
+- `args` for the claude resident transport must be a list, and `reasoning_fallback` accepts only a boolean or "true"/"false", both loudly
 
 ## [0.17.0] - 2026-07-10
 
