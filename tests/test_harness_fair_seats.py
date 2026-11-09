@@ -73,9 +73,11 @@ def test_colleague_session_no_reasoning_fallback_raises_on_empty(monkeypatch):
     # The failed exchange is dropped: no phantom user turn, no empty answer.
     assert s._history == []
     assert (s.last_finish_reason, s.last_usage) == ("length", {"completion_tokens": 32768})
-    assert harness._turn_meta(s) == {
+    assert harness._seat_meta(s) == {
         "finish_reason": "length",
         "usage": {"completion_tokens": 32768},
+        # the seat's thinking is kept in the record, even on a failed turn
+        "reasoning": "thinking...",
     }
 
 
